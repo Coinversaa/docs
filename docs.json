@@ -53,7 +53,7 @@
       },
       {
         "tab": "API reference",
-        "openapi": "https://api.coinversa.ai/openapi.json"
+        "openapi": "api-reference/openapi.json"
       }
     ],
     "global": {
