@@ -4496,7 +4496,6 @@
         "description": "Get one at https://coinversa.ai/developers",
         "in": "header",
         "name": "X-API-Key",
-        "scheme": "apiKey",
         "type": "apiKey"
       }
     }
