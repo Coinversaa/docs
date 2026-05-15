@@ -1,133 +1,52 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
-icon: 'star'
+title: "Coinversa Pulse"
+description: "Crypto intelligence for AI agents and serious traders — Hyperliquid trader analytics, HIP-4 outcome contracts, real-time risk, builder dex coverage, and a canonical cross-market asset registry."
 ---
 
-## Setting up
+Coinversa Pulse is a REST API and MCP server for crypto intelligence on Hyperliquid. It indexes every tracked wallet, classifies behavior into cohorts, and exposes trader analytics, liquidation heatmaps, HIP-4 outcome contract data, and a cross-market asset registry that resolves venue symbols (`xyz:GOLD`, `hyna:PAXG`) to canonical assets.
 
-Get your documentation site up and running in minutes.
+The same endpoints power our own dashboard, every MCP client (Claude, Cursor, Perplexity), and external bots.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
+## Get started
 
 <Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get an API key and make your first request in under 5 minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="MCP setup" icon="plug" href="/mcp/setup">
+    Connect Pulse to Claude, Cursor, or Perplexity.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="API reference" icon="terminal" href="/api-reference">
+    59 endpoints, auto-generated from the live OpenAPI spec.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Authentication" icon="key" href="/authentication">
+    API keys, rate-limit headers, tier behavior.
   </Card>
 </Columns>
 
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
+## What's in the data
 
 <Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+  <Card title="Trader cohorts" icon="users" href="/concepts/cohorts">
+    Every tracked wallet classified by PnL and size tier — from `money_printer` to `giga_rekt`, `leviathan` to `shrimp`.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Cross-market assets" icon="layer-group" href="/concepts/cross-market-assets">
+    Canonical taxonomy unifying native HL perps with builder dex listings — `PAXG`, `xyz:GOLD`, and `hyna:PAXG` all resolve to `GOLD`.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="HIP-4 outcomes" icon="chart-line" href="/concepts/hip4">
+    Prediction-market style outcome contracts: discovery, settlements, perp-position context, trader overlap.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Live risk" icon="bolt" href="/concepts/data-coverage">
+    Liquidation heatmaps, recent liquidations, cohort bias, long/short ratios, OI history.
   </Card>
 </Columns>
 
-## Make your content agent ready
+## How it's used
 
-Make your docs work for humans and AI agents alike.
+- **AI agents** — install the [MCP server](/mcp/setup) into Claude / Cursor / Perplexity and the agent gets 55 tools covering the entire data surface.
+- **Trading bots** — hit the [REST API](/api-reference) directly with `X-API-Key`. Same key, same tier, same data.
+- **Dashboards** — the [Coinversa Pulse dashboard](https://coinversa.ai) and partner integrations consume the same endpoints.
 
-<Columns cols={2}>
-  <Card
-    title="Prompt component"
-    icon="robot"
-    href="/agent-ready/prompt"
-  >
-    Embed shareable AI prompts readers can copy or open in Cursor.
-  </Card>
-  <Card
-    title="Visibility"
-    icon="eye"
-    href="/agent-ready/visibility"
-  >
-    Show different content to humans and agents reading your docs.
-  </Card>
-  <Card
-    title="Contextual menu"
-    icon="bolt"
-    href="/agent-ready/contextual"
-  >
-    Give readers one-click access to Claude, ChatGPT, Cursor, and more.
-  </Card>
-  <Card
-    title="AI coding tools"
-    icon="wand-magic-sparkles"
-    href="/ai-tools/claude-code"
-  >
-    Set up Claude Code, Cursor, or Windsurf with Mintlify's skill.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Note>
+The MCP server is open source: [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server). It's a thin transport layer — the API key you use governs the tier and rate limits at the API layer.
+</Note>

@@ -18,35 +18,25 @@
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "authentication",
+              "pricing"
             ]
           },
           {
-            "group": "Customization",
+            "group": "MCP",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "mcp/setup",
+              "mcp/tools"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Concepts",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/components",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "Agent ready",
-            "pages": [
-              "agent-ready/prompt",
-              "agent-ready/visibility",
-              "agent-ready/contextual",
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "concepts/markets",
+              "concepts/cohorts",
+              "concepts/cross-market-assets",
+              "concepts/hip4",
+              "concepts/data-coverage"
             ]
           }
         ]
@@ -59,13 +49,18 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "Dashboard",
+          "href": "https://coinversa.ai/developers",
+          "icon": "gauge"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
+          "anchor": "MCP repo",
+          "href": "https://github.com/Coinversaa/mcp-server",
+          "icon": "github"
+        },
+        {
+          "anchor": "Changelog",
+          "href": "https://github.com/Coinversaa/mcp-server/releases",
           "icon": "newspaper"
         }
       ]
@@ -79,32 +74,31 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:chat@coinversa.ai"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Get API key",
+      "href": "https://coinversa.ai/developers"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/coinversaa",
+      "github": "https://github.com/Coinversaa"
     }
   }
 }

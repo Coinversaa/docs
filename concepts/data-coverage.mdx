@@ -1,0 +1,61 @@
+---
+title: "Data coverage"
+description: "What's indexed, how fresh it is, and where the cutoffs are."
+---
+
+Pulse runs an indexer against Hyperliquid L1 + builder dexes + HIP-4. This page covers what's tracked, how often it updates, and the historical bounds you should expect.
+
+## What's indexed
+
+| Data | Source | Updated |
+|------|--------|---------|
+| All Hyperliquid wallet trades            | L1 historical clearinghouse | Continuous |
+| Live positions (longs, shorts, leverage) | L1 clearinghouse state      | Every block (~1s) |
+| Market data (mark, OI, funding, candles) | HL info/stats APIs          | 5–10s cache |
+| Liquidation events                       | L1 user-action stream       | Continuous, from **2026-01-01** |
+| L1 mark price history                    | L1 mark-price stream        | Continuous, from **2026-01-01** |
+| Builder dex trades + positions           | Per-dex sub-accounts        | Continuous |
+| HIP-4 outcome trades + settlements       | L1 trades on outcome coins  | Continuous, from **2026-05-02** |
+| Cohort classification                    | Rollup over historical trades | Recomputed daily |
+
+## Cutoffs
+
+Some endpoints have **hard historical floors** because the underlying data collection started after Hyperliquid mainnet:
+
+- **Risk metrics** (liquidations, mark dislocations, user-action–derived signals) — clamped to **`2026-01-01`**. Earlier `since` requests are silently truncated to that floor.
+- **HIP-4 outcomes** — clamped to **`2026-05-02`** (mainnet launch). Earlier `since` requests are silently truncated.
+- **Cohort tiers** — recomputed daily. Wallets active for less than ~1 week may not yet have a tier assigned.
+
+Per-tier max historical windows are documented in [authentication](/authentication#historical-window-caps).
+
+## Freshness
+
+The `/live/*` endpoints are designed for near-real-time use. Typical freshness:
+
+| Endpoint family | Freshness |
+|-----------------|-----------|
+| `live/long-short`, `live/cohort-bias`           | 1–5s |
+| `live/liquidation-heatmap`, `live/risk/*`       | 1–5s |
+| `live/oi-history`, `live/official-oi`           | 10s cache |
+| `pulse/market-overview`, `pulse/global-stats`   | 10s cache |
+| `pulse/leaderboard`, `pulse/hidden-gems`        | 30s cache, pre-warmed |
+| `market/price`, `market/orderbook`              | Direct passthrough, no cache |
+
+The `pulse_market_overview` response includes `generatedAt` timestamps so you can measure staleness server-side.
+
+## What's not indexed
+
+- **Spot trades on non-canonical pairs** (`@N` indexes) — present in raw data, not classified into cohorts.
+- **Off-chain orderflow** (RFQ, OTC) — only on-chain L1 fills are captured.
+- **Private user information** (KYC, beneficial ownership) — addresses are public; wallets are not de-anonymized.
+
+## How recent is "recent"?
+
+Tools that take a `since` parameter accept a number plus unit:
+
+- `m` — minutes (e.g. `10m`)
+- `h` — hours (e.g. `24h`)
+- `d` — days (e.g. `7d`)
+- `w` — weeks (e.g. `2w`, on long-history endpoints only)
+
+Or use explicit `startTime` / `endTime` (unix ms or ISO date) for exact ranges. Both are validated against your tier's max window — see [authentication](/authentication#historical-window-caps).

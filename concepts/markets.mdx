@@ -1,0 +1,55 @@
+---
+title: "Markets & symbols"
+description: "Native Hyperliquid perps, the 7 builder dexes, and symbol-format conventions."
+---
+
+Hyperliquid hosts two layers of perpetual markets: the **native** L1 perps (BTC, ETH, SOL, HYPE, etc.) and **builder dexes** — independent perp exchanges built on top of Hyperliquid with their own collateral tokens and listings.
+
+## The 7 builder dexes
+
+| Dex    | What it trades             | Collateral | Example symbols                    |
+|--------|----------------------------|------------|------------------------------------|
+| *(none)* | Native HL perps          | USDC       | `BTC`, `ETH`, `SOL`, `HYPE`        |
+| `xyz`  | Commodities, stocks, indices | USDC     | `xyz:GOLD`, `xyz:SILVER`, `xyz:TSLA` |
+| `flx`  | Perps                      | USDH       | `flx:BTC`, `flx:ETH`               |
+| `vntl` | Perps                      | USDH       | `vntl:ANTHROPIC`, `vntl:BTC`       |
+| `hyna` | Perps                      | USDE       | `hyna:SOL`, `hyna:BTC`             |
+| `km`   | Energy & commodities       | USDH       | `km:OIL`, `km:NATGAS`, `km:WHEAT`  |
+| `abcd` | Misc                       | USDC       | `abcd:BITCOIN`                     |
+| `cash` | Stocks & equities          | USDT0      | `cash:TSLA`, `cash:AAPL`, `cash:GOOGL` |
+
+## Symbol format
+
+- **Native symbols:** just the ticker — `BTC`, `ETH`, `SOL`.
+- **Builder dex symbols:** `prefix:TICKER` — `xyz:SILVER`, `cash:TSLA`, `km:OIL`.
+
+The prefix is always lowercase; the ticker is always uppercase. This convention matches Hyperliquid's L1 storage format and is what the API expects in path / query params.
+
+<Note>
+Discover all available symbols with the `list_markets` tool (or `GET /pulse/market-overview`). Optionally pass a `dex` filter to narrow results to one venue.
+</Note>
+
+## Asset classes
+
+Internally we tag every coin with an asset class. You usually don't need to think about this, but it surfaces in HIP-4 contexts:
+
+| Class | Format | Example |
+|-------|--------|---------|
+| `perp`               | bare ticker (native HL perp)       | `BTC`, `HYPE` |
+| `hip3-perp`          | `dex:TICKER` (builder-deployed)    | `xyz:BTC`, `flx:TSLA` |
+| `spot-canonical`     | `X/Y` named spot pair              | `PURR/USDC` |
+| `spot-non-canonical` | `@N` spot index                    | `@1`, `@22` |
+| `outcome`            | `#<encoding>` HIP-4 side token     | `#90`, `#211` |
+
+## Cross-market and synonyms
+
+The same underlying exposure can appear under different tickers on different venues. For cross-market questions, use the canonical asset, not the venue symbol — see [cross-market assets](/concepts/cross-market-assets) for the full model.
+
+## Funding rates
+
+Funding fields (`fundingRate` on `market_price`, etc.) are **raw hourly decimal rates** from Hyperliquid, not annualized percentages:
+
+- Hourly funding % = `fundingRate * 100`
+- Annualized APR % = `fundingRate * 24 * 365 * 100`
+
+Example: `fundingRate: 0.00000625` = 0.000625% hourly = ~5.475% APR.

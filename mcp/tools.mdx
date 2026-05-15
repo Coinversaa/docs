@@ -1,0 +1,103 @@
+---
+title: "Tool catalog"
+description: "All 55 MCP tools by category, with descriptions and required tiers."
+---
+
+Every MCP tool is a thin wrapper around a public API endpoint. Tier requirements match the underlying endpoint — most are Free, a handful of deep-analytics tools require Pro.
+
+For the canonical schema (inputs, outputs, examples), see the [API reference](/api-reference) — every tool maps 1:1 to an endpoint.
+
+## Discovery & taxonomy
+
+| Tool | Description |
+|------|-------------|
+| `list_markets`              | All markets with prices, OI, funding. Optional `dex` filter. |
+| `list_assets`               | Canonical asset directory with venue breakdown. |
+| `list_asset`                | One asset's venue breakdown (accepts synonyms). |
+| `pulse_cross_market_asset`  | Aggregated OI / positions / bias across all venues for a canonical asset. |
+
+## Pulse — trader & cohort analytics
+
+| Tool | Description |
+|------|-------------|
+| `pulse_global_stats`               | Total traders, trades, volume, PnL, data coverage. |
+| `pulse_market_overview`            | Global stats + per-market breakdown. |
+| `pulse_leaderboard`                | Top traders ranked by PnL with tier labels. |
+| `pulse_hidden_gems`                | Underrated wallets matching profile filters. |
+| `pulse_most_traded_coins`          | Coins ranked by recent volume. |
+| `pulse_biggest_trades`             | Largest individual fills in a time window. |
+| `pulse_recent_trades`              | Recent global fills. |
+| `pulse_recent_closed_positions`    | Recently closed positions across all wallets. |
+| `pulse_token_leaderboard`          | Top traders on a specific coin. |
+
+## Pulse — single trader
+
+| Tool | Description |
+|------|-------------|
+| `pulse_trader_profile`                | Stats, win rate, PnL, tier classification. |
+| `pulse_trader_performance`            | Recent vs all-time performance + trend. |
+| `pulse_trader_trades`                 | Recent fills for one wallet. |
+| `pulse_trader_daily_stats`            | Day-by-day PnL / volume history. |
+| `pulse_trader_token_stats`            | Per-token breakdown for one wallet. |
+| `pulse_trader_closed_positions`       | Closed positions for one wallet. |
+| `pulse_trader_closed_position_stats`  | Aggregate closed-position stats. |
+| `compare_wallets`                     | Side-by-side stats for two wallets. |
+
+## Pulse — cohorts
+
+| Tool | Description |
+|------|-------------|
+| `pulse_cohort_summary`            | All cohorts with size, PnL, win-rate medians. |
+| `pulse_cohort_positions`          | Current positions held by a specific cohort. |
+| `pulse_cohort_trades`             | Recent trades from one cohort. |
+| `pulse_cohort_history`            | Cohort performance over time. |
+| `pulse_cohort_bias_history`       | Cohort long/short bias over time. |
+| `pulse_cohort_performance_daily`  | Daily cohort PnL / volume. |
+
+## Live — real-time market + risk
+
+| Tool | Description |
+|------|-------------|
+| `live_long_short_ratio`        | Global L/S ratio by wallet count and notional. |
+| `live_cohort_bias`             | Per-cohort bias for one coin. |
+| `live_cohort_bias_history`     | Historical cohort bias trajectory. |
+| `live_oi_history`              | Open interest time series. |
+| `live_official_oi`             | OI sourced from Hyperliquid's official feed. |
+| `live_liquidation_heatmap`     | Liquidation density by price level for one coin. |
+| `live_liquidation_summary`     | Recent liquidation totals by side. |
+| `live_recent_liquidations`     | Stream of recent liquidation events. |
+| `live_coin_risk_snapshot`      | Coin-level risk metrics (now). |
+| `live_coin_risk_history`       | Coin-level risk over time. |
+| `live_risk_overview`           | Cross-coin risk dashboard. |
+| `live_mark_dislocations`       | Mark vs. oracle deviation events. |
+
+## Market — direct Hyperliquid passthrough
+
+| Tool | Description |
+|------|-------------|
+| `market_price`            | Mark/index/funding/OI for a symbol. |
+| `market_positions`        | Open positions for an address. |
+| `market_orderbook`        | L2 orderbook for a symbol. |
+| `market_recent_candles`   | Recent candles for a symbol. |
+| `market_historical_oi`    | Historical OI series. |
+
+## HIP-4 — outcome contracts
+
+| Tool | Description |
+|------|-------------|
+| `hip4_outcomes`               | All known outcome contracts. |
+| `hip4_outcome`                | Metadata for one outcome. |
+| `hip4_outcome_summary`        | Volume + holder stats for one outcome. |
+| `hip4_outcome_recent_trades`  | Recent fills on one outcome. |
+| `hip4_questions`              | Outcome contracts grouped by question. |
+| `hip4_recent_settlements`     | Recently settled outcomes. |
+| `hip4_daily_volume`           | Daily HIP-4 trading volume. |
+| `hip4_most_active`            | Most-traded outcomes. |
+| `hip4_top_traders`            | Top outcome traders by volume / PnL. |
+| `hip4_trader_outcomes`        | Outcomes one wallet has traded. |
+| `hip4_cross_product_overlap`  | Overlap between outcome traders and perp traders. |
+| `hip4_perp_position_context`  | Whether outcome holders have open perp positions on the underlying. **Pro tier.** |
+
+<Note>
+Every tool accepts a `useToonFormat` flag (default `true`) that returns data in compact [TOON format](https://toon-format.dev) — about 50% fewer tokens than JSON for tabular data. Agents typically want this on; set to `false` if you need standard JSON.
+</Note>

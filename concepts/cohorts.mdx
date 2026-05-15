@@ -1,0 +1,68 @@
+---
+title: "Trader cohorts"
+description: "Every tracked wallet is classified by two independent tier systems: PnL and size."
+---
+
+Coinversa indexes every active Hyperliquid wallet and classifies it into two orthogonal tier systems:
+
+- **PnL tier** — by total profitability across the wallet's lifetime
+- **Size tier** — by total volume traded
+
+A wallet always has exactly one PnL tier and one size tier. Together they form a 2D map of trader behavior — e.g. *"smart money + whale"* is a different cohort from *"smart money + dolphin"*, even though both are profitable.
+
+## PnL tiers
+
+Ordered from best to worst:
+
+| Tier | Rough meaning |
+|------|---------------|
+| `money_printer`   | Top tier — extraordinary profit, often with low drawdown |
+| `smart_money`     | Consistently profitable, durable edge |
+| `grinder`         | Profitable through volume / frequency rather than alpha per trade |
+| `humble_earner`   | Slightly positive, but small absolute PnL |
+| `exit_liquidity`  | Slightly losing — the median retail trader |
+| `semi_rekt`       | Meaningful losses but still active |
+| `full_rekt`       | Large realized losses |
+| `giga_rekt`       | Catastrophic loss; often a single blow-up |
+
+## Size tiers
+
+Ordered from largest to smallest:
+
+| Tier | Rough meaning |
+|------|---------------|
+| `leviathan`       | Mega-whale — outsized volume on the platform |
+| `tidal_whale`     | Very large volume |
+| `whale`           | Large volume |
+| `small_whale`     | Above-average institutional-scale volume |
+| `apex_predator`   | Active high-volume trader |
+| `dolphin`         | Substantial retail / prosumer |
+| `fish`            | Moderate retail |
+| `shrimp`          | Minimal volume — most wallets |
+
+## How to query cohorts
+
+Use the cohort tools when you want behavior at the group level rather than per wallet:
+
+| Tool | Use it when… |
+|------|--------------|
+| `pulse_cohort_summary`           | You want a snapshot of every cohort's medians (PnL, win rate, size). |
+| `pulse_cohort_positions`         | You want to see what one cohort is currently long/short. |
+| `pulse_cohort_trades`            | You want the recent trades from one cohort. |
+| `pulse_cohort_history`           | You want how one cohort has performed over time. |
+| `pulse_cohort_bias_history`      | You want a cohort's long-short bias trajectory. |
+| `pulse_cohort_performance_daily` | You want day-by-day cohort PnL / volume. |
+
+Cohorts are addressed by `tierType` (`pnl` or `size`) and `tier` (the value from the tables above):
+
+```
+GET /pulse/cohorts/pnl/smart_money/positions
+GET /pulse/cohorts/size/whale/history
+```
+
+## When to use cohorts vs individual wallets
+
+- **Cohorts** when you want a *signal* — "are whales loading up on BTC?" / "is smart money bearish on ETH?".
+- **Individual wallets** when you want a *specific story* — "what is `0xabc...` doing?" / "how is this trader I follow performing?".
+
+Most agent workflows benefit from cohort-first analysis: it's signal-rich, and you can drill into specific wallets with `pulse_token_leaderboard` (top traders for a coin) when you want names.

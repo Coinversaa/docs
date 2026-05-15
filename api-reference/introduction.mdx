@@ -1,33 +1,36 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "Introduction"
+description: "59 endpoints under /api/public/v1, auto-generated from the live Coinversa OpenAPI spec."
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+The Coinversa Pulse REST API exposes everything the MCP server uses — 59 endpoints covering trader analytics, market data, live risk, HIP-4 outcomes, and the cross-market asset registry.
 
-## Welcome
+**Base URL:** `https://api.coinversa.ai/api/public/v1`
+**Auth:** `X-API-Key` header on every request — see [authentication](/authentication)
+**Spec:** [`https://api.coinversa.ai/openapi.json`](https://api.coinversa.ai/openapi.json) (OpenAPI 3.1)
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+The reference pages in the sidebar are auto-generated from the spec. Every endpoint has parameter docs, response schemas, and a "Try it" panel that issues live requests against production using your key.
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+## Sections
 
-## Authentication
+- **Pulse** — historical trader and cohort analytics; the rich endpoints (`/pulse/*`).
+- **Live** — near-real-time market and risk (`/live/*`).
+- **Market** — direct Hyperliquid passthroughs for mark price, OI, orderbook, candles (`/market/*`).
+- **Assets** — canonical cross-market taxonomy (`/assets/*`).
+- **HIP-4** — outcome contract discovery, settlements, perp-position context (`/hip4/*`).
+- **Wallet** — per-wallet risk and history (`/wallet/:address/*`).
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+## Conventions
 
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
-```
+- All responses use `success: true | false`. Errors include a human-readable `error` field.
+- Timestamps are unix milliseconds unless explicitly noted as ISO strings.
+- Numeric fields are JSON numbers (be aware of float precision on large notionals — most are within JS-safe-integer range).
+- Pagination uses `limit` + `offset` or cursor-style `since` / `until` depending on the endpoint.
+
+## Tier requirements
+
+Most endpoints are accessible to **all** tiers (Free included). A handful of deep-analytics endpoints require **Pro** (e.g. `/hip4/outcomes/{id}/perp-position-context`). Tier requirements are noted on each endpoint's reference page and enforced by the API — a 403 response includes a Stripe upgrade URL.
+
+## Stability
+
+The public API surface is considered stable. Breaking changes are versioned (`v1` → `v2`); additive changes (new endpoints, new fields) ship without version bumps. The MCP server, by contrast, evolves its tool catalog more aggressively — see [github.com/Coinversaa/mcp-server/releases](https://github.com/Coinversaa/mcp-server/releases).

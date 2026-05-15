@@ -1,0 +1,75 @@
+---
+title: "HIP-4 outcome contracts"
+description: "Prediction-market style side tokens indexed from Hyperliquid — encoding, settlements, trader overlap with perps."
+---
+
+HIP-4 introduced **outcome contracts** to Hyperliquid — prediction-market style side tokens that settle to 0 or 1 based on a real-world question. Each question has two or more outcomes, and each outcome has one side token per side (YES / NO).
+
+Coinversa indexes the full HIP-4 wire format and exposes discovery, settlement, volume, recent trades, trader overlap, and perp-position context for every outcome.
+
+<Info>
+HIP-4 mainnet launched **2026-05-02**. Queries with a `since` reaching earlier are clamped to that date.
+</Info>
+
+## Encoding
+
+The HIP-4 wire format uses an integer `encoding` that combines outcome ID and side:
+
+```
+encoding = 10 * outcomeId + side
+```
+
+Where `side` is 0 (NO) or 1 (YES) in a two-way market, or 0/1/2 in a three-way market. The side token appears in trades as:
+
+- **Outcome side coin** — `#<encoding>` (e.g. `#90` = outcome 9, side 0)
+- **Side token** — `+<encoding>` (e.g. `+91` = outcome 9, side 1)
+
+You usually don't construct these manually — the API/MCP exposes `outcomeId` and `side` separately and handles the encoding internally.
+
+## Settlement rules
+
+- **Settlement** — `dir_id = 0` AND `px ∈ {0, 1}`
+- **Pair redemption** — `dir_id = 0` AND `px ≈ 0.5` (two-way market)
+- **Auction-phase clearing** — `dir_id = 0` AND `px ≈ 0.33333` (three-way bucket)
+- **Quote token** — HIP-4 outcomes settle in **USDH**, not USDC
+
+## Tool catalog
+
+| Tool | Use it when… |
+|------|--------------|
+| `hip4_outcomes`               | You want to browse all known outcome contracts. |
+| `hip4_questions`              | You want outcomes grouped by underlying question. |
+| `hip4_outcome`                | You want metadata for one specific outcome. |
+| `hip4_outcome_summary`        | You want volume + holder stats for one outcome. |
+| `hip4_outcome_recent_trades`  | You want recent fills on one outcome. |
+| `hip4_recent_settlements`     | You want which outcomes have settled recently. |
+| `hip4_daily_volume`           | You want overall HIP-4 trading volume over time. |
+| `hip4_most_active`            | You want the most-traded outcomes right now. |
+| `hip4_top_traders`            | You want the biggest outcome traders by volume / PnL. |
+| `hip4_trader_outcomes`        | You want which outcomes a specific wallet has traded. |
+| `hip4_cross_product_overlap`  | You want to find traders active in both outcomes and perps. |
+| `hip4_perp_position_context`  | You want to know whether holders of one outcome already have open perp positions in the underlying asset. **Pro tier.** |
+
+## Why `hip4_perp_position_context` matters
+
+This is the most interesting tool in the HIP-4 suite. It joins one outcome's current net-positive holders to currently open perp positions on the same underlying asset, then labels each holder:
+
+- **Aligned** — the perp position is in the same direction as the outcome bet (e.g. holding the YES side of "BTC > $100k" AND long BTC perps → conviction trade)
+- **Hedged** — the perp position is opposite the outcome bet (e.g. holding YES AND short BTC → hedge)
+- **Prediction-native** — no underlying perp position (e.g. pure prediction market participant)
+
+It returns per-side wallet counts, long/short wallet counts, net underlying notional, and the top wallets with their signal label. Use it when a user asks:
+
+- *"Are outcome traders also exposed to the same asset?"*
+- *"Is this side directional or hedged?"*
+- *"Which large outcome holders have no perp exposure?"*
+
+## Indexing assumptions
+
+If you're building on raw L1 data, the indexing convention is:
+
+- `trades.coin LIKE '#<encoding>'` for HIP-4 fills
+- Settlement detection by `(dir_id, px)` combinations described above
+- Cross-product overlap requires joining `trades` on outcome coins with `live_positions` on the underlying
+
+The MCP tools handle all of this — you only need to understand it if you're querying the database directly.

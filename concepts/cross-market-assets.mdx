@@ -1,0 +1,77 @@
+---
+title: "Cross-market assets"
+description: "Canonical taxonomy unifying native HL perps with builder dex listings — PAXG and xyz:GOLD both resolve to GOLD."
+---
+
+The same underlying exposure can appear under different tickers on different venues. Pulse maintains a **canonical asset registry** so cross-market questions ("which venues trade gold?", "total OI on BTC across all dexes?") return one coherent answer instead of needing you to dedup symbols yourself.
+
+## Vocabulary
+
+- **Canonical** — the economic-exposure identifier. Examples: `GOLD`, `BTC`, `OIL`.
+- **Symbol** — what appears on a specific venue. Examples: `GOLD` (native HL spot), `xyz:GOLD`, `hyna:PAXG`.
+
+The registry maps every symbol to its canonical, including documented **synonyms** where two tickers track the same exposure.
+
+## Known synonyms
+
+| Symbol | Canonical | Why |
+|--------|-----------|-----|
+| `PAXG` | `GOLD`    | PAXG is gold-backed |
+| `XAUT` | `GOLD`    | XAUT is gold-backed |
+| `XAGT` | `SILVER`  | XAGT is silver-backed |
+
+## Resolving symbols to canonical
+
+The asset endpoints accept either form — canonical names or any symbol that resolves to one:
+
+```bash
+# Both return the same asset's venue breakdown
+GET /assets/GOLD
+GET /assets/PAXG     # resolves to GOLD
+GET /assets/xyz:GOLD # also resolves to GOLD
+```
+
+The MCP tool equivalents (`list_asset`, `pulse_cross_market_asset`) accept the same flexible input.
+
+## Cross-market aggregation
+
+When you want total exposure across every venue that trades an asset, use `pulse_cross_market_asset`. It joins per-venue live position breakdowns (longs, shorts, notionals, bias, unique wallets) onto the venue list and returns per-venue rows plus a roll-up.
+
+```bash
+GET /assets/BTC/cross-market
+```
+
+Sample shape:
+
+```json
+{
+  "success": true,
+  "asset": "BTC",
+  "venues": [
+    { "symbol": "BTC",      "dex": "hl",   "longPositions": 12431, "shortPositions": 9802, "netBias": 0.118, ... },
+    { "symbol": "flx:BTC",  "dex": "flx",  "longPositions": 412,   "shortPositions": 388,  "netBias": 0.030, ... },
+    { "symbol": "hyna:BTC", "dex": "hyna", "longPositions": 1217,  "shortPositions": 1054, "netBias": 0.072, ... }
+  ],
+  "aggregated": { "totalLongPositions": 14060, "totalShortPositions": 11244, "netBias": 0.111 }
+}
+```
+
+## When to use canonical vs venue symbols
+
+| Question | Use |
+|----------|-----|
+| "What's the BTC mark price on `flx`?" | venue symbol (`flx:BTC`) |
+| "Which venues trade gold?"             | canonical (`GOLD`) |
+| "Total OI on BTC across all dexes?"    | canonical (`BTC`) → cross-market |
+| "Is PAXG the same as GOLD?"            | resolve via `list_asset` |
+| "Show me cohort bias on `xyz:SILVER`"  | venue symbol (live data is per-venue) |
+
+Live position / cohort data is **always per-venue** — `live_cohort_bias` expects a specific symbol, not a canonical. Use cross-market endpoints only when you explicitly want the aggregation.
+
+## Discovery
+
+| Tool / endpoint | Returns |
+|-----------------|---------|
+| `list_assets` / `GET /assets`        | Full directory of canonicals with their venue lists |
+| `list_asset`  / `GET /assets/:c`     | One canonical's venue breakdown (accepts synonyms) |
+| `GET /assets/meta`                   | Static taxonomy: dex list, synonym rules, symbol-format reference |

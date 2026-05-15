@@ -1,0 +1,135 @@
+---
+title: "Authentication"
+description: "API keys, rate-limit headers, tier behavior, and error responses."
+---
+
+Every request to `api.coinversa.ai/api/public/v1/*` requires an API key. Get one at [coinversa.ai/developers](https://coinversa.ai/developers).
+
+## Sending the key
+
+Pass your key in the `X-API-Key` header on every request:
+
+```bash
+curl https://api.coinversa.ai/api/public/v1/pulse/stats \
+  -H "X-API-Key: cvsa_..."
+```
+
+That's it — no OAuth, no bearer prefix, no signing.
+
+<Warning>
+Never embed your key in client-side code or commit it to a public repo. Use a server-side proxy if you need to call Pulse from a browser, or use a separate key per environment so you can rotate without disrupting other clients.
+</Warning>
+
+## Tiers
+
+Your key's tier is set by your active subscription. Free is the default; paid tiers are managed in the [billing portal](https://coinversa.ai/developers/billing).
+
+| Tier | Rate / min | Per day | Per month | Keys | Price |
+|------|-----------:|--------:|----------:|-----:|------:|
+| Free       | 30     | 1,000   | unlimited | 1   | $0           |
+| Starter    | 120    | 2,000   | 50,000    | 3   | $29 / mo     |
+| Pro        | 600    | 20,000  | 500,000   | 10  | $199 / mo    |
+| Enterprise | custom | custom  | custom    | ∞   | custom quote |
+
+See [pricing](/pricing) for what each tier unlocks.
+
+<Note>
+**Multiple keys share your account's best tier.** If you have three keys and one is on Pro, all three get Pro limits. The check looks at every active key on your account and uses the highest entitled tier.
+</Note>
+
+## Rate-limit headers
+
+Every successful response includes:
+
+| Header | Meaning |
+|--------|---------|
+| `X-RateLimit-Tier`            | Tier resolved for this request (`free`, `starter`, `pro`, `enterprise`) |
+| `X-RateLimit-Limit`           | Requests per minute allowed |
+| `X-RateLimit-Remaining`       | Requests remaining in the current minute window |
+| `X-RateLimit-Reset`           | Seconds until the per-minute window resets |
+| `X-RateLimit-Daily-Remaining` | Requests remaining in the current 24h window (paid tiers) |
+| `X-RateLimit-Monthly-Limit`     | Total requests/month for your tier |
+| `X-RateLimit-Monthly-Remaining` | Requests remaining this calendar month |
+| `X-RateLimit-Monthly-Reset`     | Seconds until the next month starts |
+
+Some endpoints (e.g. `/pulse/leaderboard`, `/pulse/hidden-gems`) have additional per-route limits — those are returned as `X-Route-RateLimit-*`.
+
+## Error responses
+
+All errors return JSON with `success: false` and a human-readable `error`. Specific status codes:
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized — missing key">
+    ```json
+    {
+      "success": false,
+      "error": "API key required for this endpoint.",
+      "message": "Hey — you need an API key to use this endpoint. Get a free one at https://coinversa.ai/developers",
+      "signup_url": "https://coinversa.ai/developers"
+    }
+    ```
+    Action: include `X-API-Key` header.
+  </Accordion>
+
+  <Accordion title="401 Unauthorized — invalid key">
+    ```json
+    { "success": false, "error": "Invalid or inactive API key." }
+    ```
+    Action: check the key isn't revoked or rotated in the [portal](https://coinversa.ai/developers/keys).
+  </Accordion>
+
+  <Accordion title="403 Forbidden — tier gate">
+    ```json
+    {
+      "success": false,
+      "error": "This endpoint requires Pro tier.",
+      "current_tier": "starter",
+      "required_tier": "pro",
+      "upgrade_url": "https://api.coinversa.ai/api/billing/checkout/redirect?tier=pro&key_id=..."
+    }
+    ```
+    Action: visit `upgrade_url` to start a Stripe checkout for the required tier.
+  </Accordion>
+
+  <Accordion title="429 Too Many Requests — rate limit">
+    ```json
+    {
+      "success": false,
+      "error": "Rate limit exceeded (30/min for free). Try again shortly.",
+      "retryAfterSeconds": 47
+    }
+    ```
+    Action: back off until `retryAfterSeconds` elapses, or upgrade for higher RPM.
+  </Accordion>
+
+  <Accordion title="429 Too Many Requests — daily or monthly cap">
+    ```json
+    {
+      "success": false,
+      "error": "Daily request cap reached (1000/day for free). Upgrade for higher limits.",
+      "upgrade_url": "https://api.coinversa.ai/api/billing/checkout/redirect?tier=starter&key_id=..."
+    }
+    ```
+    Action: the daily window resets at 00:00 UTC; monthly on the 1st of the next month. Or upgrade.
+  </Accordion>
+
+  <Accordion title="502 Bad Gateway">
+    The upstream Hyperliquid endpoint timed out or returned an error. The MCP server retries automatically; direct callers should retry with backoff.
+  </Accordion>
+</AccordionGroup>
+
+## Historical-window caps
+
+Endpoints that read historical data cap how far back you can query, by tier:
+
+| Tier | Max window |
+|------|-----------:|
+| Free / Starter | 30 days  |
+| Pro            | 90 days  |
+| Enterprise     | 365 days |
+
+If you request a longer `since` or `startTime`/`endTime` range, the response is `400` with a `hint` pointing at upgrade options. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
+
+## Usage logging
+
+Every authenticated request is logged with the response time and status code so you can audit usage in **Usage** in the portal. Logs include endpoint, method, IP, and user-agent — but never the key itself (only the SHA-256 hash).

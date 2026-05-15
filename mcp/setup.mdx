@@ -1,0 +1,141 @@
+---
+title: "MCP setup"
+description: "Connect Coinversa Pulse to Claude, Cursor, Perplexity, or any MCP-compatible client."
+---
+
+The Coinversa MCP server exposes all 55 Pulse tools to AI agents over the Model Context Protocol. You install it once in your client, and the agent gets first-class access to Hyperliquid trader analytics, HIP-4 outcomes, live risk, and the cross-market asset registry.
+
+**Hosted MCP endpoint:** `https://mcp.coinversa.ai/mcp`
+**Source:** [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server)
+
+Pick your client below. All four use the same hosted endpoint and your same API key.
+
+## Claude.ai (web)
+
+Use the Custom Connectors UI — no local install.
+
+<Steps>
+  <Step title="Open the connector modal">
+    Visit [claude.ai/customize/connectors?modal=add-custom-connector](https://claude.ai/customize/connectors?modal=add-custom-connector).
+  </Step>
+  <Step title="Fill in the form">
+    - **Name:** `Coinversa`
+    - **URL:** `https://mcp.coinversa.ai/mcp`
+    - **Auth header:** `X-API-Key: YOUR_API_KEY`
+  </Step>
+  <Step title="Verify">
+    Open a new chat and ask: *"What's the global trading stats from Coinversa Pulse?"* — Claude should call `pulse_global_stats`.
+  </Step>
+</Steps>
+
+## Claude Desktop
+
+Claude Desktop reads MCP servers from a local JSON config.
+
+<Steps>
+  <Step title="Locate your config file">
+    | OS | Path |
+    |----|------|
+    | macOS   | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+    | Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+    | Linux   | `~/.config/Claude/claude_desktop_config.json` |
+  </Step>
+
+  <Step title="Add the Coinversa entry">
+    ```json
+    {
+      "mcpServers": {
+        "coinversa": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "mcp-remote",
+            "https://mcp.coinversa.ai/mcp",
+            "--header",
+            "X-API-Key: YOUR_API_KEY"
+          ]
+        }
+      }
+    }
+    ```
+    If the file already has other `mcpServers`, just add `coinversa` alongside them — don't replace the whole block.
+  </Step>
+
+  <Step title="Restart Claude Desktop">
+    Fully quit (`Cmd+Q` / right-click → quit), then reopen. Look for the Coinversa tool icon in the chat input.
+  </Step>
+</Steps>
+
+<Note>
+**Why `mcp-remote`?** Claude Desktop only speaks stdio MCP today; `mcp-remote` is a small shim that bridges stdio ↔ HTTP so you can use the hosted endpoint instead of running anything locally.
+</Note>
+
+## Cursor
+
+Cursor supports HTTP MCP servers natively via a one-click deeplink.
+
+The fastest path: go to **[coinversa.ai/developers/connect](https://coinversa.ai/developers/connect)** while signed in, paste your key into the snippet area, and click **Install in Cursor**. The deeplink encodes the config — no manual editing.
+
+For manual install, add to your `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "coinversa": {
+      "url": "https://mcp.coinversa.ai/mcp",
+      "headers": { "X-API-Key": "YOUR_API_KEY" }
+    }
+  }
+}
+```
+
+Restart Cursor and the Coinversa tools appear in the agent's tool palette.
+
+## Perplexity
+
+Use Perplexity's Custom Connectors.
+
+<Steps>
+  <Step title="Open connectors">
+    Visit [perplexity.ai/computer/connectors](https://www.perplexity.ai/computer/connectors).
+  </Step>
+  <Step title="Add custom connector">
+    - **URL:** `https://mcp.coinversa.ai/mcp`
+    - **Header:** `X-API-Key: YOUR_API_KEY`
+  </Step>
+</Steps>
+
+## Other clients (stdio / npx)
+
+For any stdio-based MCP client, run the published server directly:
+
+```bash
+COINVERSAA_API_KEY=cvsa_... npx -y @coinversaa/mcp-server
+```
+
+This runs the same code as the hosted endpoint, but locally over stdio.
+
+## Verify it works
+
+Regardless of client, ask the agent:
+
+> *Use Coinversa Pulse to show me the top 5 traders on Hyperliquid by total PnL this week.*
+
+You should see the agent call `pulse_leaderboard` and return ranked addresses with PnL stats. If it says "no tool available," the install didn't take — restart the client.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized in agent responses">
+    Your key is missing or wrong. Check that you copied the full key (starts with `cvsa_`) and that you used `X-API-Key` as the header name (not `Authorization`).
+  </Accordion>
+  <Accordion title="Agent says 'no Coinversa tools available'">
+    The MCP connection didn't initialize. For Claude Desktop, check Console.app on macOS for `mcp` errors. For Cursor, check the MCP panel in settings. Most often: missing `-y` on the npx command, or a JSON syntax error in the config.
+  </Accordion>
+  <Accordion title="Rate limit errors immediately">
+    You may have an aggressive prompt or you share a key with a bot. The MCP and direct-API calls share one quota — see [authentication](/authentication#rate-limits). Bump to Starter or Pro if you genuinely need more.
+  </Accordion>
+  <Accordion title="Want to run a self-hosted MCP server">
+    Clone [Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server) and run `npm run start:http`. Set `COINVERSAA_API_URL` if you also host the backend.
+  </Accordion>
+</AccordionGroup>
