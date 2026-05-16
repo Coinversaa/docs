@@ -50,7 +50,7 @@
       "anchors": [
         {
           "anchor": "Dashboard",
-          "href": "https://coinversa.ai/developers",
+          "href": "https://developers.coinversa.ai",
           "icon": "gauge"
         },
         {
@@ -80,7 +80,7 @@
     "primary": {
       "type": "button",
       "label": "Get API key",
-      "href": "https://coinversa.ai/developers"
+      "href": "https://developers.coinversa.ai"
     }
   },
   "contextual": {

@@ -3,7 +3,7 @@ title: "Authentication"
 description: "API keys, rate-limit headers, tier behavior, and error responses."
 ---
 
-Every request to `api.coinversa.ai/api/public/v1/*` requires an API key. Get one at [coinversa.ai/developers](https://coinversa.ai/developers).
+Every request to `api.coinversa.ai/api/public/v1/*` requires an API key. Get one at [developers.coinversa.ai](https://developers.coinversa.ai).
 
 ## Sending the key
 
@@ -22,7 +22,7 @@ Never embed your key in client-side code or commit it to a public repo. Use a se
 
 ## Tiers
 
-Your key's tier is set by your active subscription. Free is the default; paid tiers are managed in the [billing portal](https://coinversa.ai/developers/billing).
+Your key's tier is set by your active subscription. Free is the default; paid tiers are managed in the [billing portal](https://developers.coinversa.ai/billing).
 
 | Tier | Rate / min | Per day | Per month | Keys | Price |
 |------|-----------:|--------:|----------:|-----:|------:|
@@ -64,8 +64,8 @@ All errors return JSON with `success: false` and a human-readable `error`. Speci
     {
       "success": false,
       "error": "API key required for this endpoint.",
-      "message": "Hey — you need an API key to use this endpoint. Get a free one at https://coinversa.ai/developers",
-      "signup_url": "https://coinversa.ai/developers"
+      "message": "Hey — you need an API key to use this endpoint. Get a free one at https://developers.coinversa.ai",
+      "signup_url": "https://developers.coinversa.ai"
     }
     ```
     Action: include `X-API-Key` header.
@@ -75,7 +75,7 @@ All errors return JSON with `success: false` and a human-readable `error`. Speci
     ```json
     { "success": false, "error": "Invalid or inactive API key." }
     ```
-    Action: check the key isn't revoked or rotated in the [portal](https://coinversa.ai/developers/keys).
+    Action: check the key isn't revoked or rotated in the [portal](https://developers.coinversa.ai/keys).
   </Accordion>
 
   <Accordion title="403 Forbidden — tier gate">
