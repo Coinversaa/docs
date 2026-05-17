@@ -183,6 +183,10 @@
             "format": "double",
             "type": "number"
           },
+          "fees": {
+            "format": "double",
+            "type": "number"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
@@ -231,6 +235,7 @@
           "size",
           "notional",
           "realizedPnl",
+          "fees",
           "unrealizedPnl",
           "leverage",
           "leverageType",
@@ -1307,13 +1312,13 @@
         },
         "type": "object"
       },
-      "Get-live-long-short-historyResponse": {
+      "Get-api-public-v1-live-long-short-historyResponse": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/Get-live-long-short-historyResponse.json"
+              "https://example.com/schemas/Get-api-public-v1-live-long-short-historyResponse.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1338,13 +1343,13 @@
         ],
         "type": "object"
       },
-      "Get-live-official-oi-by-coinResponse": {
+      "Get-api-public-v1-live-official-oi-by-coinResponse": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/Get-live-official-oi-by-coinResponse.json"
+              "https://example.com/schemas/Get-api-public-v1-live-official-oi-by-coinResponse.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1373,18 +1378,96 @@
         ],
         "type": "object"
       },
-      "Get-live-risk-coins-by-coin-mark-dislocationsResponse": {
+      "Get-api-public-v1-live-risk-coins-by-coin-mark-dislocationsResponse": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/Get-live-risk-coins-by-coin-mark-dislocationsResponse.json"
+              "https://example.com/schemas/Get-api-public-v1-live-risk-coins-by-coin-mark-dislocationsResponse.json"
             ],
             "format": "uri",
             "readOnly": true,
             "type": "string"
           },
+          "availability": {
+            "$ref": "#/components/schemas/RiskAvailability"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/RiskFreshness"
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "markDislocations": {
+            "items": {
+              "$ref": "#/components/schemas/MarkDislocation"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "markDislocations",
+          "availability",
+          "freshness",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "Get-x402-api-public-v1-live-long-short-historyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "coin": {
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/LongShortHistoryEntry"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "coin",
+          "history"
+        ],
+        "type": "object"
+      },
+      "Get-x402-api-public-v1-live-official-oi-by-coinResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "coin": {
+            "type": "string"
+          },
+          "dex": {
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialOIEntry"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "coin",
+          "dex",
+          "history"
+        ],
+        "type": "object"
+      },
+      "Get-x402-api-public-v1-live-risk-coins-by-coin-mark-dislocationsResponse": {
+        "additionalProperties": false,
+        "properties": {
           "availability": {
             "$ref": "#/components/schemas/RiskAvailability"
           },
@@ -4506,7 +4589,7 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/api/public/v1/assets": {
+    "//api/public/v1/assets": {
       "get": {
         "operationId": "get-api-public-v1-assets",
         "parameters": [
@@ -4591,7 +4674,7 @@
         "summary": "Get API public v1 assets"
       }
     },
-    "/api/public/v1/assets/{canonical}": {
+    "//api/public/v1/assets/{canonical}": {
       "get": {
         "operationId": "get-api-public-v1-assets-by-canonical",
         "parameters": [
@@ -4684,7 +4767,7 @@
         "summary": "Get API public v1 assets by canonical"
       }
     },
-    "/api/public/v1/assets/{canonical}/cross-market": {
+    "//api/public/v1/assets/{canonical}/cross-market": {
       "get": {
         "operationId": "get-api-public-v1-assets-by-canonical-cross-market",
         "parameters": [
@@ -4777,7 +4860,7 @@
         "summary": "Get API public v1 assets by canonical cross market"
       }
     },
-    "/api/public/v1/hip4/cross-product/overlap": {
+    "//api/public/v1/hip4/cross-product/overlap": {
       "get": {
         "operationId": "get-api-public-v1-hip4-cross-product-overlap",
         "parameters": [
@@ -4864,7 +4947,7 @@
         "summary": "Get API public v1 hip4 cross product overlap"
       }
     },
-    "/api/public/v1/hip4/daily-volume": {
+    "//api/public/v1/hip4/daily-volume": {
       "get": {
         "operationId": "get-api-public-v1-hip4-daily-volume",
         "parameters": [
@@ -4951,7 +5034,7 @@
         "summary": "Get API public v1 hip4 daily volume"
       }
     },
-    "/api/public/v1/hip4/most-active": {
+    "//api/public/v1/hip4/most-active": {
       "get": {
         "operationId": "get-api-public-v1-hip4-most-active",
         "parameters": [
@@ -5050,7 +5133,7 @@
         "summary": "Get API public v1 hip4 most active"
       }
     },
-    "/api/public/v1/hip4/outcomes": {
+    "//api/public/v1/hip4/outcomes": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes",
         "parameters": [
@@ -5137,7 +5220,7 @@
         "summary": "Get API public v1 hip4 outcomes"
       }
     },
-    "/api/public/v1/hip4/outcomes/{outcome_id}": {
+    "//api/public/v1/hip4/outcomes/{outcome_id}": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id",
         "parameters": [
@@ -5221,7 +5304,7 @@
         "summary": "Get API public v1 hip4 outcomes by outcome ID"
       }
     },
-    "/api/public/v1/hip4/outcomes/{outcome_id}/perp-position-context": {
+    "//api/public/v1/hip4/outcomes/{outcome_id}/perp-position-context": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id-perp-position-context",
         "parameters": [
@@ -5339,7 +5422,7 @@
         "summary": "Get API public v1 hip4 outcomes by outcome ID perp position context"
       }
     },
-    "/api/public/v1/hip4/outcomes/{outcome_id}/recent-trades": {
+    "//api/public/v1/hip4/outcomes/{outcome_id}/recent-trades": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id-recent-trades",
         "parameters": [
@@ -5447,7 +5530,7 @@
         "summary": "Get API public v1 hip4 outcomes by outcome ID recent trades"
       }
     },
-    "/api/public/v1/hip4/outcomes/{outcome_id}/summary": {
+    "//api/public/v1/hip4/outcomes/{outcome_id}/summary": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id-summary",
         "parameters": [
@@ -5531,7 +5614,7 @@
         "summary": "Get API public v1 hip4 outcomes by outcome ID summary"
       }
     },
-    "/api/public/v1/hip4/questions": {
+    "//api/public/v1/hip4/questions": {
       "get": {
         "operationId": "get-api-public-v1-hip4-questions",
         "responses": {
@@ -5594,7 +5677,7 @@
         "summary": "Get API public v1 hip4 questions"
       }
     },
-    "/api/public/v1/hip4/settlements/recent": {
+    "//api/public/v1/hip4/settlements/recent": {
       "get": {
         "operationId": "get-api-public-v1-hip4-settlements-recent",
         "parameters": [
@@ -5693,7 +5776,7 @@
         "summary": "Get API public v1 hip4 settlements recent"
       }
     },
-    "/api/public/v1/hip4/top-traders": {
+    "//api/public/v1/hip4/top-traders": {
       "get": {
         "operationId": "get-api-public-v1-hip4-top-traders",
         "parameters": [
@@ -5792,7 +5875,7 @@
         "summary": "Get API public v1 hip4 top traders"
       }
     },
-    "/api/public/v1/hip4/trader/{address}/outcomes": {
+    "//api/public/v1/hip4/trader/{address}/outcomes": {
       "get": {
         "operationId": "get-api-public-v1-hip4-trader-by-address-outcomes",
         "parameters": [
@@ -5887,7 +5970,7 @@
         "summary": "Get API public v1 hip4 trader by address outcomes"
       }
     },
-    "/api/public/v1/live/cohort-bias-history/{coin}": {
+    "//api/public/v1/live/cohort-bias-history/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-cohort-bias-history-by-coin",
         "parameters": [
@@ -5999,7 +6082,7 @@
         "summary": "Get API public v1 live cohort bias history by coin"
       }
     },
-    "/api/public/v1/live/cohort-bias/{coin}": {
+    "//api/public/v1/live/cohort-bias/{coin}": {
       "get": {
         "operationId": "list-api-public-v1-live-cohort-bias-by-coin",
         "parameters": [
@@ -6088,7 +6171,7 @@
         "summary": "List API public v1 live cohort bias by coin"
       }
     },
-    "/api/public/v1/live/coins/{coin}/long-short": {
+    "//api/public/v1/live/coins/{coin}/long-short": {
       "get": {
         "operationId": "get-api-public-v1-live-coins-by-coin-long-short",
         "parameters": [
@@ -6181,7 +6264,7 @@
         "summary": "Get API public v1 live coins by coin long short"
       }
     },
-    "/api/public/v1/live/liquidation-heatmap/{coin}": {
+    "//api/public/v1/live/liquidation-heatmap/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-liquidation-heatmap-by-coin",
         "parameters": [
@@ -6294,7 +6377,7 @@
         "summary": "Get API public v1 live liquidation heatmap by coin"
       }
     },
-    "/api/public/v1/live/long-short": {
+    "//api/public/v1/live/long-short": {
       "get": {
         "operationId": "get-api-public-v1-live-long-short",
         "responses": {
@@ -6357,7 +6440,7 @@
         "summary": "Get API public v1 live long short"
       }
     },
-    "/api/public/v1/live/long-short/history": {
+    "//api/public/v1/live/long-short/history": {
       "get": {
         "operationId": "get-api-public-v1-live-long-short-history",
         "parameters": [
@@ -6386,7 +6469,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Get-live-long-short-historyResponse"
+                  "$ref": "#/components/schemas/Get-api-public-v1-live-long-short-historyResponse"
                 }
               }
             },
@@ -6451,7 +6534,7 @@
         "summary": "Get API public v1 live long short history"
       }
     },
-    "/api/public/v1/live/official-oi/{coin}": {
+    "//api/public/v1/live/official-oi/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-official-oi-by-coin",
         "parameters": [
@@ -6488,7 +6571,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Get-live-official-oi-by-coinResponse"
+                  "$ref": "#/components/schemas/Get-api-public-v1-live-official-oi-by-coinResponse"
                 }
               }
             },
@@ -6553,7 +6636,7 @@
         "summary": "Get API public v1 live official oi by coin"
       }
     },
-    "/api/public/v1/live/oi-history": {
+    "//api/public/v1/live/oi-history": {
       "get": {
         "operationId": "get-api-public-v1-live-oi-history",
         "parameters": [
@@ -6638,7 +6721,7 @@
         "summary": "Get API public v1 live oi history"
       }
     },
-    "/api/public/v1/live/oi-history/{coin}": {
+    "//api/public/v1/live/oi-history/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-oi-history-by-coin",
         "parameters": [
@@ -6731,7 +6814,7 @@
         "summary": "Get API public v1 live oi history by coin"
       }
     },
-    "/api/public/v1/live/risk/coins/{coin}": {
+    "//api/public/v1/live/risk/coins/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-coins-by-coin",
         "parameters": [
@@ -6824,7 +6907,7 @@
         "summary": "Get API public v1 live risk coins by coin"
       }
     },
-    "/api/public/v1/live/risk/coins/{coin}/history": {
+    "//api/public/v1/live/risk/coins/{coin}/history": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-coins-by-coin-history",
         "parameters": [
@@ -6927,7 +7010,7 @@
         "summary": "Get API public v1 live risk coins by coin history"
       }
     },
-    "/api/public/v1/live/risk/coins/{coin}/mark-dislocations": {
+    "//api/public/v1/live/risk/coins/{coin}/mark-dislocations": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-coins-by-coin-mark-dislocations",
         "parameters": [
@@ -6955,7 +7038,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Get-live-risk-coins-by-coin-mark-dislocationsResponse"
+                  "$ref": "#/components/schemas/Get-api-public-v1-live-risk-coins-by-coin-mark-dislocationsResponse"
                 }
               }
             },
@@ -7030,7 +7113,7 @@
         "summary": "Get API public v1 live risk coins by coin mark dislocations"
       }
     },
-    "/api/public/v1/live/risk/liquidations/recent": {
+    "//api/public/v1/live/risk/liquidations/recent": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-liquidations-recent",
         "parameters": [
@@ -7132,7 +7215,7 @@
         "summary": "Get API public v1 live risk liquidations recent"
       }
     },
-    "/api/public/v1/live/risk/liquidations/summary": {
+    "//api/public/v1/live/risk/liquidations/summary": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-liquidations-summary",
         "parameters": [
@@ -7224,7 +7307,7 @@
         "summary": "Get API public v1 live risk liquidations summary"
       }
     },
-    "/api/public/v1/live/risk/overview": {
+    "//api/public/v1/live/risk/overview": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-overview",
         "responses": {
@@ -7287,7 +7370,7 @@
         "summary": "Get API public v1 live risk overview"
       }
     },
-    "/api/public/v1/market/historical-oi": {
+    "//api/public/v1/market/historical-oi": {
       "get": {
         "operationId": "get-api-public-v1-market-historical-oi",
         "parameters": [
@@ -7395,7 +7478,7 @@
         "summary": "Get API public v1 market historical oi"
       }
     },
-    "/api/public/v1/market/orderbook/{symbol}": {
+    "//api/public/v1/market/orderbook/{symbol}": {
       "get": {
         "operationId": "get-api-public-v1-market-orderbook-by-symbol",
         "parameters": [
@@ -7488,7 +7571,7 @@
         "summary": "Get API public v1 market orderbook by symbol"
       }
     },
-    "/api/public/v1/market/positions/{address}": {
+    "//api/public/v1/market/positions/{address}": {
       "get": {
         "operationId": "list-api-public-v1-market-positions-by-address",
         "parameters": [
@@ -7577,7 +7660,7 @@
         "summary": "List API public v1 market positions by address"
       }
     },
-    "/api/public/v1/market/price/{symbol}": {
+    "//api/public/v1/market/price/{symbol}": {
       "get": {
         "operationId": "get-api-public-v1-market-price-by-symbol",
         "parameters": [
@@ -7660,7 +7743,7 @@
         "summary": "Get API public v1 market price by symbol"
       }
     },
-    "/api/public/v1/pulse/biggest-losses": {
+    "//api/public/v1/pulse/biggest-losses": {
       "get": {
         "operationId": "list-api-public-v1-pulse-biggest-losses",
         "parameters": [
@@ -7761,7 +7844,7 @@
         "summary": "List API public v1 pulse biggest losses"
       }
     },
-    "/api/public/v1/pulse/biggest-wins": {
+    "//api/public/v1/pulse/biggest-wins": {
       "get": {
         "operationId": "list-api-public-v1-pulse-biggest-wins",
         "parameters": [
@@ -7862,7 +7945,7 @@
         "summary": "List API public v1 pulse biggest wins"
       }
     },
-    "/api/public/v1/pulse/closed-positions/recent": {
+    "//api/public/v1/pulse/closed-positions/recent": {
       "get": {
         "operationId": "list-api-public-v1-pulse-closed-positions-recent",
         "parameters": [
@@ -8000,7 +8083,7 @@
         "summary": "List API public v1 pulse closed positions recent"
       }
     },
-    "/api/public/v1/pulse/cohort-bias/history": {
+    "//api/public/v1/pulse/cohort-bias/history": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohort-bias-history",
         "parameters": [
@@ -8114,7 +8197,7 @@
         "summary": "List API public v1 pulse cohort bias history"
       }
     },
-    "/api/public/v1/pulse/cohorts/daily-stats": {
+    "//api/public/v1/pulse/cohorts/daily-stats": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-daily-stats",
         "parameters": [
@@ -8220,7 +8303,7 @@
         "summary": "List API public v1 pulse cohorts daily stats"
       }
     },
-    "/api/public/v1/pulse/cohorts/summary": {
+    "//api/public/v1/pulse/cohorts/summary": {
       "get": {
         "operationId": "get-api-public-v1-pulse-cohorts-summary",
         "responses": {
@@ -8283,7 +8366,7 @@
         "summary": "Get API public v1 pulse cohorts summary"
       }
     },
-    "/api/public/v1/pulse/cohorts/{tierType}/{tier}/history": {
+    "//api/public/v1/pulse/cohorts/{tierType}/{tier}/history": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-by-tier-type-by-tier-history",
         "parameters": [
@@ -8404,7 +8487,7 @@
         "summary": "List API public v1 pulse cohorts by tier type by tier history"
       }
     },
-    "/api/public/v1/pulse/cohorts/{tierType}/{tier}/positions": {
+    "//api/public/v1/pulse/cohorts/{tierType}/{tier}/positions": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-by-tier-type-by-tier-positions",
         "parameters": [
@@ -8525,7 +8608,7 @@
         "summary": "List API public v1 pulse cohorts by tier type by tier positions"
       }
     },
-    "/api/public/v1/pulse/cohorts/{tierType}/{tier}/trades": {
+    "//api/public/v1/pulse/cohorts/{tierType}/{tier}/trades": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-by-tier-type-by-tier-trades",
         "parameters": [
@@ -8655,7 +8738,7 @@
         "summary": "List API public v1 pulse cohorts by tier type by tier trades"
       }
     },
-    "/api/public/v1/pulse/hidden-gems": {
+    "//api/public/v1/pulse/hidden-gems": {
       "get": {
         "operationId": "list-api-public-v1-pulse-hidden-gems",
         "parameters": [
@@ -8786,7 +8869,7 @@
         "summary": "List API public v1 pulse hidden gems"
       }
     },
-    "/api/public/v1/pulse/leaderboard": {
+    "//api/public/v1/pulse/leaderboard": {
       "get": {
         "operationId": "get-api-public-v1-pulse-leaderboard",
         "parameters": [
@@ -8903,7 +8986,7 @@
         "summary": "Get API public v1 pulse leaderboard"
       }
     },
-    "/api/public/v1/pulse/market-overview": {
+    "//api/public/v1/pulse/market-overview": {
       "get": {
         "operationId": "get-api-public-v1-pulse-market-overview",
         "parameters": [
@@ -8988,7 +9071,7 @@
         "summary": "Get API public v1 pulse market overview"
       }
     },
-    "/api/public/v1/pulse/market/candles/recent/{symbol}": {
+    "//api/public/v1/pulse/market/candles/recent/{symbol}": {
       "get": {
         "operationId": "list-api-public-v1-pulse-market-candles-recent-by-symbol",
         "parameters": [
@@ -9096,7 +9179,7 @@
         "summary": "List API public v1 pulse market candles recent by symbol"
       }
     },
-    "/api/public/v1/pulse/most-traded": {
+    "//api/public/v1/pulse/most-traded": {
       "get": {
         "operationId": "list-api-public-v1-pulse-most-traded",
         "parameters": [
@@ -9187,7 +9270,7 @@
         "summary": "List API public v1 pulse most traded"
       }
     },
-    "/api/public/v1/pulse/stats": {
+    "//api/public/v1/pulse/stats": {
       "get": {
         "operationId": "get-api-public-v1-pulse-stats",
         "responses": {
@@ -9250,7 +9333,7 @@
         "summary": "Get API public v1 pulse stats"
       }
     },
-    "/api/public/v1/pulse/token-leaderboard/{coin}": {
+    "//api/public/v1/pulse/token-leaderboard/{coin}": {
       "get": {
         "operationId": "list-api-public-v1-pulse-token-leaderboard-by-coin",
         "parameters": [
@@ -9349,7 +9432,7 @@
         "summary": "List API public v1 pulse token leaderboard by coin"
       }
     },
-    "/api/public/v1/pulse/trader/{address}": {
+    "//api/public/v1/pulse/trader/{address}": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address",
         "parameters": [
@@ -9442,7 +9525,7 @@
         "summary": "Get API public v1 pulse trader by address"
       }
     },
-    "/api/public/v1/pulse/trader/{address}/closed-positions": {
+    "//api/public/v1/pulse/trader/{address}/closed-positions": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-closed-positions",
         "parameters": [
@@ -9569,7 +9652,7 @@
         "summary": "List API public v1 pulse trader by address closed positions"
       }
     },
-    "/api/public/v1/pulse/trader/{address}/closed-positions/stats": {
+    "//api/public/v1/pulse/trader/{address}/closed-positions/stats": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address-closed-positions-stats",
         "parameters": [
@@ -9662,7 +9745,7 @@
         "summary": "Get API public v1 pulse trader by address closed positions stats"
       }
     },
-    "/api/public/v1/pulse/trader/{address}/daily": {
+    "//api/public/v1/pulse/trader/{address}/daily": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-daily",
         "parameters": [
@@ -9761,7 +9844,7 @@
         "summary": "List API public v1 pulse trader by address daily"
       }
     },
-    "/api/public/v1/pulse/trader/{address}/performance": {
+    "//api/public/v1/pulse/trader/{address}/performance": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address-performance",
         "parameters": [
@@ -9854,7 +9937,7 @@
         "summary": "Get API public v1 pulse trader by address performance"
       }
     },
-    "/api/public/v1/pulse/trader/{address}/tokens": {
+    "//api/public/v1/pulse/trader/{address}/tokens": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-tokens",
         "parameters": [
@@ -9953,7 +10036,7 @@
         "summary": "List API public v1 pulse trader by address tokens"
       }
     },
-    "/api/public/v1/pulse/trader/{address}/trades": {
+    "//api/public/v1/pulse/trader/{address}/trades": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-trades",
         "parameters": [
@@ -10079,7 +10162,7 @@
         "summary": "List API public v1 pulse trader by address trades"
       }
     },
-    "/api/public/v1/pulse/trades/recent": {
+    "//api/public/v1/pulse/trades/recent": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trades-recent",
         "parameters": [
@@ -10187,7 +10270,7 @@
         "summary": "List API public v1 pulse trades recent"
       }
     },
-    "/api/public/v1/verify": {
+    "//api/public/v1/verify": {
       "get": {
         "operationId": "get-api-public-v1-verify",
         "responses": {
