@@ -133,7 +133,7 @@ You should see the agent call `pulse_leaderboard` and return ranked addresses wi
     The MCP connection didn't initialize. For Claude Desktop, check Console.app on macOS for `mcp` errors. For Cursor, check the MCP panel in settings. Most often: missing `-y` on the npx command, or a JSON syntax error in the config.
   </Accordion>
   <Accordion title="Rate limit errors immediately">
-    You may have an aggressive prompt or you share a key with a bot. The MCP and direct-API calls share one quota — see [authentication](/authentication#rate-limits). Bump to Starter or Pro if you genuinely need more.
+    You may have an aggressive prompt or you share a key with a bot. The MCP and direct-API calls share one quota — see [authentication](/authentication#rate-limit-headers). Bump to Starter or Pro if you genuinely need more.
   </Accordion>
   <Accordion title="Want to run a self-hosted MCP server">
     Clone [Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server) and run `npm run start:http`. Set `COINVERSAA_API_URL` if you also host the backend.
