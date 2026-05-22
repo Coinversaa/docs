@@ -44,6 +44,17 @@
       {
         "tab": "API reference",
         "openapi": "/api-reference/openapi.json"
+      },
+      {
+        "tab": "Changelog",
+        "groups": [
+          {
+            "group": "Changelog",
+            "pages": [
+              "changelog/overview"
+            ]
+          }
+        ]
       }
     ],
     "global": {
@@ -59,9 +70,9 @@
           "icon": "github"
         },
         {
-          "anchor": "Changelog",
+          "anchor": "Releases",
           "href": "https://github.com/Coinversaa/mcp-server/releases",
-          "icon": "newspaper"
+          "icon": "tag"
         }
       ]
     }
