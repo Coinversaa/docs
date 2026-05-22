@@ -1,0 +1,27 @@
+---
+title: "Changelog"
+description: "Product updates and releases for Coinversa Pulse."
+---
+
+<Update label="May 22, 2026" tags={["v0.7.0"]}>
+
+## HIP-4 outcome intelligence
+
+Coinversa Pulse now indexes the full [HIP-4 outcome-contract](/concepts/hip4) wire format from Hyperliquid, with discovery, settlement, volume, recent trades, trader overlap, and perp-position context for every outcome.
+
+### New features
+
+- **12 HIP-4 MCP tools** for outcome-contract discovery, settlements, volume, recent trades, and trader overlap. See the full surface in [MCP tools](/mcp/tools).
+- **Outcome + perp context tool** lets agents pull a trader's open perp position alongside their HIP-4 outcome exposure in a single call — useful for hedging and conviction-overlap analysis.
+- **Hosted Remote MCP** is now documented at `https://mcp.coinversa.ai/mcp`, so you can connect agents without installing the npm package. See [MCP setup](/mcp/setup).
+
+### Updates
+
+- The Pulse MCP tool surface grew from **43 → 55 tools**.
+- README, agent SKILL metadata, and server instructions updated for the new HIP-4 surface.
+
+### Breaking changes
+
+- **Keyless / no-API-key mode has been removed.** All MCP tools now require a Coinversa API key. Grab a free-tier key from the [dashboard](https://developers.coinversa.ai) — see [Authentication](/authentication) and [Pricing](/pricing) for details.
+
+</Update>
