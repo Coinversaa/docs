@@ -1,0 +1,73 @@
+---
+title: "Data windows"
+description: "How far back each endpoint reads. Window sizes are enforced server-side in SQL and aren't visible in the OpenAPI spec."
+---
+
+Endpoints fall into four buckets by how they treat history. The window is enforced by the query layer, not by request parameters, so calling with a wider `since` than the underlying source allows will silently return data only as far back as the source goes.
+
+## Rolling 90-day window
+
+Lifecycle-derived endpoints. Underlying aggregates are refreshed **hourly**. Querying beyond 90 days returns no rows.
+
+| Group | Endpoints |
+|-------|-----------|
+| Trader lifecycle | `/pulse/trader/{address}/lifecycles`, `/pulse/trader/{address}/lifecycle-summary` |
+| Wallet discovery | `/pulse/persistent-winners`, `/pulse/one-month-wonders`, `/pulse/survivors`, `/pulse/anti-survivors`, `/pulse/capital-titans`, `/pulse/coin-kings`, `/pulse/newcomer-whales` |
+| Behavior analytics | `/pulse/coin-alpha-map`, `/pulse/hour-profitability`, `/pulse/style-distribution`, `/pulse/market-concentration` |
+| Risk / liquidations | `/pulse/top-liquidators`, `/pulse/lethal-coins`, `/pulse/backstop-events` |
+| Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/*` |
+| Cohort drilldowns (rolling) | `/pulse/cohorts-recent/{tierType}/{tier}/*` |
+| Closed positions | `/pulse/trader/{address}/closed-positions`, `/pulse/trader/{address}/closed-positions/stats` *(90d cap landing in a forthcoming API release; until then these endpoints are technically unbounded)* |
+
+## All-time / lifetime
+
+Reads the trader's full indexed history (since Coinversa began indexing the wallet). No cap.
+
+| Group | Endpoints |
+|-------|-----------|
+| Trader profile | `/pulse/trader/{address}`, `/pulse/trader/{address}/tokens` |
+| Discovery | `/pulse/leaderboard?period=allTime`, `/pulse/hidden-gems`, `/pulse/most-traded`, `/pulse/token-leaderboard/{coin}` |
+| Cohort summary | `/pulse/cohorts/summary` |
+
+## Caller-bounded via `since`
+
+Window is whatever the caller passes. Defaults vary; see the per-endpoint reference for each.
+
+| Endpoint | Default `since` |
+|----------|----------------|
+| `/pulse/trades/recent` | `10m` |
+| `/pulse/trader/{address}/trades` | `1h` |
+| `/pulse/cohorts/{tierType}/{tier}/trades`, `/pulse/cohorts-recent/{tierType}/{tier}/trades` | `1h` |
+| `/pulse/closed-positions/recent` | `1h` |
+| `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` | varies |
+| `/market/historical-oi` | varies |
+
+The `since` parameter accepts a number + unit (`m`, `h`, `d`, `w`). The effective maximum is bounded by the underlying data freshness for each endpoint, not by your tier.
+
+## Live / real-time
+
+Current snapshot only. No historical concept. Each call returns the latest state from the indexer.
+
+| Group | Endpoints |
+|-------|-----------|
+| All `/live/*` | Long/short ratio, cohort bias, liquidation heatmap, OI, risk overview, mark dislocations, etc. |
+| Market state | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}` |
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Why 90 days?">
+    The 90-day cap balances refresh cost (full lifecycle reconstruction is expensive) and storage against the analytical window most consumers actually need. Backtests and behavior-pattern studies rarely care about positions older than a quarter; trend-detection consumers care about the last few weeks.
+  </Accordion>
+  <Accordion title="Can I get more history?">
+    Yes — longer windows are available on Enterprise. Contact [chat@coinversa.ai](mailto:chat@coinversa.ai) with the wallet set and time range you need; one-off bulk exports and recurring custom-window endpoints are both possible.
+  </Accordion>
+  <Accordion title="How fresh is the data within the 90-day window?">
+    - **Aggregates** (lifecycles, cohort rollups, discovery endpoints): refreshed **hourly**.
+    - **Trades, closed positions, raw events**: written as they're indexed, typically within seconds of the L1 fill.
+    - **Live endpoints**: current state of the indexer, 1–10s behind L1 depending on the metric.
+  </Accordion>
+  <Accordion title="What happens if I request a window larger than the source allows?">
+    The query runs against the available data and returns whatever it has. No error is raised. Compare your response timestamps against your requested `since` to detect truncation.
+  </Accordion>
+</AccordionGroup>

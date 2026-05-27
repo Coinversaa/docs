@@ -43,7 +43,21 @@
       },
       {
         "tab": "API reference",
-        "openapi": "/api-reference/openapi.json"
+        "groups": [
+          {
+            "group": "Reference",
+            "pages": [
+              "api-reference/introduction",
+              "authentication",
+              "api-reference/tiers",
+              "api-reference/data-windows"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "openapi": "/api-reference/openapi.json"
+          }
+        ]
       },
       {
         "tab": "Changelog",
