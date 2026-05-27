@@ -3,7 +3,7 @@ title: "Tier and pricing matrix"
 description: "Which endpoints each tier unlocks, rate limits, and pricing. Single source of truth."
 ---
 
-Tier gates are enforced server-side. A request to a tier-restricted endpoint without sufficient entitlement returns `403` with `current_tier`, `required_tier`, and an `upgrade_url`.
+Tier gates are enforced server-side. A request to a tier-restricted endpoint without sufficient entitlement returns `403` with a `detail` message indicating the required tier — for example: `Tool not available for current tier, must be starter or higher`.
 
 ## Comparison
 
@@ -34,7 +34,7 @@ Rate-limit behavior, header semantics, and error response shapes are documented 
     | Coin views | `/pulse/token-leaderboard/{coin}`, `/pulse/trades/recent` |
     | Lifecycle (single) | `/pulse/lifecycle/{id}`, `/pulse/closed-positions/recent` |
     | Live state | All `/live/*` |
-    | Market | All `/market/*` |
+    | Market | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/historical-oi` |
   </Accordion>
 
   <Accordion title="Starter — includes Free, plus">
@@ -71,8 +71,8 @@ Rate-limit behavior, header semantics, and error response shapes are documented 
 
 ## How tier resolution works
 
-A key's effective tier is the **highest entitled tier across every active key on the account**. So if you have one Free key and one Pro key on the same email, both keys get Pro limits on every request.
+Each API key carries its own tier independently. If you have multiple keys on the same account at different tiers, each key is rate-limited and entitlement-checked on its own — a Free key calling with a Pro key sitting unused in the same account still only gets Free limits.
 
-Tier entitlement is granted by an active Stripe subscription or an explicit admin grandfather. If a subscription lapses, all keys on the account fall back to Free limits — keys are not deleted.
+Tier entitlement is granted by an active Stripe subscription or an explicit grandfather override. If a paid key's subscription lapses, that specific key falls back to Free limits but is **not deleted** — your existing integrations keep working at reduced quota until you reactivate.
 
-See [Authentication](/authentication) for the request-time mechanics and error shapes.
+See [Authentication](/authentication) for the request-time mechanics and rate-limit headers.

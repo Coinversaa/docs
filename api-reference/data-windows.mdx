@@ -17,7 +17,7 @@ Lifecycle-derived endpoints. Underlying aggregates are refreshed **hourly**. Que
 | Risk / liquidations | `/pulse/top-liquidators`, `/pulse/lethal-coins`, `/pulse/backstop-events` |
 | Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/*` |
 | Cohort drilldowns (rolling) | `/pulse/cohorts-recent/{tierType}/{tier}/*` |
-| Closed positions | `/pulse/trader/{address}/closed-positions`, `/pulse/trader/{address}/closed-positions/stats` |
+| Closed positions | `/pulse/trader/{address}/closed-positions`, `/pulse/trader/{address}/closed-positions/stats` *(90d cap landing in a forthcoming API release; until then these endpoints are technically unbounded)* |
 
 ## All-time / lifetime
 
@@ -42,7 +42,7 @@ Window is whatever the caller passes. Defaults vary; see the per-endpoint refere
 | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` | varies |
 | `/market/historical-oi` | varies |
 
-The `since` parameter accepts a number + unit (`m`, `h`, `d`, `w`). Maximum window is tier-gated — see [Tier matrix](/api-reference/tiers).
+The `since` parameter accepts a number + unit (`m`, `h`, `d`, `w`). The effective maximum is bounded by the underlying data freshness for each endpoint, not by your tier.
 
 ## Live / real-time
 
