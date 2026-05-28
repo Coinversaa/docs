@@ -55,9 +55,11 @@ io.Copy(os.Stdout, resp.Body)
 
 You should see global market stats (total traders, total volume, data coverage period). If you get a 401, your key is wrong or inactive. If you get a 429, check the rate-limit headers — see [authentication](/authentication#rate-limit-headers).
 
-## 3. Wire it into your AI agent
+## 3. (Optional) Wire it into your AI agent
 
-The MCP server gives Claude, Cursor, and Perplexity access to all 55 Pulse tools using your same key. Pick your client:
+If you're building an AI agent rather than calling the API directly, the MCP server gives Claude, Cursor, and Perplexity tool access using the same key — no HTTP code on your side. Building an app, dashboard, or script instead? You're done after step 2; skip to [What's next](#whats-next). Not sure which fits? See [Choose your path](/#choose-your-path).
+
+Pick your client:
 
 <Columns cols={2}>
   <Card title="Claude.ai (web)" icon="globe" href="/mcp/setup#claude-ai">

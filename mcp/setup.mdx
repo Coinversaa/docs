@@ -3,7 +3,9 @@ title: "MCP setup"
 description: "Connect Coinversa Pulse to Claude, Cursor, Perplexity, or any MCP-compatible client."
 ---
 
-The Coinversa MCP server exposes all 55 Pulse tools to AI agents over the Model Context Protocol. You install it once in your client, and the agent gets first-class access to Hyperliquid trader analytics, HIP-4 outcomes, live risk, and the cross-market asset registry.
+The Coinversa MCP server exposes the Pulse tools to AI agents over the Model Context Protocol. You install it once in your client, and the agent gets first-class access to Hyperliquid trader analytics, HIP-4 outcomes, live risk, and the cross-market asset registry.
+
+The MCP is the **agent interface** — a curated set of tools wrapping the REST API. If you need direct programmatic access to the full endpoint surface (including endpoints not yet exposed as tools) or [x402 pay-per-call](/authentication), use the [REST API](/api-reference) directly. Both use the same API key.
 
 **Hosted MCP endpoint:** `https://mcp.coinversa.ai/mcp`
 **Source:** [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server)

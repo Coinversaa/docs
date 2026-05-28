@@ -7,6 +7,27 @@ Coinversa Pulse is a REST API and MCP server for crypto intelligence on Hyperliq
 
 The same endpoints power our own dashboard, every MCP client (Claude, Cursor, Perplexity), and external bots.
 
+## Choose your path
+
+There are two ways into the same data. Both use the same API key and hit the same backend — pick the one that matches what you're building.
+
+<Columns cols={2}>
+  <Card title="Building an AI agent?" icon="robot" href="/mcp/setup">
+    Use the **MCP server**. One connector gives Claude, Cursor, or Perplexity first-class tool access — the agent picks and calls tools for you, no HTTP code.
+
+    `https://mcp.coinversa.ai/mcp`
+  </Card>
+  <Card title="Building an app, script, or SDK?" icon="terminal" href="/quickstart">
+    Use the **REST API** directly. Every endpoint, JSON, in your language. This is the complete and authoritative surface — the MCP wraps a curated subset of it.
+
+    `https://api.coinversa.ai/api/public/v1`
+  </Card>
+</Columns>
+
+<Note>
+The MCP is a thin wrapper over the REST API — it translates tool calls into the same HTTP endpoints documented here. Anything the MCP can do, the REST API can do; the REST API also exposes endpoints not yet wrapped as tools, and supports [x402 pay-per-call](/authentication) which the MCP does not yet sign natively. When in doubt, the REST API is the full surface.
+</Note>
+
 ## Get started
 
 <Columns cols={2}>
@@ -43,9 +64,9 @@ The same endpoints power our own dashboard, every MCP client (Claude, Cursor, Pe
 
 ## How it's used
 
-- **AI agents** — install the [MCP server](/mcp/setup) into Claude / Cursor / Perplexity and the agent gets 55 tools covering the entire data surface.
-- **Trading bots** — hit the [REST API](/api-reference) directly with `X-API-Key`. Same key, same tier, same data.
-- **Dashboards** — the [Coinversa Pulse dashboard](https://coinversa.ai) and partner integrations consume the same endpoints.
+- **AI agents** — install the [MCP server](/mcp/setup) into Claude / Cursor / Perplexity and the agent gets first-class tool access to the Pulse data surface.
+- **Trading bots & SDKs** — hit the [REST API](/api-reference) directly with `X-API-Key`. Same key, same tier, same data — and the full endpoint surface, including anything not yet exposed as an MCP tool.
+- **Dashboards** — the [Coinversa Pulse dashboard](https://coinversa.ai) and partner integrations consume the same REST endpoints.
 
 <Note>
 The MCP server is open source: [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server). It's a thin transport layer — the API key you use governs the tier and rate limits at the API layer.
