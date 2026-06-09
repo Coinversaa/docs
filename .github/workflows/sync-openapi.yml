@@ -32,6 +32,11 @@ jobs:
           # Match the existing docs path format (leading-slash prefix).
           live["paths"] = {("/" + k if not k.startswith("//") else k): v
                            for k, v in live["paths"].items()}
+          # huma emits an invalid `scheme` on the apiKey security scheme;
+          # Mintlify rejects the whole spec for it. Strip it.
+          ss = live.get("components", {}).get("securitySchemes", {})
+          if "apiKey" in ss:
+              ss["apiKey"].pop("scheme", None)
           json.dump(live, open("api-reference/openapi.json", "w"), indent=2, ensure_ascii=False)
           print("paths:", len(live["paths"]))
           PY
