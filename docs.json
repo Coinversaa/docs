@@ -34,6 +34,7 @@
             "pages": [
               "concepts/markets",
               "concepts/cohorts",
+              "concepts/position-lifecycles",
               "concepts/cross-market-assets",
               "concepts/hip4",
               "concepts/data-coverage"

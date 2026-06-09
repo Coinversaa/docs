@@ -1,0 +1,54 @@
+name: Sync OpenAPI spec
+
+# Keeps api-reference/openapi.json in step with the live API.
+# Runs daily + on demand; opens a PR only when the spec actually changes.
+# NOTE: requires "Allow GitHub Actions to create and approve pull requests"
+# to be enabled in repo Settings → Actions → General.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily, 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch live spec and rewrite to docs format
+        run: |
+          set -euo pipefail
+          curl -fsS https://api.coinversa.ai/openapi.json -o /tmp/live.json
+          python3 - <<'PY'
+          import json
+          live = json.load(open("/tmp/live.json"))
+          # Mintlify "Try it" base URL — paths keep the /api/public/v1 prefix.
+          live["servers"] = [{"url": "https://api.coinversa.ai", "description": "Production"}]
+          # Match the existing docs path format (leading-slash prefix).
+          live["paths"] = {("/" + k if not k.startswith("//") else k): v
+                           for k, v in live["paths"].items()}
+          json.dump(live, open("api-reference/openapi.json", "w"), indent=2, ensure_ascii=False)
+          print("paths:", len(live["paths"]))
+          PY
+
+      - name: Open a PR if the spec changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/sync-openapi
+          commit-message: "chore: sync OpenAPI spec from api.coinversa.ai"
+          title: "chore: sync OpenAPI spec from api.coinversa.ai"
+          body: |
+            Automated re-sync of `api-reference/openapi.json` from the live API
+            spec (`https://api.coinversa.ai/openapi.json`).
+
+            Review the endpoint diff before merging. If new tools/concepts shipped,
+            also update `mcp/tools.mdx`, `changelog/overview.mdx`, and the endpoint
+            counts in `index.mdx` / `api-reference/introduction.mdx`.
+          labels: |
+            docs
+            automated

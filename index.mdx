@@ -38,7 +38,7 @@ The MCP is a thin wrapper over the REST API — it translates tool calls into th
     Connect Pulse to Claude, Cursor, or Perplexity.
   </Card>
   <Card title="API reference" icon="terminal" href="/api-reference">
-    59 endpoints, auto-generated from the live OpenAPI spec.
+    87 endpoints, auto-generated from the live OpenAPI spec.
   </Card>
   <Card title="Authentication" icon="key" href="/authentication">
     API keys, rate-limit headers, tier behavior.
@@ -48,6 +48,9 @@ The MCP is a thin wrapper over the REST API — it translates tool calls into th
 ## What's in the data
 
 <Columns cols={2}>
+  <Card title="Position lifecycles" icon="timeline" href="/concepts/position-lifecycles">
+    Every position reconstructed open→close with MAE/MFE — analyze execution quality, drawdowns, and trader archetypes, not just PnL.
+  </Card>
   <Card title="Trader cohorts" icon="users" href="/concepts/cohorts">
     Every tracked wallet classified by PnL and size tier — from `money_printer` to `giga_rekt`, `leviathan` to `shrimp`.
   </Card>

@@ -3,6 +3,32 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="June 9, 2026" tags={["v0.8.0"]}>
+
+## Position lifecycles & execution quality
+
+Pulse 0.8.0 is built on a fully re-derived [position-lifecycle](/concepts/position-lifecycles) dataset — every position reconstructed open→close from on-chain fills, now carrying **MAE/MFE** (the worst adverse and best favorable price each position ever saw). For the first time you can analyze *execution quality*, not just realized PnL.
+
+### New features
+
+- **Position lifecycles** — per-wallet open→close history, aggregate lifecycle stats, single-lifecycle drill-downs (with composing fills), and a one-call wallet briefing. See [Position lifecycles](/concepts/position-lifecycles).
+- **Execution quality (MAE/MFE)** — per-position drawdown / run-up curves, "max-pain" survivors (winners that endured deep drawdowns), perfect exits (high MFE capture), and the most catastrophic individual liquidations.
+- **Trader archetypes** — survivors & anti-survivors, persistent winners, capital-efficient titans (PnL per fee), one-month wonders, newcomer whales, coin kings, top liquidators, and lethal coins — all derived from 90-day lifecycle behavior.
+- **Market structure** — per-coin winner/loser profit pools, profitability by UTC hour, alpha concentration (percentile profit share), HFT-vs-swing-vs-holder splits, and head-to-head wallet comparison.
+- **Refreshed cohorts** — `pulse_cohort_recent_*` tools label wallets by their last-30-day tier (not all-time), surfacing who is printing right now.
+- **Global recent feed** — `pulse_lifecycles_recent` streams the most recently closed positions across the entire exchange.
+
+### Updates
+
+- The Pulse MCP tool surface grew from **55 → 83 tools** — see the full catalog in [MCP tools](/mcp/tools). The REST API now exposes **87 endpoints**.
+- The legacy closed-position tools (`pulse_trader_closed_positions`, `pulse_trader_closed_position_stats`, `pulse_recent_closed_positions`) are kept for backward compatibility but are **superseded** by the lifecycle tools, which read the corrected lifecycle dataset (more history, MAE/MFE, spot coverage).
+
+### Notes
+
+- MAE/MFE is perp-only (spot positions have no adverse/favorable excursion by design). The freshest closes may briefly show null MAE/MFE while the hourly risk backfill catches up.
+
+</Update>
+
 <Update label="May 22, 2026" tags={["v0.7.0"]}>
 
 ## HIP-4 outcome intelligence

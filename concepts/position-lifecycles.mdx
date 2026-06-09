@@ -1,0 +1,59 @@
+---
+title: "Position lifecycles & execution quality"
+description: "Every position reconstructed open→close from on-chain fills, with MAE/MFE — analyze how a trade was managed, not just its PnL."
+---
+
+A **position lifecycle** is one complete position — open → scale → close — reconstructed from a wallet's on-chain fills. Instead of a flat list of trades, you get the full arc of each position: entry/exit VWAP, peak size, hold duration, fees, realized PnL, and liquidation status.
+
+Pulse 0.8.0 re-derives every lifecycle from the corrected fill history and enriches each one with **MAE/MFE**, unlocking *execution-quality* analysis — not just realized PnL.
+
+## MAE / MFE
+
+For every closed perp position, Pulse records the two price extremes it lived through while open:
+
+- **MAE — Maximum Adverse Excursion**: the worst the price went *against* the position (the deepest unrealized drawdown it survived).
+- **MFE — Maximum Favorable Excursion**: the best the price went *for* the position (the peak unrealized profit it reached).
+
+These are **direction-aware**: for a long, `MAE ≤ entry ≤ MFE`; for a short, `MAE ≥ entry ≥ MFE`.
+
+<Info>
+**Why it matters.** Two wallets can both book +$10k on the same coin — one after white-knuckling a 50% drawdown and getting bailed out, the other never going 3% underwater. Same PnL, completely different trader. MAE/MFE is the first time you can separate skill from luck — and tell which wallets are actually worth following.
+</Info>
+
+MAE/MFE is **perp-only** — spot positions have no adverse/favorable excursion by design. The very freshest closes may briefly show null MAE/MFE until the risk backfill catches up (it refreshes hourly).
+
+## What you can ask
+
+| Question | Tool |
+|----------|------|
+| Show me every position this wallet opened and closed | `pulse_trader_lifecycles` |
+| What are this wallet's position-level stats? | `pulse_trader_lifecycle_summary` |
+| Break one position down into its composing fills | `pulse_lifecycle` |
+| How far underwater did each position go before working? | `pulse_wallet_drawdown_curve` |
+| Which winners survived the deepest drawdowns? | `pulse_max_pain_events` |
+| Who exited closest to the top? | `pulse_perfect_exits` |
+| What just closed across the whole exchange? | `pulse_lifecycles_recent` |
+
+## Trader archetypes
+
+Because lifecycles capture the full arc of every position over a rolling 90-day window, Pulse can surface behavioral archetypes nobody else computes:
+
+- **Survivors / anti-survivors** — wallets that hit a deep cumulative-PnL trough then recovered (or never did).
+- **Persistent winners** — profitable across multiple distinct months, not lucky once.
+- **Capital titans** — the best PnL per dollar of fees paid.
+- **One-month wonders** — huge in a single month, then gave it back.
+- **Newcomer whales** — a recent first lifecycle but already moving large notional.
+- **Coin kings** — the top earner of each coin.
+- **Top liquidators / lethal coins** — who profits from liquidating others, and which coins blow people up most often.
+
+## Refreshed cohorts
+
+The `pulse_cohort_recent_*` tools classify wallets by their **last-30-day** tier (`pnl_tier_recent` / `size_tier_recent`) instead of all-time — surfacing who is printing *right now* and catching regime changes the all-time [cohort](/concepts/cohorts) tools miss.
+
+## Window & freshness
+
+- Lifecycle endpoints use a rolling **90-day** window (positions closed within the last 90 days, plus any still-open positions).
+- Precomputed lifecycle aggregates (archetypes, market structure, cohorts) refresh **hourly**.
+- Spot pairs (`@`-prefixed coins) are excluded by default.
+
+See the [MCP tool catalog](/mcp/tools) for every lifecycle tool, or the [API reference](/api-reference) for endpoint schemas.

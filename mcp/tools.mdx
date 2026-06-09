@@ -1,9 +1,9 @@
 ---
 title: "Tool catalog"
-description: "All 55 MCP tools by category, with descriptions and required tiers."
+description: "All 83 MCP tools by category, with descriptions and required tiers."
 ---
 
-Every MCP tool is a thin wrapper around a public API endpoint. Tier requirements match the underlying endpoint — most are Free, a handful of deep-analytics tools require Pro.
+Every MCP tool is a thin wrapper around a public API endpoint. Tier requirements match the underlying endpoint — discovery and market data are Free, single-trader and HIP-4 analytics are Starter, and the deep lifecycle / execution-quality / archetype tools are Pro.
 
 For the canonical schema (inputs, outputs, examples), see the [API reference](/api-reference) — every tool maps 1:1 to an endpoint.
 
@@ -41,7 +41,7 @@ For the canonical schema (inputs, outputs, examples), see the [API reference](/a
 | `pulse_trader_token_stats`            | Per-token breakdown for one wallet. |
 | `pulse_trader_closed_positions`       | Closed positions for one wallet. |
 | `pulse_trader_closed_position_stats`  | Aggregate closed-position stats. |
-| `compare_wallets`                     | Side-by-side stats for two wallets. |
+| `pulse_compare`                       | Side-by-side lifecycle comparison of 2–5 wallets. |
 
 ## Pulse — cohorts
 
@@ -53,6 +53,62 @@ For the canonical schema (inputs, outputs, examples), see the [API reference](/a
 | `pulse_cohort_history`            | Cohort performance over time. |
 | `pulse_cohort_bias_history`       | Cohort long/short bias over time. |
 | `pulse_cohort_performance_daily`  | Daily cohort PnL / volume. |
+
+## Pulse — position lifecycles
+
+Every position reconstructed open→close from on-chain fills, with MAE/MFE. See [Position lifecycles](/concepts/position-lifecycles).
+
+| Tool | Description |
+|------|-------------|
+| `pulse_trader_lifecycles`          | One wallet's open→close position history (90-day window). |
+| `pulse_trader_lifecycle_summary`   | Aggregate lifecycle stats for one wallet — win rate, avg hold, biggest win/loss. |
+| `pulse_lifecycle`                  | One lifecycle by ID, with every composing fill. |
+| `pulse_trader_demo`                | One-call wallet briefing: lifecycle summary + recent top wins/losses. |
+| `pulse_lifecycles_recent`          | Global feed of recently closed positions across all wallets. |
+
+## Pulse — execution quality (MAE/MFE) · Pro
+
+| Tool | Description |
+|------|-------------|
+| `pulse_wallet_drawdown_curve`  | Per-position drawdown (MAE) and run-up (MFE) for one wallet. |
+| `pulse_max_pain_events`        | Winners that survived the deepest drawdowns before recovering. |
+| `pulse_perfect_exits`          | Exits that captured most of the maximum favorable move. |
+| `pulse_backstop_events`        | The most catastrophic individual liquidations. |
+
+## Pulse — trader archetypes
+
+| Tool | Description |
+|------|-------------|
+| `pulse_survivors`            | Wallets that hit a deep trough then recovered to green. |
+| `pulse_anti_survivors`       | Wallets that blew up and never recovered. |
+| `pulse_persistent_winners`   | Profitable across multiple distinct months. |
+| `pulse_capital_titans`       | Best PnL per dollar of fees. |
+| `pulse_one_month_wonders`    | Huge in one month, then gave it back. |
+| `pulse_newcomer_whales`      | Recent first lifecycle, already moving big notional. |
+| `pulse_coin_kings`           | Top earner(s) per coin. |
+| `pulse_top_liquidators`      | Wallets that profit by liquidating others. |
+| `pulse_lethal_coins`         | Coins with the highest per-lifecycle liquidation rate. |
+
+## Pulse — market structure
+
+| Tool | Description |
+|------|-------------|
+| `pulse_coin_alpha_map`         | Per-coin winner / loser / net profit pools. |
+| `pulse_hour_profitability`     | Global PnL by UTC hour of close. |
+| `pulse_market_concentration`   | Percentile profit share — how concentrated alpha is. |
+| `pulse_style_distribution`     | HFT vs swing vs holder PnL split. |
+
+## Pulse — refreshed cohorts (30-day rolling tier)
+
+Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) — who's printing *right now*, not all-time.
+
+| Tool | Description |
+|------|-------------|
+| `pulse_cohort_recent_positions`           | Live positions held by a recent-tier cohort. |
+| `pulse_cohort_recent_trades`              | Recent trades from a recent-tier cohort. |
+| `pulse_cohort_recent_lifecycle_stats`     | Per-wallet lifecycle stats for a recent-tier cohort. |
+| `pulse_cohort_recent_top_positions`       | Top closed lifecycles from a recent-tier cohort. |
+| `pulse_cohort_recent_alpha_concentration` | Profit concentration within a recent-tier cohort. |
 
 ## Live — real-time market + risk
 
