@@ -69,6 +69,28 @@
         },
         "type": "object"
       },
+      "AntiSurvivor": {
+        "additionalProperties": false,
+        "properties": {
+          "currentCumPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "trough": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "trough",
+          "currentCumPnl"
+        ],
+        "type": "object"
+      },
       "AssetVenueSummary": {
         "additionalProperties": false,
         "properties": {
@@ -117,6 +139,75 @@
         ],
         "type": "object"
       },
+      "BackstopEventRow": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": "string"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "entryVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "liquidationClosedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "liquidationMethod": {
+            "type": "string"
+          },
+          "liquidatorAddress": {
+            "type": "string"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "peakSize": {
+            "format": "double",
+            "type": "number"
+          },
+          "penaltyFeePaid": {
+            "format": "double",
+            "type": "number"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "coin",
+          "side",
+          "openedAt",
+          "closedAt",
+          "durationMs",
+          "peakSize",
+          "entryVwap",
+          "realizedPnl",
+          "penaltyFeePaid",
+          "liquidationClosedPnl"
+        ],
+        "type": "object"
+      },
       "CandlePoint": {
         "additionalProperties": false,
         "properties": {
@@ -152,6 +243,38 @@
           "low",
           "close",
           "volume"
+        ],
+        "type": "object"
+      },
+      "CapitalTitan": {
+        "additionalProperties": false,
+        "properties": {
+          "lifecycles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "pnlPerFeeDollar": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalFees": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "totalPnl",
+          "totalFees",
+          "pnlPerFeeDollar",
+          "lifecycles"
         ],
         "type": "object"
       },
@@ -310,6 +433,38 @@
           "winningPositions",
           "losingPositions",
           "winRate"
+        ],
+        "type": "object"
+      },
+      "CohortAlphaConcentrationRow": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "type": "string"
+          },
+          "bandPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "pctOfTierPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "tierTotalWallets": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "wallets": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "band",
+          "wallets",
+          "bandPnl",
+          "pctOfTierPnl",
+          "tierTotalWallets"
         ],
         "type": "object"
       },
@@ -510,6 +665,69 @@
         ],
         "type": "object"
       },
+      "CohortLifecycleStatsRow": {
+        "additionalProperties": false,
+        "properties": {
+          "avgDurationMs": {
+            "format": "double",
+            "type": "number"
+          },
+          "biggestLoss": {
+            "format": "double",
+            "type": "number"
+          },
+          "biggestWin": {
+            "format": "double",
+            "type": "number"
+          },
+          "lifecycles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "liquidations": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "losses": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "pnlTierRecent": {
+            "type": "string"
+          },
+          "sizeTierRecent": {
+            "type": "string"
+          },
+          "totalFees": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          },
+          "wins": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "wallet",
+          "lifecycles",
+          "wins",
+          "losses",
+          "liquidations",
+          "totalPnl",
+          "totalFees",
+          "avgDurationMs",
+          "biggestWin",
+          "biggestLoss"
+        ],
+        "type": "object"
+      },
       "CohortPosition": {
         "additionalProperties": false,
         "properties": {
@@ -707,6 +925,166 @@
           "totalTrades",
           "avgTrades",
           "tradersActive"
+        ],
+        "type": "object"
+      },
+      "CohortTopPositionRow": {
+        "additionalProperties": false,
+        "properties": {
+          "builderFee": {
+            "format": "double",
+            "type": "number"
+          },
+          "closedAt": {
+            "type": "string"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "entryVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "exitVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "fees": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "peakSize": {
+            "format": "double",
+            "type": "number"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          },
+          "wallet": {
+            "type": "string"
+          },
+          "wasLiquidated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "wallet",
+          "coin",
+          "side",
+          "openedAt",
+          "closedAt",
+          "durationMs",
+          "peakSize",
+          "entryVwap",
+          "exitVwap",
+          "realizedPnl",
+          "fees",
+          "builderFee",
+          "wasLiquidated"
+        ],
+        "type": "object"
+      },
+      "CoinAlphaMapRow": {
+        "additionalProperties": false,
+        "properties": {
+          "coin": {
+            "type": "string"
+          },
+          "lifecycles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "losersPool": {
+            "format": "double",
+            "type": "number"
+          },
+          "losingLifecycles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "netPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalFees": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallets": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "winnersPool": {
+            "format": "double",
+            "type": "number"
+          },
+          "winningLifecycles": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "coin",
+          "lifecycles",
+          "wallets",
+          "winnersPool",
+          "losersPool",
+          "netPnl",
+          "winningLifecycles",
+          "losingLifecycles",
+          "totalFees"
+        ],
+        "type": "object"
+      },
+      "CoinKing": {
+        "additionalProperties": false,
+        "properties": {
+          "coin": {
+            "type": "string"
+          },
+          "coinPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "lifecycles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "rank": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalFees": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "coin",
+          "wallet",
+          "coinPnl",
+          "totalFees",
+          "lifecycles",
+          "rank"
         ],
         "type": "object"
       },
@@ -1295,6 +1673,65 @@
         ],
         "type": "object"
       },
+      "DrawdownCurveRow": {
+        "additionalProperties": false,
+        "properties": {
+          "closedAt": {
+            "type": "string"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "entryVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "maePx": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxDrawdownPct": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxRunupPct": {
+            "format": "double",
+            "type": "number"
+          },
+          "mfePx": {
+            "format": "double",
+            "type": "number"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "coin",
+          "side",
+          "openedAt",
+          "closedAt",
+          "entryVwap",
+          "maePx",
+          "mfePx",
+          "realizedPnl",
+          "maxDrawdownPct",
+          "maxRunupPct"
+        ],
+        "type": "object"
+      },
       "ErrorDetail": {
         "additionalProperties": false,
         "properties": {
@@ -1771,17 +2208,28 @@
         "properties": {
           "address": {},
           "closedPnl": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "coin": {
             "type": "string"
           },
           "liquidator": {},
           "penaltyFee": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "pnlTier": {
-            "$ref": "#/components/schemas/Text"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "timestampMs": {
             "format": "int64",
@@ -1807,64 +2255,131 @@
             "type": "string"
           },
           "entryPx": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "fundingSinceOpen": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "leverage": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "leverageType": {
-            "$ref": "#/components/schemas/Text"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "liquidationPx": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "marginUsed": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "markPx": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "notional": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "openedAtRaw": {
-            "$ref": "#/components/schemas/Int8"
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "pOpenedAt": {
-            "$ref": "#/components/schemas/Timestamptz"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "pUpdatedAt": {
-            "$ref": "#/components/schemas/Timestamptz"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "pnlTier": {
-            "$ref": "#/components/schemas/Text"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "roe": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "side": {
             "type": "string"
           },
           "size": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "sizeTier": {
-            "$ref": "#/components/schemas/Text"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "traderTotalPnl": {
             "type": "string"
           },
           "traderTotalTrades": {
-            "$ref": "#/components/schemas/Int8"
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "traderWinRate": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "unrealizedPnl": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1900,10 +2415,18 @@
             "type": "string"
           },
           "trades": {
-            "$ref": "#/components/schemas/Int8"
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "winRate": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1919,7 +2442,11 @@
           "pnl": {},
           "trades": {},
           "winRate": {
-            "$ref": "#/components/schemas/Numeric"
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
@@ -2904,20 +3431,41 @@
         ],
         "type": "object"
       },
-      "Int8": {
+      "HourProfitabilityRow": {
         "additionalProperties": false,
         "properties": {
-          "Int64": {
-            "format": "int64",
+          "avgPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "hourUtc": {
+            "format": "int32",
             "type": "integer"
           },
-          "Valid": {
-            "type": "boolean"
+          "lifecycles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "losses": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "wins": {
+            "format": "int32",
+            "type": "integer"
           }
         },
         "required": [
-          "Int64",
-          "Valid"
+          "hourUtc",
+          "lifecycles",
+          "totalPnl",
+          "avgPnl",
+          "wins",
+          "losses"
         ],
         "type": "object"
       },
@@ -3012,7 +3560,24 @@
           "pnlTier": {
             "type": "string"
           },
+          "pnlTierRecent": {
+            "type": "string"
+          },
+          "recentPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "recentVolume": {
+            "format": "double",
+            "type": "number"
+          },
+          "recentWindowEnd": {
+            "type": "string"
+          },
           "sizeTier": {
+            "type": "string"
+          },
+          "sizeTierRecent": {
             "type": "string"
           },
           "totalFees": {
@@ -3052,6 +3617,237 @@
           "largestLoss",
           "firstTradeAt",
           "lastTradeAt"
+        ],
+        "type": "object"
+      },
+      "LethalCoinRow": {
+        "additionalProperties": false,
+        "properties": {
+          "coin": {
+            "type": "string"
+          },
+          "liquidationPct": {
+            "format": "double",
+            "type": "number"
+          },
+          "liquidations": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalLifecycles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalPenalty": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "coin",
+          "totalLifecycles",
+          "liquidations",
+          "liquidationPct",
+          "totalPenalty"
+        ],
+        "type": "object"
+      },
+      "LifecycleDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/LifecycleDetailBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "fills": {
+            "items": {
+              "$ref": "#/components/schemas/LifecycleFill"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/LifecycleRow"
+          }
+        },
+        "required": [
+          "address",
+          "lifecycle",
+          "fills"
+        ],
+        "type": "object"
+      },
+      "LifecycleFill": {
+        "additionalProperties": false,
+        "properties": {
+          "builderFee": {
+            "format": "double",
+            "type": "number"
+          },
+          "fee": {
+            "format": "double",
+            "type": "number"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "pnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "px": {
+            "format": "double",
+            "type": "number"
+          },
+          "rawTime": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "side": {
+            "type": "string"
+          },
+          "sz": {
+            "format": "double",
+            "type": "number"
+          },
+          "tid": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "tradeTime": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rawTime",
+          "tid",
+          "side",
+          "sz",
+          "px",
+          "pnl",
+          "fee",
+          "builderFee",
+          "tradeTime"
+        ],
+        "type": "object"
+      },
+      "LifecycleRow": {
+        "additionalProperties": false,
+        "properties": {
+          "builderFee": {
+            "format": "double",
+            "type": "number"
+          },
+          "closedAt": {
+            "type": "string"
+          },
+          "closedAtRaw": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "entryVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "exitVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "fees": {
+            "format": "double",
+            "type": "number"
+          },
+          "fillCount": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "lifecycleNum": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "liquidationClosedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "liquidationMethod": {
+            "type": "string"
+          },
+          "liquidatorAddress": {
+            "type": "string"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "openedAtRaw": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "openedBeforeWindow": {
+            "type": "boolean"
+          },
+          "peakSize": {
+            "format": "double",
+            "type": "number"
+          },
+          "penaltyFeePaid": {
+            "format": "double",
+            "type": "number"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "wasLiquidated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "coin",
+          "lifecycleNum",
+          "side",
+          "openedAt",
+          "openedAtRaw",
+          "peakSize",
+          "entryVwap",
+          "realizedPnl",
+          "fees",
+          "builderFee",
+          "fillCount",
+          "status",
+          "isClosed",
+          "openedBeforeWindow",
+          "wasLiquidated"
         ],
         "type": "object"
       },
@@ -3402,6 +4198,106 @@
         ],
         "type": "object"
       },
+      "MarketConcentrationRow": {
+        "additionalProperties": false,
+        "properties": {
+          "bandPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "firstRank": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "lastRank": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "pctOfProfits": {
+            "format": "double",
+            "type": "number"
+          },
+          "percentileBand": {
+            "type": "string"
+          },
+          "wallets": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "percentileBand",
+          "wallets",
+          "bandPnl",
+          "pctOfProfits",
+          "firstRank",
+          "lastRank"
+        ],
+        "type": "object"
+      },
+      "MaxPainEventRow": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": "string"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "entryVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "exitVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "maePx": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxDrawdownPct": {
+            "format": "double",
+            "type": "number"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "coin",
+          "side",
+          "openedAt",
+          "closedAt",
+          "durationMs",
+          "entryVwap",
+          "maePx",
+          "exitVwap",
+          "realizedPnl",
+          "maxDrawdownPct"
+        ],
+        "type": "object"
+      },
       "MostTradedCoin": {
         "additionalProperties": false,
         "properties": {
@@ -3429,36 +4325,34 @@
         ],
         "type": "object"
       },
-      "Numeric": {
+      "NewcomerWhale": {
         "additionalProperties": false,
         "properties": {
-          "Exp": {
+          "firstSeen": {
+            "type": "string"
+          },
+          "grossNotional": {
+            "format": "double",
+            "type": "number"
+          },
+          "lifecycles": {
             "format": "int32",
             "type": "integer"
           },
-          "InfinityModifier": {
-            "format": "int32",
-            "type": "integer"
+          "totalPnl": {
+            "format": "double",
+            "type": "number"
           },
-          "Int": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "NaN": {
-            "type": "boolean"
-          },
-          "Valid": {
-            "type": "boolean"
+          "wallet": {
+            "type": "string"
           }
         },
         "required": [
-          "Int",
-          "Exp",
-          "NaN",
-          "InfinityModifier",
-          "Valid"
+          "wallet",
+          "firstSeen",
+          "grossNotional",
+          "totalPnl",
+          "lifecycles"
         ],
         "type": "object"
       },
@@ -3548,6 +4442,43 @@
         ],
         "type": "object"
       },
+      "OneMonthWonder": {
+        "additionalProperties": false,
+        "properties": {
+          "activeMonths": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "bestMonthPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "giveback": {
+            "format": "double",
+            "type": "number"
+          },
+          "profitableMonths": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "bestMonthPnl",
+          "totalPnl",
+          "giveback",
+          "activeMonths",
+          "profitableMonths"
+        ],
+        "type": "object"
+      },
       "ParsedPriceBinary": {
         "additionalProperties": false,
         "properties": {
@@ -3572,6 +4503,64 @@
           "class",
           "underlying",
           "period"
+        ],
+        "type": "object"
+      },
+      "PerfectExitRow": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": "string"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "entryVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "exitVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mfeCapturePct": {
+            "format": "double",
+            "type": "number"
+          },
+          "mfePx": {
+            "format": "double",
+            "type": "number"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "coin",
+          "side",
+          "openedAt",
+          "closedAt",
+          "entryVwap",
+          "exitVwap",
+          "mfePx",
+          "realizedPnl",
+          "mfeCapturePct"
         ],
         "type": "object"
       },
@@ -3738,6 +4727,127 @@
           "since",
           "sides",
           "topWallets"
+        ],
+        "type": "object"
+      },
+      "PersistentWinner": {
+        "additionalProperties": false,
+        "properties": {
+          "bestMonthPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "profitableMonths": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "profitableMonths",
+          "totalPnl",
+          "bestMonthPnl"
+        ],
+        "type": "object"
+      },
+      "RecentLifecycleRow": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "builderFee": {
+            "format": "double",
+            "type": "number"
+          },
+          "closedAt": {
+            "type": "string"
+          },
+          "closedAtRaw": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "durationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "entryVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "exitVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "fees": {
+            "format": "double",
+            "type": "number"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "maePx": {
+            "format": "double",
+            "type": "number"
+          },
+          "mfePx": {
+            "format": "double",
+            "type": "number"
+          },
+          "notional": {
+            "format": "double",
+            "type": "number"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "openedAtRaw": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "peakSize": {
+            "format": "double",
+            "type": "number"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          },
+          "wasLiquidated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "coin",
+          "side",
+          "entryVwap",
+          "peakSize",
+          "notional",
+          "realizedPnl",
+          "fees",
+          "builderFee",
+          "wasLiquidated",
+          "openedAt",
+          "closedAt",
+          "openedAtRaw",
+          "closedAtRaw",
+          "durationMs"
         ],
         "type": "object"
       },
@@ -4084,19 +5194,67 @@
         ],
         "type": "object"
       },
-      "Text": {
+      "StyleDistributionRow": {
         "additionalProperties": false,
         "properties": {
-          "String": {
+          "avgPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "lifecycles": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "style": {
             "type": "string"
           },
-          "Valid": {
-            "type": "boolean"
+          "totalFees": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallets": {
+            "format": "int32",
+            "type": "integer"
           }
         },
         "required": [
-          "String",
-          "Valid"
+          "style",
+          "lifecycles",
+          "wallets",
+          "totalPnl",
+          "avgPnl",
+          "totalFees"
+        ],
+        "type": "object"
+      },
+      "Survivor": {
+        "additionalProperties": false,
+        "properties": {
+          "currentCumPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "recoveryAmount": {
+            "format": "double",
+            "type": "number"
+          },
+          "trough": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "trough",
+          "currentCumPnl",
+          "recoveryAmount"
         ],
         "type": "object"
       },
@@ -4139,28 +5297,6 @@
         ],
         "type": "object"
       },
-      "Timestamptz": {
-        "additionalProperties": false,
-        "properties": {
-          "InfinityModifier": {
-            "format": "int32",
-            "type": "integer"
-          },
-          "Time": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "Valid": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "Time",
-          "InfinityModifier",
-          "Valid"
-        ],
-        "type": "object"
-      },
       "TokenLeaderboardEntry": {
         "additionalProperties": false,
         "properties": {
@@ -4195,6 +5331,43 @@
           "winningTrades",
           "winRate",
           "volume"
+        ],
+        "type": "object"
+      },
+      "TopLiquidatorRow": {
+        "additionalProperties": false,
+        "properties": {
+          "distinctCoins": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "distinctVictims": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "liquidationsExecuted": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalLiquidationPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalPenaltyCollected": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "liquidationsExecuted",
+          "distinctVictims",
+          "distinctCoins",
+          "totalPenaltyCollected",
+          "totalLiquidationPnl"
         ],
         "type": "object"
       },
@@ -4572,6 +5745,250 @@
           "requestsPerMonth"
         ],
         "type": "object"
+      },
+      "WalletCompareBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/WalletCompareBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "wallets": {
+            "items": {
+              "$ref": "#/components/schemas/WalletComparisonRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "wallets"
+        ],
+        "type": "object"
+      },
+      "WalletComparisonRow": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WalletLifecycleSummaryBody"
+          }
+        },
+        "required": [
+          "address",
+          "summary"
+        ],
+        "type": "object"
+      },
+      "WalletDemoBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/WalletDemoBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "recentTopLosses": {
+            "items": {
+              "$ref": "#/components/schemas/LifecycleRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "recentTopWins": {
+            "items": {
+              "$ref": "#/components/schemas/LifecycleRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WalletLifecycleSummaryBody"
+          }
+        },
+        "required": [
+          "address",
+          "summary",
+          "recentTopWins",
+          "recentTopLosses"
+        ],
+        "type": "object"
+      },
+      "WalletLifecycleSummaryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/WalletLifecycleSummaryBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "avgDurationMs": {
+            "format": "double",
+            "type": "number"
+          },
+          "avgPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "biggestLoss": {
+            "format": "double",
+            "type": "number"
+          },
+          "biggestWin": {
+            "format": "double",
+            "type": "number"
+          },
+          "closed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "firstOpenedAt": {
+            "type": "string"
+          },
+          "lastActivityAt": {
+            "type": "string"
+          },
+          "liquidations": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "losses": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "maxDurationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "minDurationMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "open": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalBuilderFees": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalFees": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "uniqueCoins": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "winRate": {
+            "format": "double",
+            "type": "number"
+          },
+          "wins": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "address",
+          "total",
+          "closed",
+          "open",
+          "wins",
+          "losses",
+          "liquidations",
+          "winRate",
+          "totalPnl",
+          "totalFees",
+          "totalBuilderFees",
+          "avgPnl",
+          "biggestWin",
+          "biggestLoss",
+          "avgDurationMs",
+          "uniqueCoins"
+        ],
+        "type": "object"
+      },
+      "WalletLifecyclesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/WalletLifecyclesBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "lifecycles": {
+            "items": {
+              "$ref": "#/components/schemas/LifecycleRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "limit": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "offset": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "address",
+          "total",
+          "limit",
+          "offset",
+          "lifecycles"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -4579,6 +5996,7 @@
         "description": "Get one at https://coinversa.ai/developers",
         "in": "header",
         "name": "X-API-Key",
+        "scheme": "apiKey",
         "type": "apiKey"
       }
     }
@@ -7743,6 +9161,255 @@
         "summary": "Get API public v1 market price by symbol"
       }
     },
+    "//api/public/v1/pulse/anti-survivors": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-anti-survivors",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "maxTrough",
+            "schema": {
+              "default": -10000,
+              "format": "double",
+              "maximum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "stillUnderwater",
+            "schema": {
+              "default": 0,
+              "format": "double",
+              "maximum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AntiSurvivor"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse anti survivors"
+      }
+    },
+    "//api/public/v1/pulse/backstop-events": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-backstop-events",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "maxRealizedPnl",
+            "schema": {
+              "default": -10000,
+              "format": "double",
+              "maximum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BackstopEventRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse backstop events"
+      }
+    },
     "//api/public/v1/pulse/biggest-losses": {
       "get": {
         "operationId": "list-api-public-v1-pulse-biggest-losses",
@@ -7943,6 +9610,132 @@
           }
         ],
         "summary": "List API public v1 pulse biggest wins"
+      }
+    },
+    "//api/public/v1/pulse/capital-titans": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-capital-titans",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minPnl",
+            "schema": {
+              "default": 10000,
+              "format": "double",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minFees",
+            "schema": {
+              "default": 100,
+              "format": "double",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CapitalTitan"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse capital titans"
       }
     },
     "//api/public/v1/pulse/closed-positions/recent": {
@@ -8195,6 +9988,606 @@
           }
         ],
         "summary": "List API public v1 pulse cohort bias history"
+      }
+    },
+    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/alpha-concentration": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-alpha-concentration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tierType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "pnl",
+                "size"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CohortAlphaConcentrationRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse cohorts recent by tier type by tier alpha concentration"
+      }
+    },
+    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/lifecycle-stats": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-lifecycle-stats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tierType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "pnl",
+                "size"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CohortLifecycleStatsRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse cohorts recent by tier type by tier lifecycle stats"
+      }
+    },
+    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/positions": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-positions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tierType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "pnl",
+                "size"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CohortPosition"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse cohorts recent by tier type by tier positions"
+      }
+    },
+    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/top-positions": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-top-positions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tierType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "pnl",
+                "size"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CohortTopPositionRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse cohorts recent by tier type by tier top positions"
+      }
+    },
+    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/trades": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-trades",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tierType",
+            "required": true,
+            "schema": {
+              "enum": [
+                "pnl",
+                "size"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "default": "1h",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TradeBody"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse cohorts recent by tier type by tier trades"
       }
     },
     "//api/public/v1/pulse/cohorts/daily-stats": {
@@ -8738,6 +11131,311 @@
         "summary": "List API public v1 pulse cohorts by tier type by tier trades"
       }
     },
+    "//api/public/v1/pulse/coin-alpha-map": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-coin-alpha-map",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CoinAlphaMapRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse coin alpha map"
+      }
+    },
+    "//api/public/v1/pulse/coin-kings": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-coin-kings",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "perCoinRank",
+            "schema": {
+              "default": 1,
+              "format": "int32",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CoinKing"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse coin kings"
+      }
+    },
+    "//api/public/v1/pulse/compare": {
+      "get": {
+        "operationId": "get-api-public-v1-pulse-compare",
+        "parameters": [
+          {
+            "description": "Comma-separated list of 2-5 wallet addresses",
+            "explode": false,
+            "in": "query",
+            "name": "wallets",
+            "schema": {
+              "description": "Comma-separated list of 2-5 wallet addresses",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletCompareBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 pulse compare"
+      }
+    },
     "//api/public/v1/pulse/hidden-gems": {
       "get": {
         "operationId": "list-api-public-v1-pulse-hidden-gems",
@@ -8869,6 +11567,75 @@
         "summary": "List API public v1 pulse hidden gems"
       }
     },
+    "//api/public/v1/pulse/hour-profitability": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-hour-profitability",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HourProfitabilityRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse hour profitability"
+      }
+    },
     "//api/public/v1/pulse/leaderboard": {
       "get": {
         "operationId": "get-api-public-v1-pulse-leaderboard",
@@ -8984,6 +11751,434 @@
           }
         ],
         "summary": "Get API public v1 pulse leaderboard"
+      }
+    },
+    "//api/public/v1/pulse/lethal-coins": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-lethal-coins",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minLifecycles",
+            "schema": {
+              "default": 100,
+              "format": "int32",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LethalCoinRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse lethal coins"
+      }
+    },
+    "//api/public/v1/pulse/lifecycle/{id}": {
+      "get": {
+        "operationId": "get-api-public-v1-pulse-lifecycle-by-id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleDetailBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 pulse lifecycle by ID"
+      }
+    },
+    "//api/public/v1/pulse/lifecycles/recent": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-lifecycles-recent",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "default": "1h",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "coin",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "includeSpot",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minNotional",
+            "schema": {
+              "default": -1,
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minDuration",
+            "schema": {
+              "default": -1,
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "maxDuration",
+            "schema": {
+              "default": -1,
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecentLifecycleRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse lifecycles recent"
+      }
+    },
+    "//api/public/v1/pulse/market-concentration": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-market-concentration",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MarketConcentrationRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse market concentration"
       }
     },
     "//api/public/v1/pulse/market-overview": {
@@ -9179,6 +12374,132 @@
         "summary": "List API public v1 pulse market candles recent by symbol"
       }
     },
+    "//api/public/v1/pulse/max-pain-events": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-max-pain-events",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minDrawdownPct",
+            "schema": {
+              "default": 10,
+              "format": "double",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minPnl",
+            "schema": {
+              "default": 1000,
+              "format": "double",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MaxPainEventRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse max pain events"
+      }
+    },
     "//api/public/v1/pulse/most-traded": {
       "get": {
         "operationId": "list-api-public-v1-pulse-most-traded",
@@ -9270,6 +12591,491 @@
         "summary": "List API public v1 pulse most traded"
       }
     },
+    "//api/public/v1/pulse/newcomer-whales": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-newcomer-whales",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "newcomerDays",
+            "schema": {
+              "default": 30,
+              "format": "int32",
+              "maximum": 90,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minNotional",
+            "schema": {
+              "default": 100000,
+              "format": "double",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NewcomerWhale"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse newcomer whales"
+      }
+    },
+    "//api/public/v1/pulse/one-month-wonders": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-one-month-wonders",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minBestMonth",
+            "schema": {
+              "default": 50000,
+              "format": "double",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OneMonthWonder"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse one month wonders"
+      }
+    },
+    "//api/public/v1/pulse/perfect-exits": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-perfect-exits",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minCapturePct",
+            "schema": {
+              "default": 90,
+              "format": "double",
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minPnl",
+            "schema": {
+              "default": 1000,
+              "format": "double",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PerfectExitRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse perfect exits"
+      }
+    },
+    "//api/public/v1/pulse/persistent-winners": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-persistent-winners",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minMonths",
+            "schema": {
+              "default": 2,
+              "format": "int32",
+              "maximum": 3,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersistentWinner"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse persistent winners"
+      }
+    },
     "//api/public/v1/pulse/stats": {
       "get": {
         "operationId": "get-api-public-v1-pulse-stats",
@@ -9331,6 +13137,190 @@
           }
         ],
         "summary": "Get API public v1 pulse stats"
+      }
+    },
+    "//api/public/v1/pulse/style-distribution": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-style-distribution",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StyleDistributionRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse style distribution"
+      }
+    },
+    "//api/public/v1/pulse/survivors": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-survivors",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "maxTrough",
+            "schema": {
+              "default": -10000,
+              "format": "double",
+              "maximum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Survivor"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse survivors"
       }
     },
     "//api/public/v1/pulse/token-leaderboard/{coin}": {
@@ -9430,6 +13420,110 @@
           }
         ],
         "summary": "List API public v1 pulse token leaderboard by coin"
+      }
+    },
+    "//api/public/v1/pulse/top-liquidators": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-top-liquidators",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TopLiquidatorRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse top liquidators"
       }
     },
     "//api/public/v1/pulse/trader/{address}": {
@@ -9842,6 +13936,344 @@
           }
         ],
         "summary": "List API public v1 pulse trader by address daily"
+      }
+    },
+    "//api/public/v1/pulse/trader/{address}/demo": {
+      "get": {
+        "operationId": "get-api-public-v1-pulse-trader-by-address-demo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletDemoBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 pulse trader by address demo"
+      }
+    },
+    "//api/public/v1/pulse/trader/{address}/lifecycle-summary": {
+      "get": {
+        "operationId": "get-api-public-v1-pulse-trader-by-address-lifecycle-summary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "coin",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "includeSpot",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "includeCensored",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletLifecycleSummaryBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 pulse trader by address lifecycle summary"
+      }
+    },
+    "//api/public/v1/pulse/trader/{address}/lifecycles": {
+      "get": {
+        "operationId": "get-api-public-v1-pulse-trader-by-address-lifecycles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "coin",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "default": "closed",
+              "enum": [
+                "open",
+                "closed",
+                "all"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "includeSpot",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "includeCensored",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletLifecyclesBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 pulse trader by address lifecycles"
       }
     },
     "//api/public/v1/pulse/trader/{address}/performance": {
@@ -10268,6 +14700,128 @@
           }
         ],
         "summary": "List API public v1 pulse trades recent"
+      }
+    },
+    "//api/public/v1/pulse/wallet-drawdown-curve/{address}": {
+      "get": {
+        "operationId": "list-api-public-v1-pulse-wallet-drawdown-curve-by-address",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DrawdownCurveRow"
+                  },
+                  "type": [
+                    "array",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List API public v1 pulse wallet drawdown curve by address"
       }
     },
     "//api/public/v1/verify": {
