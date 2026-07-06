@@ -137,6 +137,31 @@ Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) �
 | `market_recent_candles`   | Recent candles for a symbol. |
 | `market_historical_oi`    | Historical OI series. |
 
+## Entity resolution — owner-level intelligence · Pro <sup>new in 0.9</sup>
+
+Hyperliquid traders run named sub-accounts that trade independently — per-wallet
+views undercount every multi-account trader. These tools resolve wallets to their
+owner entity and aggregate across the whole family.
+
+| Tool | Description |
+|------|-------------|
+| `pulse_entity_profile`     | Resolve ANY wallet to its owner entity: master, named sub-accounts, each member's open book, combined positions, and a verified-vs-chain stamp. **Pro tier.** |
+| `pulse_entity_leaderboard` | Top entities (owners, not wallets) by combined gross open notional — a fund running 35 sub-accounts shows as one entity. **Pro tier.** |
+
+## Exchange aggregates <sup>new in 0.9</sup>
+
+| Tool | Description |
+|------|-------------|
+| `pulse_exchange_volume` | 24h volume, total and **per dex** — builder dexes are ~43% of Hyperliquid volume and most trackers' headlines omit them. |
+| `pulse_exchange_oi`     | Open interest by dex with long/short notional split. |
+| `pulse_active_traders`  | Distinct wallets that traded in the last 24h. |
+
+## Plans & limits <sup>new in 0.9</sup>
+
+| Tool | Description |
+|------|-------------|
+| `pulse_my_plan` | The caller's tier, effective rate limits, and every tier's limits with an upgrade link. Agents call this when a request is rejected for tier or rate-limit reasons. |
+
 ## HIP-4 — outcome contracts
 
 | Tool | Description |
