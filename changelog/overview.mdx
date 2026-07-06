@@ -42,8 +42,8 @@ carry the chain block they were last verified against.
   carry `current_tier`, `required_tier`, and an `upgrade_url` (code
   `TIER_GATE`), so agents can explain exactly what a request needs instead of
   a bare "forbidden".
-- The MCP tool surface grew from **83 → 89 tools**; the REST API from **87 →
-  94 endpoints**.
+- The MCP tool surface grew from **83 → 91 tools**; the REST API from **87 →
+  96 endpoints**.
 - Data-accuracy note: this release follows a full reconciliation of the
   position dataset against Hyperliquid chain state — open positions, open
   interest, and volumes now match independent trackers to well under 1%,
@@ -68,7 +68,7 @@ Pulse 0.8.0 is built on a fully re-derived [position-lifecycle](/concepts/positi
 
 ### Updates
 
-- The Pulse MCP tool surface grew from **55 → 89 tools** — see the full catalog in [MCP tools](/mcp/tools). The REST API now exposes **94 endpoints**.
+- The Pulse MCP tool surface grew from **55 → 91 tools** — see the full catalog in [MCP tools](/mcp/tools). The REST API now exposes **96 endpoints**.
 - The legacy closed-position tools (`pulse_trader_closed_positions`, `pulse_trader_closed_position_stats`, `pulse_recent_closed_positions`) are kept for backward compatibility but are **superseded** by the lifecycle tools, which read the corrected lifecycle dataset (more history, MAE/MFE, spot coverage).
 
 ### Notes

@@ -1778,6 +1778,53 @@
         ],
         "type": "object"
       },
+      "DexPositions": {
+        "additionalProperties": false,
+        "properties": {
+          "closed24h": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "dex": {
+            "type": "string"
+          },
+          "grossLosses24h": {
+            "format": "double",
+            "type": "number"
+          },
+          "grossProfits24h": {
+            "format": "double",
+            "type": "number"
+          },
+          "liquidated24h": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "openPositions": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "realizedPnl24h": {
+            "format": "double",
+            "type": "number"
+          },
+          "walletsWithPositions": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dex",
+          "openPositions",
+          "walletsWithPositions",
+          "closed24h",
+          "liquidated24h",
+          "realizedPnl24h",
+          "grossProfits24h",
+          "grossLosses24h"
+        ],
+        "type": "object"
+      },
       "DexVolume": {
         "additionalProperties": false,
         "properties": {
@@ -5253,6 +5300,130 @@
         ],
         "type": "object"
       },
+      "PnlLeader": {
+        "additionalProperties": false,
+        "properties": {
+          "liquidations": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "positionsClosed": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "realizedPnl",
+          "positionsClosed",
+          "liquidations"
+        ],
+        "type": "object"
+      },
+      "PnlLeadersBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/PnlLeadersBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "losers": {
+            "items": {
+              "$ref": "#/components/schemas/PnlLeader"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "window": {
+            "type": "string"
+          },
+          "winners": {
+            "items": {
+              "$ref": "#/components/schemas/PnlLeader"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "window",
+          "winners",
+          "losers",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
+      "PositionsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/PositionsBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "byDex": {
+            "items": {
+              "$ref": "#/components/schemas/DexPositions"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "realizedPnl24h": {
+            "description": "Sum of realized PnL on every position closed in 24h, exchange-wide",
+            "format": "double",
+            "type": "number"
+          },
+          "totalClosed24h": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalLiquidated24h": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalOpenPositions": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalOpenPositions",
+          "totalClosed24h",
+          "totalLiquidated24h",
+          "realizedPnl24h",
+          "byDex",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
       "RecentLifecycleRow": {
         "additionalProperties": false,
         "properties": {
@@ -7211,6 +7382,156 @@
           }
         ],
         "summary": "Get API public v1 exchange oi"
+      }
+    },
+    "/api/public/v1/exchange/pnl-leaders": {
+      "get": {
+        "operationId": "get-api-public-v1-exchange-pnl-leaders",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PnlLeadersBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 exchange pnl leaders"
+      }
+    },
+    "/api/public/v1/exchange/positions": {
+      "get": {
+        "operationId": "get-api-public-v1-exchange-positions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 exchange positions"
       }
     },
     "/api/public/v1/exchange/volume": {
