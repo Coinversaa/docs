@@ -3,6 +3,54 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="July 5, 2026" tags={["v0.9.0"]}>
+
+## Entity resolution, tier-aware sessions & exchange aggregates
+
+Pulse 0.9.0 adds **owner-level intelligence**: Hyperliquid traders run named
+sub-accounts that trade independently, so per-wallet views undercount every
+multi-account trader. Pulse now resolves any wallet to its owner entity and
+aggregates across the whole family — a view no other Hyperliquid data product
+offers. Under the hood, the position dataset is now **reconciled hourly
+against Hyperliquid's own chain state** (the census pipeline), and responses
+carry the chain block they were last verified against.
+
+### New features
+
+- **Entity resolution** — `GET /entity/{address}` resolves any wallet
+  (master, sub-account, or unknown) to its owner entity: master address,
+  every named sub-account, each member's open book, the combined positions
+  across all of them, and a verified-vs-chain stamp. `GET
+  /entities/leaderboard` ranks the top *owners* (not wallets) by combined
+  open notional. Both Pro tier. MCP: `pulse_entity_profile`,
+  `pulse_entity_leaderboard`.
+- **Exchange aggregates** — `GET /exchange/volume` (24h volume **by dex** —
+  builder dexes are ~43% of Hyperliquid volume and most trackers' headline
+  numbers omit them), `GET /exchange/oi` (open interest by dex with
+  long/short split), `GET /exchange/active-traders` (24h distinct traders).
+  MCP: `pulse_exchange_volume`, `pulse_exchange_oi`, `pulse_active_traders`.
+- **Plan introspection** — `GET /plan` returns the caller's tier, effective
+  limits, and every tier's limits with an upgrade link. MCP:
+  `pulse_my_plan`.
+- **Chain-verification stamp** — `GET /census/stamp` exposes the chain-state
+  block the dataset was last reconciled against; entity responses include it
+  inline.
+
+### Updates
+
+- **Tier-gated and rate-limited responses are now machine-actionable**: 403s
+  carry `current_tier`, `required_tier`, and an `upgrade_url` (code
+  `TIER_GATE`), so agents can explain exactly what a request needs instead of
+  a bare "forbidden".
+- The MCP tool surface grew from **83 → 89 tools**; the REST API from **87 →
+  94 endpoints**.
+- Data-accuracy note: this release follows a full reconciliation of the
+  position dataset against Hyperliquid chain state — open positions, open
+  interest, and volumes now match independent trackers to well under 1%,
+  with the residual continuously verified.
+
+</Update>
+
 <Update label="June 9, 2026" tags={["v0.8.0"]}>
 
 ## Position lifecycles & execution quality
@@ -20,7 +68,7 @@ Pulse 0.8.0 is built on a fully re-derived [position-lifecycle](/concepts/positi
 
 ### Updates
 
-- The Pulse MCP tool surface grew from **55 → 83 tools** — see the full catalog in [MCP tools](/mcp/tools). The REST API now exposes **87 endpoints**.
+- The Pulse MCP tool surface grew from **55 → 89 tools** — see the full catalog in [MCP tools](/mcp/tools). The REST API now exposes **94 endpoints**.
 - The legacy closed-position tools (`pulse_trader_closed_positions`, `pulse_trader_closed_position_stats`, `pulse_recent_closed_positions`) are kept for backward compatibility but are **superseded** by the lifecycle tools, which read the corrected lifecycle dataset (more history, MAE/MFE, spot coverage).
 
 ### Notes

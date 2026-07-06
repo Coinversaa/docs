@@ -7,7 +7,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/APIError.json"
+              "https://api.coinversa.ai/schemas/APIError.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -15,6 +15,10 @@
           },
           "code": {
             "description": "Machine-readable error code",
+            "type": "string"
+          },
+          "current_tier": {
+            "description": "Caller's effective tier",
             "type": "string"
           },
           "detail": {
@@ -42,6 +46,10 @@
             "format": "uri",
             "type": "string"
           },
+          "required_tier": {
+            "description": "Minimum tier for this operation",
+            "type": "string"
+          },
           "status": {
             "description": "HTTP status code",
             "examples": [
@@ -65,8 +73,47 @@
             ],
             "format": "uri",
             "type": "string"
+          },
+          "upgrade_url": {
+            "description": "Where to upgrade",
+            "type": "string"
           }
         },
+        "type": "object"
+      },
+      "ActiveTradersBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/ActiveTradersBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "activeTraders": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "matches": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "window": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "window",
+          "activeTraders",
+          "matches",
+          "generatedAt"
+        ],
         "type": "object"
       },
       "AntiSurvivor": {
@@ -278,6 +325,31 @@
         ],
         "type": "object"
       },
+      "CensusStamp": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_time": {
+            "description": "Chain timestamp of that snapshot (RFC3339)",
+            "type": "string"
+          },
+          "positions": {
+            "description": "Open perp positions on the whole exchange at that snapshot",
+            "format": "int32",
+            "type": "integer"
+          },
+          "verified_at_block": {
+            "description": "Chain state snapshot block this data was last verified against",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "verified_at_block",
+          "chain_time",
+          "positions"
+        ],
+        "type": "object"
+      },
       "ClosedPosition": {
         "additionalProperties": false,
         "properties": {
@@ -376,7 +448,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/ClosedPositionStatsBody.json"
+              "https://api.coinversa.ai/schemas/ClosedPositionStatsBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -840,7 +912,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/CohortSummaryBody.json"
+              "https://api.coinversa.ai/schemas/CohortSummaryBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1094,7 +1166,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/CoinLongShortBody.json"
+              "https://api.coinversa.ai/schemas/CoinLongShortBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1222,7 +1294,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/CoinRiskHistoryBody.json"
+              "https://api.coinversa.ai/schemas/CoinRiskHistoryBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1306,7 +1378,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/CoinRiskSnapshotBody.json"
+              "https://api.coinversa.ai/schemas/CoinRiskSnapshotBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1638,7 +1710,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/CrossProductOverlapBody.json"
+              "https://api.coinversa.ai/schemas/CrossProductOverlapBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1670,6 +1742,69 @@
           "perpTradersTotal",
           "overlap",
           "overlapPct"
+        ],
+        "type": "object"
+      },
+      "DexOI": {
+        "additionalProperties": false,
+        "properties": {
+          "dex": {
+            "type": "string"
+          },
+          "grossNotionalUsd": {
+            "description": "Both sides summed (matches HyperTracker/hl.eco convention); halve for one-sided OI",
+            "format": "double",
+            "type": "number"
+          },
+          "longNotionalUsd": {
+            "format": "double",
+            "type": "number"
+          },
+          "openPositions": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "shortNotionalUsd": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "dex",
+          "openPositions",
+          "grossNotionalUsd",
+          "longNotionalUsd",
+          "shortNotionalUsd"
+        ],
+        "type": "object"
+      },
+      "DexVolume": {
+        "additionalProperties": false,
+        "properties": {
+          "dex": {
+            "description": "'hl' = native Hyperliquid; otherwise the builder-dex prefix (xyz, hyna, ...)",
+            "type": "string"
+          },
+          "matches": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "traders": {
+            "description": "Distinct wallets that filled on this dex in the window",
+            "format": "int32",
+            "type": "integer"
+          },
+          "volumeUsd": {
+            "description": "Exchange-side volume (each match counted once)",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "dex",
+          "volumeUsd",
+          "matches",
+          "traders"
         ],
         "type": "object"
       },
@@ -1732,6 +1867,193 @@
         ],
         "type": "object"
       },
+      "EntityLeaderboardBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/EntityLeaderboardBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityLeaderboardRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "verified": {
+            "$ref": "#/components/schemas/CensusStamp"
+          }
+        },
+        "required": [
+          "entities"
+        ],
+        "type": "object"
+      },
+      "EntityLeaderboardRow": {
+        "additionalProperties": false,
+        "properties": {
+          "entity": {
+            "type": "string"
+          },
+          "grossEntryNotional": {
+            "format": "double",
+            "type": "number"
+          },
+          "openPositions": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "wallets": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entity",
+          "wallets",
+          "openPositions",
+          "grossEntryNotional"
+        ],
+        "type": "object"
+      },
+      "EntityMember": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "grossEntryNotional": {
+            "format": "double",
+            "type": "number"
+          },
+          "name": {
+            "description": "User-assigned sub-account label (vault name for vault subs)",
+            "type": "string"
+          },
+          "openPositions": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "relation": {
+            "description": "master | subaccount | linked",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "relation",
+          "openPositions",
+          "grossEntryNotional"
+        ],
+        "type": "object"
+      },
+      "EntityPosition": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "entryVwap": {
+            "format": "double",
+            "type": "number"
+          },
+          "openedAt": {
+            "type": "string"
+          },
+          "size": {
+            "description": "Signed: negative = short",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "address",
+          "coin",
+          "direction",
+          "size",
+          "entryVwap",
+          "openedAt"
+        ],
+        "type": "object"
+      },
+      "EntityProfileBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/EntityProfileBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "combinedGrossEntryNotional": {
+            "format": "double",
+            "type": "number"
+          },
+          "combinedOpenPositions": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "combinedWallets": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "entity": {
+            "description": "Master address — the entity id",
+            "type": "string"
+          },
+          "isMultiWallet": {
+            "type": "boolean"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/EntityMember"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "topOpenPositions": {
+            "items": {
+              "$ref": "#/components/schemas/EntityPosition"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "verified": {
+            "$ref": "#/components/schemas/CensusStamp"
+          }
+        },
+        "required": [
+          "entity",
+          "isMultiWallet",
+          "members",
+          "combinedWallets",
+          "combinedOpenPositions",
+          "combinedGrossEntryNotional",
+          "topOpenPositions"
+        ],
+        "type": "object"
+      },
       "ErrorDetail": {
         "additionalProperties": false,
         "properties": {
@@ -1749,13 +2071,35 @@
         },
         "type": "object"
       },
+      "Get-api-public-v1-census-stampResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/Get-api-public-v1-census-stampResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "verified": {
+            "$ref": "#/components/schemas/CensusStamp",
+            "description": "null until the census pipeline has run on this database"
+          }
+        },
+        "required": [
+          "verified"
+        ],
+        "type": "object"
+      },
       "Get-api-public-v1-live-long-short-historyResponse": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/Get-api-public-v1-live-long-short-historyResponse.json"
+              "https://api.coinversa.ai/schemas/Get-api-public-v1-live-long-short-historyResponse.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1786,7 +2130,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/Get-api-public-v1-live-official-oi-by-coinResponse.json"
+              "https://api.coinversa.ai/schemas/Get-api-public-v1-live-official-oi-by-coinResponse.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1821,7 +2165,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/Get-api-public-v1-live-risk-coins-by-coin-mark-dislocationsResponse.json"
+              "https://api.coinversa.ai/schemas/Get-api-public-v1-live-risk-coins-by-coin-mark-dislocationsResponse.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1851,6 +2195,19 @@
           "availability",
           "freshness",
           "generatedAt"
+        ],
+        "type": "object"
+      },
+      "Get-x402-api-public-v1-census-stampResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "verified": {
+            "$ref": "#/components/schemas/CensusStamp",
+            "description": "null until the census pipeline has run on this database"
+          }
+        },
+        "required": [
+          "verified"
         ],
         "type": "object"
       },
@@ -1938,7 +2295,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/GetAssetBody.json"
+              "https://api.coinversa.ai/schemas/GetAssetBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -1967,7 +2324,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/GetAssetCrossMarketBody.json"
+              "https://api.coinversa.ai/schemas/GetAssetCrossMarketBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -2010,7 +2367,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/GetAssetsBody.json"
+              "https://api.coinversa.ai/schemas/GetAssetsBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -2462,7 +2819,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/GlobalLongShortBody.json"
+              "https://api.coinversa.ai/schemas/GlobalLongShortBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -2581,7 +2938,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/GlobalStatsBody.json"
+              "https://api.coinversa.ai/schemas/GlobalStatsBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -2668,7 +3025,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/HIP4DailyVolumeBody.json"
+              "https://api.coinversa.ai/schemas/HIP4DailyVolumeBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -2699,7 +3056,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/HIP4OutcomeDetailBody.json"
+              "https://api.coinversa.ai/schemas/HIP4OutcomeDetailBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -2718,6 +3075,9 @@
         "additionalProperties": false,
         "properties": {
           "description": {
+            "type": "string"
+          },
+          "displayName": {
             "type": "string"
           },
           "fills": {
@@ -2802,10 +3162,13 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/HIP4OutcomeSummaryBody.json"
+              "https://api.coinversa.ai/schemas/HIP4OutcomeSummaryBody.json"
             ],
             "format": "uri",
             "readOnly": true,
+            "type": "string"
+          },
+          "displayName": {
             "type": "string"
           },
           "fills": {
@@ -2816,6 +3179,9 @@
             "type": "string"
           },
           "lastTraded": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "notionalUsdh": {
@@ -2994,7 +3360,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/HIP4RecentTradesBody.json"
+              "https://api.coinversa.ai/schemas/HIP4RecentTradesBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3003,6 +3369,12 @@
           "count": {
             "format": "int64",
             "type": "integer"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           },
           "outcomeId": {
             "format": "int64",
@@ -3028,9 +3400,15 @@
       "HIP4SettlementItem": {
         "additionalProperties": false,
         "properties": {
+          "displayName": {
+            "type": "string"
+          },
           "loserFills": {
             "format": "int64",
             "type": "integer"
+          },
+          "name": {
+            "type": "string"
           },
           "outcomeId": {
             "format": "int64",
@@ -3072,7 +3450,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/HIP4SettlementsBody.json"
+              "https://api.coinversa.ai/schemas/HIP4SettlementsBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3132,7 +3510,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/HLMarkPriceBody.json"
+              "https://api.coinversa.ai/schemas/HLMarkPriceBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3233,7 +3611,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/HLMarketOverviewBody.json"
+              "https://api.coinversa.ai/schemas/HLMarketOverviewBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3264,7 +3642,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/HLOrderBookBody.json"
+              "https://api.coinversa.ai/schemas/HLOrderBookBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3502,7 +3880,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/LeaderboardBody.json"
+              "https://api.coinversa.ai/schemas/LeaderboardBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3534,7 +3912,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/LeaderboardTrader.json"
+              "https://api.coinversa.ai/schemas/LeaderboardTrader.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3658,7 +4036,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/LifecycleDetailBody.json"
+              "https://api.coinversa.ai/schemas/LifecycleDetailBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3857,7 +4235,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/LiquidationHeatmapBody.json"
+              "https://api.coinversa.ai/schemas/LiquidationHeatmapBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3908,7 +4286,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/LiquidationSummaryBody.json"
+              "https://api.coinversa.ai/schemas/LiquidationSummaryBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -3994,7 +4372,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/ListOutcomesBody.json"
+              "https://api.coinversa.ai/schemas/ListOutcomesBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -4026,7 +4404,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/ListQuestionsBody.json"
+              "https://api.coinversa.ai/schemas/ListQuestionsBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -4356,13 +4734,49 @@
         ],
         "type": "object"
       },
+      "OIBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/OIBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "byDex": {
+            "items": {
+              "$ref": "#/components/schemas/DexOI"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "totalGrossUsd": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "totalGrossUsd",
+          "byDex",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
       "OIHistoryBody": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/OIHistoryBody.json"
+              "https://api.coinversa.ai/schemas/OIHistoryBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -4686,7 +5100,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/PerpPositionContextBody.json"
+              "https://api.coinversa.ai/schemas/PerpPositionContextBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -4754,6 +5168,88 @@
           "profitableMonths",
           "totalPnl",
           "bestMonthPnl"
+        ],
+        "type": "object"
+      },
+      "PlanBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/PlanBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "requestsPerDay": {
+            "description": "0 = unlimited",
+            "format": "int64",
+            "type": "integer"
+          },
+          "requestsPerMin": {
+            "format": "double",
+            "type": "number"
+          },
+          "requestsPerMonth": {
+            "description": "0 = unlimited",
+            "format": "int64",
+            "type": "integer"
+          },
+          "tier": {
+            "type": "string"
+          },
+          "tiers": {
+            "description": "Every tier's limits, for comparison",
+            "items": {
+              "$ref": "#/components/schemas/PlanTier"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "upgrade_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tier",
+          "requestsPerMin",
+          "requestsPerDay",
+          "requestsPerMonth",
+          "tiers",
+          "upgrade_url"
+        ],
+        "type": "object"
+      },
+      "PlanTier": {
+        "additionalProperties": false,
+        "properties": {
+          "requestsPerDay": {
+            "description": "0 = unlimited",
+            "format": "int64",
+            "type": "integer"
+          },
+          "requestsPerMin": {
+            "format": "double",
+            "type": "number"
+          },
+          "requestsPerMonth": {
+            "description": "0 = unlimited",
+            "format": "int64",
+            "type": "integer"
+          },
+          "tier": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tier",
+          "requestsPerMin",
+          "requestsPerDay",
+          "requestsPerMonth"
         ],
         "type": "object"
       },
@@ -4857,7 +5353,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/RecentLiquidationsBody.json"
+              "https://api.coinversa.ai/schemas/RecentLiquidationsBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -4982,7 +5478,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/RiskOverviewBody.json"
+              "https://api.coinversa.ai/schemas/RiskOverviewBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -5414,7 +5910,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/TopTradersBody.json"
+              "https://api.coinversa.ai/schemas/TopTradersBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -5551,6 +6047,9 @@
       "TraderOutcomeItem": {
         "additionalProperties": false,
         "properties": {
+          "displayName": {
+            "type": "string"
+          },
           "fills": {
             "format": "int64",
             "type": "integer"
@@ -5567,6 +6066,9 @@
             "type": "number"
           },
           "lastTraded": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "netShares": {
@@ -5607,7 +6109,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/TraderOutcomesBody.json"
+              "https://api.coinversa.ai/schemas/TraderOutcomesBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -5643,7 +6145,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/TraderPerformanceBody.json"
+              "https://api.coinversa.ai/schemas/TraderPerformanceBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -5712,7 +6214,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/VerificationResult.json"
+              "https://api.coinversa.ai/schemas/VerificationResult.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -5746,13 +6248,54 @@
         ],
         "type": "object"
       },
+      "VolumeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/VolumeBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "byDex": {
+            "items": {
+              "$ref": "#/components/schemas/DexVolume"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "generatedAt": {
+            "description": "Aggregates are cached up to 120s",
+            "type": "string"
+          },
+          "totalUsd": {
+            "format": "double",
+            "type": "number"
+          },
+          "window": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "window",
+          "totalUsd",
+          "byDex",
+          "generatedAt"
+        ],
+        "type": "object"
+      },
       "WalletCompareBody": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/WalletCompareBody.json"
+              "https://api.coinversa.ai/schemas/WalletCompareBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -5795,7 +6338,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/WalletDemoBody.json"
+              "https://api.coinversa.ai/schemas/WalletDemoBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -5840,7 +6383,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/WalletLifecycleSummaryBody.json"
+              "https://api.coinversa.ai/schemas/WalletLifecycleSummaryBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -5950,7 +6493,7 @@
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/schemas/WalletLifecyclesBody.json"
+              "https://api.coinversa.ai/schemas/WalletLifecyclesBody.json"
             ],
             "format": "uri",
             "readOnly": true,
@@ -6006,7 +6549,7 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "//api/public/v1/assets": {
+    "/api/public/v1/assets": {
       "get": {
         "operationId": "get-api-public-v1-assets",
         "parameters": [
@@ -6091,7 +6634,7 @@
         "summary": "Get API public v1 assets"
       }
     },
-    "//api/public/v1/assets/{canonical}": {
+    "/api/public/v1/assets/{canonical}": {
       "get": {
         "operationId": "get-api-public-v1-assets-by-canonical",
         "parameters": [
@@ -6184,7 +6727,7 @@
         "summary": "Get API public v1 assets by canonical"
       }
     },
-    "//api/public/v1/assets/{canonical}/cross-market": {
+    "/api/public/v1/assets/{canonical}/cross-market": {
       "get": {
         "operationId": "get-api-public-v1-assets-by-canonical-cross-market",
         "parameters": [
@@ -6277,7 +6820,463 @@
         "summary": "Get API public v1 assets by canonical cross market"
       }
     },
-    "//api/public/v1/hip4/cross-product/overlap": {
+    "/api/public/v1/census/stamp": {
+      "get": {
+        "operationId": "get-api-public-v1-census-stamp",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Get-api-public-v1-census-stampResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 census stamp"
+      }
+    },
+    "/api/public/v1/entities/leaderboard": {
+      "get": {
+        "operationId": "get-api-public-v1-entities-leaderboard",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "maximum": 199,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityLeaderboardBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 entities leaderboard"
+      }
+    },
+    "/api/public/v1/entity/{address}": {
+      "get": {
+        "operationId": "get-api-public-v1-entity-by-address",
+        "parameters": [
+          {
+            "description": "Any wallet — master, sub-account, or unknown; resolves to the owning entity either way",
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "description": "Any wallet — master, sub-account, or unknown; resolves to the owning entity either way",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityProfileBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 entity by address"
+      }
+    },
+    "/api/public/v1/exchange/active-traders": {
+      "get": {
+        "operationId": "get-api-public-v1-exchange-active-traders",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveTradersBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 exchange active traders"
+      }
+    },
+    "/api/public/v1/exchange/oi": {
+      "get": {
+        "operationId": "get-api-public-v1-exchange-oi",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 exchange oi"
+      }
+    },
+    "/api/public/v1/exchange/volume": {
+      "get": {
+        "operationId": "get-api-public-v1-exchange-volume",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 exchange volume"
+      }
+    },
+    "/api/public/v1/hip4/cross-product/overlap": {
       "get": {
         "operationId": "get-api-public-v1-hip4-cross-product-overlap",
         "parameters": [
@@ -6364,7 +7363,7 @@
         "summary": "Get API public v1 hip4 cross product overlap"
       }
     },
-    "//api/public/v1/hip4/daily-volume": {
+    "/api/public/v1/hip4/daily-volume": {
       "get": {
         "operationId": "get-api-public-v1-hip4-daily-volume",
         "parameters": [
@@ -6451,7 +7450,7 @@
         "summary": "Get API public v1 hip4 daily volume"
       }
     },
-    "//api/public/v1/hip4/most-active": {
+    "/api/public/v1/hip4/most-active": {
       "get": {
         "operationId": "get-api-public-v1-hip4-most-active",
         "parameters": [
@@ -6550,7 +7549,7 @@
         "summary": "Get API public v1 hip4 most active"
       }
     },
-    "//api/public/v1/hip4/outcomes": {
+    "/api/public/v1/hip4/outcomes": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes",
         "parameters": [
@@ -6637,7 +7636,7 @@
         "summary": "Get API public v1 hip4 outcomes"
       }
     },
-    "//api/public/v1/hip4/outcomes/{outcome_id}": {
+    "/api/public/v1/hip4/outcomes/{outcome_id}": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id",
         "parameters": [
@@ -6721,7 +7720,7 @@
         "summary": "Get API public v1 hip4 outcomes by outcome ID"
       }
     },
-    "//api/public/v1/hip4/outcomes/{outcome_id}/perp-position-context": {
+    "/api/public/v1/hip4/outcomes/{outcome_id}/perp-position-context": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id-perp-position-context",
         "parameters": [
@@ -6839,7 +7838,7 @@
         "summary": "Get API public v1 hip4 outcomes by outcome ID perp position context"
       }
     },
-    "//api/public/v1/hip4/outcomes/{outcome_id}/recent-trades": {
+    "/api/public/v1/hip4/outcomes/{outcome_id}/recent-trades": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id-recent-trades",
         "parameters": [
@@ -6947,7 +7946,7 @@
         "summary": "Get API public v1 hip4 outcomes by outcome ID recent trades"
       }
     },
-    "//api/public/v1/hip4/outcomes/{outcome_id}/summary": {
+    "/api/public/v1/hip4/outcomes/{outcome_id}/summary": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id-summary",
         "parameters": [
@@ -7031,7 +8030,7 @@
         "summary": "Get API public v1 hip4 outcomes by outcome ID summary"
       }
     },
-    "//api/public/v1/hip4/questions": {
+    "/api/public/v1/hip4/questions": {
       "get": {
         "operationId": "get-api-public-v1-hip4-questions",
         "responses": {
@@ -7094,7 +8093,7 @@
         "summary": "Get API public v1 hip4 questions"
       }
     },
-    "//api/public/v1/hip4/settlements/recent": {
+    "/api/public/v1/hip4/settlements/recent": {
       "get": {
         "operationId": "get-api-public-v1-hip4-settlements-recent",
         "parameters": [
@@ -7193,7 +8192,7 @@
         "summary": "Get API public v1 hip4 settlements recent"
       }
     },
-    "//api/public/v1/hip4/top-traders": {
+    "/api/public/v1/hip4/top-traders": {
       "get": {
         "operationId": "get-api-public-v1-hip4-top-traders",
         "parameters": [
@@ -7292,7 +8291,7 @@
         "summary": "Get API public v1 hip4 top traders"
       }
     },
-    "//api/public/v1/hip4/trader/{address}/outcomes": {
+    "/api/public/v1/hip4/trader/{address}/outcomes": {
       "get": {
         "operationId": "get-api-public-v1-hip4-trader-by-address-outcomes",
         "parameters": [
@@ -7387,7 +8386,7 @@
         "summary": "Get API public v1 hip4 trader by address outcomes"
       }
     },
-    "//api/public/v1/live/cohort-bias-history/{coin}": {
+    "/api/public/v1/live/cohort-bias-history/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-cohort-bias-history-by-coin",
         "parameters": [
@@ -7499,7 +8498,7 @@
         "summary": "Get API public v1 live cohort bias history by coin"
       }
     },
-    "//api/public/v1/live/cohort-bias/{coin}": {
+    "/api/public/v1/live/cohort-bias/{coin}": {
       "get": {
         "operationId": "list-api-public-v1-live-cohort-bias-by-coin",
         "parameters": [
@@ -7588,7 +8587,7 @@
         "summary": "List API public v1 live cohort bias by coin"
       }
     },
-    "//api/public/v1/live/coins/{coin}/long-short": {
+    "/api/public/v1/live/coins/{coin}/long-short": {
       "get": {
         "operationId": "get-api-public-v1-live-coins-by-coin-long-short",
         "parameters": [
@@ -7681,7 +8680,7 @@
         "summary": "Get API public v1 live coins by coin long short"
       }
     },
-    "//api/public/v1/live/liquidation-heatmap/{coin}": {
+    "/api/public/v1/live/liquidation-heatmap/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-liquidation-heatmap-by-coin",
         "parameters": [
@@ -7794,7 +8793,7 @@
         "summary": "Get API public v1 live liquidation heatmap by coin"
       }
     },
-    "//api/public/v1/live/long-short": {
+    "/api/public/v1/live/long-short": {
       "get": {
         "operationId": "get-api-public-v1-live-long-short",
         "responses": {
@@ -7857,7 +8856,7 @@
         "summary": "Get API public v1 live long short"
       }
     },
-    "//api/public/v1/live/long-short/history": {
+    "/api/public/v1/live/long-short/history": {
       "get": {
         "operationId": "get-api-public-v1-live-long-short-history",
         "parameters": [
@@ -7951,7 +8950,7 @@
         "summary": "Get API public v1 live long short history"
       }
     },
-    "//api/public/v1/live/official-oi/{coin}": {
+    "/api/public/v1/live/official-oi/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-official-oi-by-coin",
         "parameters": [
@@ -8053,7 +9052,7 @@
         "summary": "Get API public v1 live official oi by coin"
       }
     },
-    "//api/public/v1/live/oi-history": {
+    "/api/public/v1/live/oi-history": {
       "get": {
         "operationId": "get-api-public-v1-live-oi-history",
         "parameters": [
@@ -8138,7 +9137,7 @@
         "summary": "Get API public v1 live oi history"
       }
     },
-    "//api/public/v1/live/oi-history/{coin}": {
+    "/api/public/v1/live/oi-history/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-oi-history-by-coin",
         "parameters": [
@@ -8231,7 +9230,7 @@
         "summary": "Get API public v1 live oi history by coin"
       }
     },
-    "//api/public/v1/live/risk/coins/{coin}": {
+    "/api/public/v1/live/risk/coins/{coin}": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-coins-by-coin",
         "parameters": [
@@ -8324,7 +9323,7 @@
         "summary": "Get API public v1 live risk coins by coin"
       }
     },
-    "//api/public/v1/live/risk/coins/{coin}/history": {
+    "/api/public/v1/live/risk/coins/{coin}/history": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-coins-by-coin-history",
         "parameters": [
@@ -8427,7 +9426,7 @@
         "summary": "Get API public v1 live risk coins by coin history"
       }
     },
-    "//api/public/v1/live/risk/coins/{coin}/mark-dislocations": {
+    "/api/public/v1/live/risk/coins/{coin}/mark-dislocations": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-coins-by-coin-mark-dislocations",
         "parameters": [
@@ -8530,7 +9529,7 @@
         "summary": "Get API public v1 live risk coins by coin mark dislocations"
       }
     },
-    "//api/public/v1/live/risk/liquidations/recent": {
+    "/api/public/v1/live/risk/liquidations/recent": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-liquidations-recent",
         "parameters": [
@@ -8632,7 +9631,7 @@
         "summary": "Get API public v1 live risk liquidations recent"
       }
     },
-    "//api/public/v1/live/risk/liquidations/summary": {
+    "/api/public/v1/live/risk/liquidations/summary": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-liquidations-summary",
         "parameters": [
@@ -8724,7 +9723,7 @@
         "summary": "Get API public v1 live risk liquidations summary"
       }
     },
-    "//api/public/v1/live/risk/overview": {
+    "/api/public/v1/live/risk/overview": {
       "get": {
         "operationId": "get-api-public-v1-live-risk-overview",
         "responses": {
@@ -8787,7 +9786,7 @@
         "summary": "Get API public v1 live risk overview"
       }
     },
-    "//api/public/v1/market/historical-oi": {
+    "/api/public/v1/market/historical-oi": {
       "get": {
         "operationId": "get-api-public-v1-market-historical-oi",
         "parameters": [
@@ -8895,7 +9894,7 @@
         "summary": "Get API public v1 market historical oi"
       }
     },
-    "//api/public/v1/market/orderbook/{symbol}": {
+    "/api/public/v1/market/orderbook/{symbol}": {
       "get": {
         "operationId": "get-api-public-v1-market-orderbook-by-symbol",
         "parameters": [
@@ -8988,7 +9987,7 @@
         "summary": "Get API public v1 market orderbook by symbol"
       }
     },
-    "//api/public/v1/market/positions/{address}": {
+    "/api/public/v1/market/positions/{address}": {
       "get": {
         "operationId": "list-api-public-v1-market-positions-by-address",
         "parameters": [
@@ -9077,7 +10076,7 @@
         "summary": "List API public v1 market positions by address"
       }
     },
-    "//api/public/v1/market/price/{symbol}": {
+    "/api/public/v1/market/price/{symbol}": {
       "get": {
         "operationId": "get-api-public-v1-market-price-by-symbol",
         "parameters": [
@@ -9160,7 +10159,70 @@
         "summary": "Get API public v1 market price by symbol"
       }
     },
-    "//api/public/v1/pulse/anti-survivors": {
+    "/api/public/v1/plan": {
+      "get": {
+        "operationId": "get-api-public-v1-plan",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 plan"
+      }
+    },
+    "/api/public/v1/pulse/anti-survivors": {
       "get": {
         "operationId": "list-api-public-v1-pulse-anti-survivors",
         "parameters": [
@@ -9286,7 +10348,7 @@
         "summary": "List API public v1 pulse anti survivors"
       }
     },
-    "//api/public/v1/pulse/backstop-events": {
+    "/api/public/v1/pulse/backstop-events": {
       "get": {
         "operationId": "list-api-public-v1-pulse-backstop-events",
         "parameters": [
@@ -9409,7 +10471,7 @@
         "summary": "List API public v1 pulse backstop events"
       }
     },
-    "//api/public/v1/pulse/biggest-losses": {
+    "/api/public/v1/pulse/biggest-losses": {
       "get": {
         "operationId": "list-api-public-v1-pulse-biggest-losses",
         "parameters": [
@@ -9510,7 +10572,7 @@
         "summary": "List API public v1 pulse biggest losses"
       }
     },
-    "//api/public/v1/pulse/biggest-wins": {
+    "/api/public/v1/pulse/biggest-wins": {
       "get": {
         "operationId": "list-api-public-v1-pulse-biggest-wins",
         "parameters": [
@@ -9611,7 +10673,7 @@
         "summary": "List API public v1 pulse biggest wins"
       }
     },
-    "//api/public/v1/pulse/capital-titans": {
+    "/api/public/v1/pulse/capital-titans": {
       "get": {
         "operationId": "list-api-public-v1-pulse-capital-titans",
         "parameters": [
@@ -9737,7 +10799,7 @@
         "summary": "List API public v1 pulse capital titans"
       }
     },
-    "//api/public/v1/pulse/closed-positions/recent": {
+    "/api/public/v1/pulse/closed-positions/recent": {
       "get": {
         "operationId": "list-api-public-v1-pulse-closed-positions-recent",
         "parameters": [
@@ -9875,7 +10937,7 @@
         "summary": "List API public v1 pulse closed positions recent"
       }
     },
-    "//api/public/v1/pulse/cohort-bias/history": {
+    "/api/public/v1/pulse/cohort-bias/history": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohort-bias-history",
         "parameters": [
@@ -9989,7 +11051,7 @@
         "summary": "List API public v1 pulse cohort bias history"
       }
     },
-    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/alpha-concentration": {
+    "/api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/alpha-concentration": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-alpha-concentration",
         "parameters": [
@@ -10090,7 +11152,7 @@
         "summary": "List API public v1 pulse cohorts recent by tier type by tier alpha concentration"
       }
     },
-    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/lifecycle-stats": {
+    "/api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/lifecycle-stats": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-lifecycle-stats",
         "parameters": [
@@ -10214,7 +11276,7 @@
         "summary": "List API public v1 pulse cohorts recent by tier type by tier lifecycle stats"
       }
     },
-    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/positions": {
+    "/api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/positions": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-positions",
         "parameters": [
@@ -10335,7 +11397,7 @@
         "summary": "List API public v1 pulse cohorts recent by tier type by tier positions"
       }
     },
-    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/top-positions": {
+    "/api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/top-positions": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-top-positions",
         "parameters": [
@@ -10459,7 +11521,7 @@
         "summary": "List API public v1 pulse cohorts recent by tier type by tier top positions"
       }
     },
-    "//api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/trades": {
+    "/api/public/v1/pulse/cohorts-recent/{tierType}/{tier}/trades": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-trades",
         "parameters": [
@@ -10589,7 +11651,7 @@
         "summary": "List API public v1 pulse cohorts recent by tier type by tier trades"
       }
     },
-    "//api/public/v1/pulse/cohorts/daily-stats": {
+    "/api/public/v1/pulse/cohorts/daily-stats": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-daily-stats",
         "parameters": [
@@ -10695,7 +11757,7 @@
         "summary": "List API public v1 pulse cohorts daily stats"
       }
     },
-    "//api/public/v1/pulse/cohorts/summary": {
+    "/api/public/v1/pulse/cohorts/summary": {
       "get": {
         "operationId": "get-api-public-v1-pulse-cohorts-summary",
         "responses": {
@@ -10758,7 +11820,7 @@
         "summary": "Get API public v1 pulse cohorts summary"
       }
     },
-    "//api/public/v1/pulse/cohorts/{tierType}/{tier}/history": {
+    "/api/public/v1/pulse/cohorts/{tierType}/{tier}/history": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-by-tier-type-by-tier-history",
         "parameters": [
@@ -10879,7 +11941,7 @@
         "summary": "List API public v1 pulse cohorts by tier type by tier history"
       }
     },
-    "//api/public/v1/pulse/cohorts/{tierType}/{tier}/positions": {
+    "/api/public/v1/pulse/cohorts/{tierType}/{tier}/positions": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-by-tier-type-by-tier-positions",
         "parameters": [
@@ -11000,7 +12062,7 @@
         "summary": "List API public v1 pulse cohorts by tier type by tier positions"
       }
     },
-    "//api/public/v1/pulse/cohorts/{tierType}/{tier}/trades": {
+    "/api/public/v1/pulse/cohorts/{tierType}/{tier}/trades": {
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-by-tier-type-by-tier-trades",
         "parameters": [
@@ -11130,7 +12192,7 @@
         "summary": "List API public v1 pulse cohorts by tier type by tier trades"
       }
     },
-    "//api/public/v1/pulse/coin-alpha-map": {
+    "/api/public/v1/pulse/coin-alpha-map": {
       "get": {
         "operationId": "list-api-public-v1-pulse-coin-alpha-map",
         "parameters": [
@@ -11234,7 +12296,7 @@
         "summary": "List API public v1 pulse coin alpha map"
       }
     },
-    "//api/public/v1/pulse/coin-kings": {
+    "/api/public/v1/pulse/coin-kings": {
       "get": {
         "operationId": "list-api-public-v1-pulse-coin-kings",
         "parameters": [
@@ -11350,7 +12412,7 @@
         "summary": "List API public v1 pulse coin kings"
       }
     },
-    "//api/public/v1/pulse/compare": {
+    "/api/public/v1/pulse/compare": {
       "get": {
         "operationId": "get-api-public-v1-pulse-compare",
         "parameters": [
@@ -11435,7 +12497,7 @@
         "summary": "Get API public v1 pulse compare"
       }
     },
-    "//api/public/v1/pulse/hidden-gems": {
+    "/api/public/v1/pulse/hidden-gems": {
       "get": {
         "operationId": "list-api-public-v1-pulse-hidden-gems",
         "parameters": [
@@ -11566,7 +12628,7 @@
         "summary": "List API public v1 pulse hidden gems"
       }
     },
-    "//api/public/v1/pulse/hour-profitability": {
+    "/api/public/v1/pulse/hour-profitability": {
       "get": {
         "operationId": "list-api-public-v1-pulse-hour-profitability",
         "responses": {
@@ -11635,7 +12697,7 @@
         "summary": "List API public v1 pulse hour profitability"
       }
     },
-    "//api/public/v1/pulse/leaderboard": {
+    "/api/public/v1/pulse/leaderboard": {
       "get": {
         "operationId": "get-api-public-v1-pulse-leaderboard",
         "parameters": [
@@ -11752,7 +12814,7 @@
         "summary": "Get API public v1 pulse leaderboard"
       }
     },
-    "//api/public/v1/pulse/lethal-coins": {
+    "/api/public/v1/pulse/lethal-coins": {
       "get": {
         "operationId": "list-api-public-v1-pulse-lethal-coins",
         "parameters": [
@@ -11867,7 +12929,7 @@
         "summary": "List API public v1 pulse lethal coins"
       }
     },
-    "//api/public/v1/pulse/lifecycle/{id}": {
+    "/api/public/v1/pulse/lifecycle/{id}": {
       "get": {
         "operationId": "get-api-public-v1-pulse-lifecycle-by-id",
         "parameters": [
@@ -11962,7 +13024,7 @@
         "summary": "Get API public v1 pulse lifecycle by ID"
       }
     },
-    "//api/public/v1/pulse/lifecycles/recent": {
+    "/api/public/v1/pulse/lifecycles/recent": {
       "get": {
         "operationId": "list-api-public-v1-pulse-lifecycles-recent",
         "parameters": [
@@ -12111,7 +13173,7 @@
         "summary": "List API public v1 pulse lifecycles recent"
       }
     },
-    "//api/public/v1/pulse/market-concentration": {
+    "/api/public/v1/pulse/market-concentration": {
       "get": {
         "operationId": "list-api-public-v1-pulse-market-concentration",
         "responses": {
@@ -12180,7 +13242,7 @@
         "summary": "List API public v1 pulse market concentration"
       }
     },
-    "//api/public/v1/pulse/market-overview": {
+    "/api/public/v1/pulse/market-overview": {
       "get": {
         "operationId": "get-api-public-v1-pulse-market-overview",
         "parameters": [
@@ -12265,7 +13327,7 @@
         "summary": "Get API public v1 pulse market overview"
       }
     },
-    "//api/public/v1/pulse/market/candles/recent/{symbol}": {
+    "/api/public/v1/pulse/market/candles/recent/{symbol}": {
       "get": {
         "operationId": "list-api-public-v1-pulse-market-candles-recent-by-symbol",
         "parameters": [
@@ -12373,7 +13435,7 @@
         "summary": "List API public v1 pulse market candles recent by symbol"
       }
     },
-    "//api/public/v1/pulse/max-pain-events": {
+    "/api/public/v1/pulse/max-pain-events": {
       "get": {
         "operationId": "list-api-public-v1-pulse-max-pain-events",
         "parameters": [
@@ -12499,7 +13561,7 @@
         "summary": "List API public v1 pulse max pain events"
       }
     },
-    "//api/public/v1/pulse/most-traded": {
+    "/api/public/v1/pulse/most-traded": {
       "get": {
         "operationId": "list-api-public-v1-pulse-most-traded",
         "parameters": [
@@ -12590,7 +13652,7 @@
         "summary": "List API public v1 pulse most traded"
       }
     },
-    "//api/public/v1/pulse/newcomer-whales": {
+    "/api/public/v1/pulse/newcomer-whales": {
       "get": {
         "operationId": "list-api-public-v1-pulse-newcomer-whales",
         "parameters": [
@@ -12717,7 +13779,7 @@
         "summary": "List API public v1 pulse newcomer whales"
       }
     },
-    "//api/public/v1/pulse/one-month-wonders": {
+    "/api/public/v1/pulse/one-month-wonders": {
       "get": {
         "operationId": "list-api-public-v1-pulse-one-month-wonders",
         "parameters": [
@@ -12832,7 +13894,7 @@
         "summary": "List API public v1 pulse one month wonders"
       }
     },
-    "//api/public/v1/pulse/perfect-exits": {
+    "/api/public/v1/pulse/perfect-exits": {
       "get": {
         "operationId": "list-api-public-v1-pulse-perfect-exits",
         "parameters": [
@@ -12959,7 +14021,7 @@
         "summary": "List API public v1 pulse perfect exits"
       }
     },
-    "//api/public/v1/pulse/persistent-winners": {
+    "/api/public/v1/pulse/persistent-winners": {
       "get": {
         "operationId": "list-api-public-v1-pulse-persistent-winners",
         "parameters": [
@@ -13075,7 +14137,7 @@
         "summary": "List API public v1 pulse persistent winners"
       }
     },
-    "//api/public/v1/pulse/stats": {
+    "/api/public/v1/pulse/stats": {
       "get": {
         "operationId": "get-api-public-v1-pulse-stats",
         "responses": {
@@ -13138,7 +14200,7 @@
         "summary": "Get API public v1 pulse stats"
       }
     },
-    "//api/public/v1/pulse/style-distribution": {
+    "/api/public/v1/pulse/style-distribution": {
       "get": {
         "operationId": "list-api-public-v1-pulse-style-distribution",
         "responses": {
@@ -13207,7 +14269,7 @@
         "summary": "List API public v1 pulse style distribution"
       }
     },
-    "//api/public/v1/pulse/survivors": {
+    "/api/public/v1/pulse/survivors": {
       "get": {
         "operationId": "list-api-public-v1-pulse-survivors",
         "parameters": [
@@ -13322,7 +14384,7 @@
         "summary": "List API public v1 pulse survivors"
       }
     },
-    "//api/public/v1/pulse/token-leaderboard/{coin}": {
+    "/api/public/v1/pulse/token-leaderboard/{coin}": {
       "get": {
         "operationId": "list-api-public-v1-pulse-token-leaderboard-by-coin",
         "parameters": [
@@ -13421,7 +14483,7 @@
         "summary": "List API public v1 pulse token leaderboard by coin"
       }
     },
-    "//api/public/v1/pulse/top-liquidators": {
+    "/api/public/v1/pulse/top-liquidators": {
       "get": {
         "operationId": "list-api-public-v1-pulse-top-liquidators",
         "parameters": [
@@ -13525,7 +14587,7 @@
         "summary": "List API public v1 pulse top liquidators"
       }
     },
-    "//api/public/v1/pulse/trader/{address}": {
+    "/api/public/v1/pulse/trader/{address}": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address",
         "parameters": [
@@ -13618,7 +14680,7 @@
         "summary": "Get API public v1 pulse trader by address"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/closed-positions": {
+    "/api/public/v1/pulse/trader/{address}/closed-positions": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-closed-positions",
         "parameters": [
@@ -13745,7 +14807,7 @@
         "summary": "List API public v1 pulse trader by address closed positions"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/closed-positions/stats": {
+    "/api/public/v1/pulse/trader/{address}/closed-positions/stats": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address-closed-positions-stats",
         "parameters": [
@@ -13838,7 +14900,7 @@
         "summary": "Get API public v1 pulse trader by address closed positions stats"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/daily": {
+    "/api/public/v1/pulse/trader/{address}/daily": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-daily",
         "parameters": [
@@ -13937,7 +14999,7 @@
         "summary": "List API public v1 pulse trader by address daily"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/demo": {
+    "/api/public/v1/pulse/trader/{address}/demo": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address-demo",
         "parameters": [
@@ -14020,7 +15082,7 @@
         "summary": "Get API public v1 pulse trader by address demo"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/lifecycle-summary": {
+    "/api/public/v1/pulse/trader/{address}/lifecycle-summary": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address-lifecycle-summary",
         "parameters": [
@@ -14129,7 +15191,7 @@
         "summary": "Get API public v1 pulse trader by address lifecycle summary"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/lifecycles": {
+    "/api/public/v1/pulse/trader/{address}/lifecycles": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address-lifecycles",
         "parameters": [
@@ -14275,7 +15337,7 @@
         "summary": "Get API public v1 pulse trader by address lifecycles"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/performance": {
+    "/api/public/v1/pulse/trader/{address}/performance": {
       "get": {
         "operationId": "get-api-public-v1-pulse-trader-by-address-performance",
         "parameters": [
@@ -14368,7 +15430,7 @@
         "summary": "Get API public v1 pulse trader by address performance"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/tokens": {
+    "/api/public/v1/pulse/trader/{address}/tokens": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-tokens",
         "parameters": [
@@ -14467,7 +15529,7 @@
         "summary": "List API public v1 pulse trader by address tokens"
       }
     },
-    "//api/public/v1/pulse/trader/{address}/trades": {
+    "/api/public/v1/pulse/trader/{address}/trades": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-trades",
         "parameters": [
@@ -14593,7 +15655,7 @@
         "summary": "List API public v1 pulse trader by address trades"
       }
     },
-    "//api/public/v1/pulse/trades/recent": {
+    "/api/public/v1/pulse/trades/recent": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trades-recent",
         "parameters": [
@@ -14701,7 +15763,7 @@
         "summary": "List API public v1 pulse trades recent"
       }
     },
-    "//api/public/v1/pulse/wallet-drawdown-curve/{address}": {
+    "/api/public/v1/pulse/wallet-drawdown-curve/{address}": {
       "get": {
         "operationId": "list-api-public-v1-pulse-wallet-drawdown-curve-by-address",
         "parameters": [
@@ -14823,7 +15885,7 @@
         "summary": "List API public v1 pulse wallet drawdown curve by address"
       }
     },
-    "//api/public/v1/verify": {
+    "/api/public/v1/verify": {
       "get": {
         "operationId": "get-api-public-v1-verify",
         "responses": {
