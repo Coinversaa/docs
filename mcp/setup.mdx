@@ -10,7 +10,11 @@ The MCP is the **agent interface** — a curated set of tools wrapping the REST 
 **Hosted MCP endpoint:** `https://mcp.coinversa.ai/mcp`
 **Source:** [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server)
 
-Pick your client below. All four use the same hosted endpoint and your same API key.
+The hosted endpoint uses **OAuth**: paste the URL into your client and it opens a Coinversa authorization page in your browser. Sign in — or create an account right there — and your API key is created and connected automatically. **New accounts get 14 days of Pro, no credit card.** No headers, no config beyond the URL.
+
+<Note>
+Already have a `cvsa_` key saved? The authorization page also accepts pasting it directly. Keys stay revocable any time from the [developer portal](https://developers.coinversa.ai/keys) — revoking a key disconnects every agent that authorized with it.
+</Note>
 
 ## Claude.ai (web)
 
@@ -23,7 +27,11 @@ Use the Custom Connectors UI — no local install.
   <Step title="Fill in the form">
     - **Name:** `Coinversa`
     - **URL:** `https://mcp.coinversa.ai/mcp`
-    - **Auth header:** `X-API-Key: YOUR_API_KEY`
+
+    Leave the auth fields empty — Claude discovers the OAuth flow automatically.
+  </Step>
+  <Step title="Authorize">
+    Claude opens the Coinversa authorization page. Sign in (or sign up — a key is created for you), then click **Authorize**.
   </Step>
   <Step title="Verify">
     Open a new chat and ask: *"What's the global trading stats from Coinversa Pulse?"* — Claude should call `pulse_global_stats`.
@@ -49,13 +57,7 @@ Claude Desktop reads MCP servers from a local JSON config.
       "mcpServers": {
         "coinversa": {
           "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://mcp.coinversa.ai/mcp",
-            "--header",
-            "X-API-Key: YOUR_API_KEY"
-          ]
+          "args": ["-y", "mcp-remote", "https://mcp.coinversa.ai/mcp"]
         }
       }
     }
@@ -63,35 +65,30 @@ Claude Desktop reads MCP servers from a local JSON config.
     If the file already has other `mcpServers`, just add `coinversa` alongside them — don't replace the whole block.
   </Step>
 
-  <Step title="Restart Claude Desktop">
-    Fully quit (`Cmd+Q` / right-click → quit), then reopen. Look for the Coinversa tool icon in the chat input.
+  <Step title="Restart and authorize">
+    Fully quit (`Cmd+Q` / right-click → quit), then reopen. On first connection `mcp-remote` opens the Coinversa authorization page in your browser — sign in and click **Authorize**. Look for the Coinversa tool icon in the chat input.
   </Step>
 </Steps>
 
 <Note>
-**Why `mcp-remote`?** Claude Desktop only speaks stdio MCP today; `mcp-remote` is a small shim that bridges stdio ↔ HTTP so you can use the hosted endpoint instead of running anything locally.
+**Why `mcp-remote`?** Claude Desktop only speaks stdio MCP today; `mcp-remote` is a small shim that bridges stdio ↔ HTTP and handles the OAuth dance for you.
 </Note>
 
 ## Cursor
 
-Cursor supports HTTP MCP servers natively via a one-click deeplink.
-
-The fastest path: go to **[developers.coinversa.ai/connect](https://developers.coinversa.ai/connect)** while signed in, paste your key into the snippet area, and click **Install in Cursor**. The deeplink encodes the config — no manual editing.
-
-For manual install, add to your `~/.cursor/mcp.json`:
+Cursor supports HTTP MCP servers natively. Add to your `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "coinversa": {
-      "url": "https://mcp.coinversa.ai/mcp",
-      "headers": { "X-API-Key": "YOUR_API_KEY" }
+      "url": "https://mcp.coinversa.ai/mcp"
     }
   }
 }
 ```
 
-Restart Cursor and the Coinversa tools appear in the agent's tool palette.
+Restart Cursor, approve the authorization prompt in your browser, and the Coinversa tools appear in the agent's tool palette. (The one-click **Install in Cursor** deeplink at [developers.coinversa.ai/connect](https://developers.coinversa.ai/connect) works too.)
 
 ## Perplexity
 
@@ -103,19 +100,23 @@ Use Perplexity's Custom Connectors.
   </Step>
   <Step title="Add custom connector">
     - **URL:** `https://mcp.coinversa.ai/mcp`
-    - **Header:** `X-API-Key: YOUR_API_KEY`
+
+    No headers needed.
+  </Step>
+  <Step title="Authorize">
+    Perplexity opens the Coinversa authorization page — sign in (or create a free account; every new account gets 14 days of Pro) and click **Authorize**.
   </Step>
 </Steps>
 
 ## Other clients (stdio / npx)
 
-For any stdio-based MCP client, run the published server directly:
+For any stdio-based MCP client, run the published server directly with your API key from the [developer portal](https://developers.coinversa.ai/keys):
 
 ```bash
 COINVERSAA_API_KEY=cvsa_... npx -y @coinversaa/mcp-server
 ```
 
-This runs the same code as the hosted endpoint, but locally over stdio.
+This runs the same tools locally over stdio, authenticated by the env key instead of OAuth.
 
 ## Verify it works
 
@@ -129,13 +130,13 @@ You should see the agent call `pulse_leaderboard` and return ranked addresses wi
 
 <AccordionGroup>
   <Accordion title="401 Unauthorized in agent responses">
-    Your key is missing or wrong. Check that you copied the full key (starts with `cvsa_`) and that you used `X-API-Key` as the header name (not `Authorization`).
+    Your authorization expired or the key behind it was revoked. Reconnect the connector (your client will reopen the authorization page). If you revoked the key on purpose, sign in during authorization and a fresh key is created for you.
   </Accordion>
   <Accordion title="Agent says 'no Coinversa tools available'">
     The MCP connection didn't initialize. For Claude Desktop, check Console.app on macOS for `mcp` errors. For Cursor, check the MCP panel in settings. Most often: missing `-y` on the npx command, or a JSON syntax error in the config.
   </Accordion>
   <Accordion title="Rate limit errors immediately">
-    You may have an aggressive prompt or you share a key with a bot. The MCP and direct-API calls share one quota — see [authentication](/authentication#rate-limit-headers). Bump to Starter or Pro if you genuinely need more.
+    You may have an aggressive prompt or you share a key with a bot. The MCP and direct-API calls share one quota — see [authentication](/authentication#rate-limit-headers). Ask the agent to call `pulse_my_plan` to see your tier and limits, and bump to Starter or Pro if you genuinely need more.
   </Accordion>
   <Accordion title="Want to run a self-hosted MCP server">
     Clone [Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server) and run `npm run start:http`. Set `COINVERSAA_API_URL` if you also host the backend.
