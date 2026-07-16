@@ -10,10 +10,10 @@ The MCP is the **agent interface** — a curated set of tools wrapping the REST 
 **Hosted MCP endpoint:** `https://mcp.coinversa.ai/mcp`
 **Source:** [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server)
 
-The hosted endpoint uses **OAuth**: paste the URL into your client and it opens a Coinversa authorization page in your browser. Sign in — or create an account right there — and your API key is created and connected automatically. **New accounts get 14 days of Pro, no credit card.** No headers, no config beyond the URL.
+The hosted endpoint uses **OAuth**: paste the URL into your client and it opens a Coinversa authorization page in your browser. Sign in — or create an account right there — and connect a key in one click: existing accounts **pick any of their keys from a list** (no need to have the value saved), new accounts get a key created automatically. **New accounts get 14 days of Pro, no credit card.** No headers, no config beyond the URL.
 
 <Note>
-Already have a `cvsa_` key saved? The authorization page also accepts pasting it directly. Keys stay revocable any time from the [developer portal](https://developers.coinversa.ai/keys) — revoking a key disconnects every agent that authorized with it.
+Prefer pasting? The authorization page also accepts a saved `cvsa_` key directly. Either way, your key never travels through the client: connecting hands over a single-use, 2-minute code, and the MCP server stores only an opaque reference — never the key itself. Keys stay revocable any time from the [developer portal](https://developers.coinversa.ai/keys) — revoking a key instantly disconnects every agent that authorized with it.
 </Note>
 
 ## Claude.ai (web)
@@ -31,7 +31,7 @@ Use the Custom Connectors UI — no local install.
     Leave the auth fields empty — Claude discovers the OAuth flow automatically.
   </Step>
   <Step title="Authorize">
-    Claude opens the Coinversa authorization page. Sign in (or sign up — a key is created for you), then click **Authorize**.
+    Claude opens the Coinversa authorization page. Sign in and pick a key — or sign up and one is created for you — then click **Authorize**.
   </Step>
   <Step title="Verify">
     Open a new chat and ask: *"What's the global trading stats from Coinversa Pulse?"* — Claude should call `pulse_global_stats`.
@@ -130,7 +130,7 @@ You should see the agent call `pulse_leaderboard` and return ranked addresses wi
 
 <AccordionGroup>
   <Accordion title="401 Unauthorized in agent responses">
-    Your authorization expired or the key behind it was revoked. Reconnect the connector (your client will reopen the authorization page). If you revoked the key on purpose, sign in during authorization and a fresh key is created for you.
+    Your authorization expired or the key behind it was revoked. Reconnect the connector (your client will reopen the authorization page). If you revoked the key on purpose, sign in during authorization and pick another key — or create a fresh one right there.
   </Accordion>
   <Accordion title="Agent says 'no Coinversa tools available'">
     The MCP connection didn't initialize. For Claude Desktop, check Console.app on macOS for `mcp` errors. For Cursor, check the MCP panel in settings. Most often: missing `-y` on the npx command, or a JSON syntax error in the config.

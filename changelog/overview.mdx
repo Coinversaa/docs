@@ -3,6 +3,29 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="July 16, 2026" tags={["Security"]}>
+
+## Zero-knowledge connector: your API key never leaves our backend
+
+The hosted MCP connector's credential handling has been rebuilt end to end:
+
+- **Connecting no longer transmits your API key.** Picking a key on the
+  authorization page hands over a **single-use connect code** (2-minute
+  lifetime, dead after first redemption). The MCP server exchanges it
+  server-to-server for an opaque key *reference* — the raw key never touches
+  the browser or the connector host.
+- **Pick any existing key.** The authorization page now lists your active
+  keys — connect one in a click, no need to have the value saved and no
+  forced duplicate keys.
+- **Encryption at rest for everything else.** Sessions from the paste-a-key
+  flow are now AES-256-GCM-encrypted under a key held outside the database,
+  and all OAuth bearer tokens are stored as SHA-256 digests. A stolen copy
+  of the connector's database yields nothing.
+- Tiers, rate limits, metering, and instant revocation behave exactly as
+  before — revoking a key still disconnects every agent authorized with it.
+
+</Update>
+
 <Update label="July 15, 2026" tags={["Connector"]}>
 
 ## One-click connect: OAuth sign-up on the hosted MCP
@@ -11,8 +34,8 @@ Connecting Coinversa to Claude, Perplexity, Cursor, or any MCP client no
 longer requires copying an API key. Paste `https://mcp.coinversa.ai/mcp`
 into your client and it opens the new authorization page:
 
-- **Existing users** sign in with their Coinversa account and a key is
-  created and connected in one click — or paste a saved `cvsa_` key directly.
+- **Existing users** sign in with their Coinversa account and connect a key
+  in one click — or paste a saved `cvsa_` key directly.
 - **New users** create an account right on the page. Every new account gets
   **14 days of Pro** — all 91 tools, no credit card — and the key is
   provisioned automatically.
