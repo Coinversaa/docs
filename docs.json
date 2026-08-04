@@ -126,5 +126,11 @@
       "x": "https://x.com/coinversaa",
       "github": "https://github.com/Coinversaa"
     }
+  },
+  "integrations": {
+    "posthog": {
+      "apiKey": "phc_yaGEw3rQWMkSNsrxBkdx2trUYeaRdqugzYhcddLfzQQ9",
+      "apiHost": "https://us.i.posthog.com"
+    }
   }
 }
