@@ -130,7 +130,7 @@
   "integrations": {
     "posthog": {
       "apiKey": "phc_yaGEw3rQWMkSNsrxBkdx2trUYeaRdqugzYhcddLfzQQ9",
-      "apiHost": "https://us.i.posthog.com"
+      "apiHost": "https://ph.coinversa.ai"
     }
   }
 }
