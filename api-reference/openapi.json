@@ -2570,6 +2570,32 @@
         ],
         "type": "object"
       },
+      "GetLiquidationSummaryByCohortRow": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "tier": {
+            "type": "string"
+          },
+          "totalClosedPnl": {},
+          "totalNotional": {},
+          "wallets": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tier",
+          "totalNotional",
+          "totalClosedPnl",
+          "count",
+          "wallets"
+        ],
+        "type": "object"
+      },
       "GetLiquidationSummaryByCoinRow": {
         "additionalProperties": false,
         "properties": {
@@ -2581,13 +2607,15 @@
             "type": "integer"
           },
           "totalClosedPnl": {},
+          "totalNotional": {},
           "totalPenaltyFees": {}
         },
         "required": [
           "coin",
           "count",
           "totalPenaltyFees",
-          "totalClosedPnl"
+          "totalClosedPnl",
+          "totalNotional"
         ],
         "type": "object"
       },
@@ -2603,13 +2631,15 @@
             "type": "integer"
           },
           "totalClosedPnl": {},
+          "totalNotional": {},
           "totalPenaltyFees": {}
         },
         "required": [
           "bucketStart",
           "count",
           "totalPenaltyFees",
-          "totalClosedPnl"
+          "totalClosedPnl",
+          "totalNotional"
         ],
         "type": "object"
       },
@@ -4444,6 +4474,16 @@
             "format": "int64",
             "type": "integer"
           },
+          "byCohort": {
+            "description": "Cohort (pnl_tier) split of the same window, sorted by totalNotional desc; wallets with no cohort classification aggregate under tier 'unclassified'. Only populated on GET /live/risk/liquidations/summary — omitted from the other consumers of this shape (risk overview, coin risk snapshot/history) to keep those hot paths from running an extra query.",
+            "items": {
+              "$ref": "#/components/schemas/GetLiquidationSummaryByCohortRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "byCoin": {
             "items": {
               "$ref": "#/components/schemas/GetLiquidationSummaryByCoinRow"
@@ -4466,6 +4506,26 @@
           "generatedAt": {
             "type": "string"
           },
+          "longEvents": {
+            "description": "Count of LONG liquidation events in the window (longEvents+shortEvents=count).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "longNotional": {
+            "description": "Notional of liquidated LONG positions in the window (side split of totalNotional; longNotional+shortNotional=totalNotional).",
+            "format": "double",
+            "type": "number"
+          },
+          "shortEvents": {
+            "description": "Count of SHORT liquidation events in the window.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "shortNotional": {
+            "description": "Notional of liquidated SHORT positions in the window (side split of totalNotional).",
+            "format": "double",
+            "type": "number"
+          },
           "since": {
             "type": "string"
           },
@@ -4482,9 +4542,17 @@
             "format": "double",
             "type": "number"
           },
+          "totalNotional": {
+            "format": "double",
+            "type": "number"
+          },
           "totalPenaltyFees": {
             "format": "double",
             "type": "number"
+          },
+          "wallets": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
@@ -4492,6 +4560,12 @@
           "count",
           "totalPenaltyFees",
           "totalClosedPnl",
+          "totalNotional",
+          "wallets",
+          "longNotional",
+          "shortNotional",
+          "longEvents",
+          "shortEvents",
           "avgPenaltyFee",
           "avgClosedPnl",
           "bucketSizeMs",
