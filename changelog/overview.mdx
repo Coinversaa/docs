@@ -3,6 +3,31 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="August 13, 2026" tags={["API"]}>
+
+## The Daily Pulse — frozen daily editions via the API
+
+Two new FREE-tier endpoints expose [The Daily Pulse](https://www.coinversa.ai/explorer/pulse),
+the auto-generated Hyperliquid morning edition:
+
+- **`GET /pulse/daily/{date}`** — the edition for a given `YYYY-MM-DD` date.
+  Editions are **frozen**: once stamped (00:05 UTC), the document never
+  changes, so any past date returns exactly what it returned on day one.
+- **`GET /pulse/daily/latest`** — the newest edition.
+
+Each edition carries the surprise-ranked stories (whale moves, cohort
+divergences, OI rotations, liquidation spikes, settlement upsets) with full
+receipts, matched news headlines, the standing blocks (biggest moves, coin
+movers, settlements), and the chain-state census stamp the numbers were
+verified against.
+
+Also in recent releases: lifecycle fills now carry per-fill PnL/fee
+attribution fields (`attributedPnl`, `attributedFee`, `attributedSize`,
+`rawClosedPnl`, `fillPnlBasis`), and cohort bias responses include
+`netBiasByCount` / `netBiasByNotional`.
+
+</Update>
+
 <Update label="July 16, 2026" tags={["Security"]}>
 
 ## Zero-knowledge connector: your API key never leaves our backend

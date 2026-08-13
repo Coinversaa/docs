@@ -1,9 +1,15 @@
 name: Sync OpenAPI spec
 
 # Keeps api-reference/openapi.json in step with the live API.
-# Runs daily + on demand; opens a PR only when the spec actually changes.
-# NOTE: requires "Allow GitHub Actions to create and approve pull requests"
-# to be enabled in repo Settings → Actions → General.
+# Runs daily + on demand; commits directly to main when the spec changes.
+# (The previous PR-based flow needed "Allow GitHub Actions to create and
+# approve pull requests" in repo settings, which is disabled — every run
+# failed at PR creation. Direct commit only needs contents: write, which
+# the default GITHUB_TOKEN already has.)
+#
+# When a sync lands new endpoints, remember the hand-maintained pages it
+# can't update: api-reference/tiers.mdx, api-reference/data-windows.mdx,
+# changelog/overview.mdx, mcp/tools.mdx.
 
 on:
   schedule:
@@ -12,7 +18,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   sync:
@@ -23,15 +28,12 @@ jobs:
       - name: Fetch live spec and rewrite to docs format
         run: |
           set -euo pipefail
-          curl -fsS https://api.coinversa.ai/openapi.json -o /tmp/live.json
+          curl -fsS --retry 5 --retry-delay 10 https://api.coinversa.ai/openapi.json -o /tmp/live.json
           python3 - <<'PY'
           import json
           live = json.load(open("/tmp/live.json"))
           # Mintlify "Try it" base URL — paths keep the /api/public/v1 prefix.
           live["servers"] = [{"url": "https://api.coinversa.ai", "description": "Production"}]
-          # Match the existing docs path format (leading-slash prefix).
-          live["paths"] = {("/" + k if not k.startswith("//") else k): v
-                           for k, v in live["paths"].items()}
           # huma emits an invalid `scheme` on the apiKey security scheme;
           # Mintlify rejects the whole spec for it. Strip it.
           ss = live.get("components", {}).get("securitySchemes", {})
@@ -41,19 +43,15 @@ jobs:
           print("paths:", len(live["paths"]))
           PY
 
-      - name: Open a PR if the spec changed
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: chore/sync-openapi
-          commit-message: "chore: sync OpenAPI spec from api.coinversa.ai"
-          title: "chore: sync OpenAPI spec from api.coinversa.ai"
-          body: |
-            Automated re-sync of `api-reference/openapi.json` from the live API
-            spec (`https://api.coinversa.ai/openapi.json`).
-
-            Review the endpoint diff before merging. If new tools/concepts shipped,
-            also update `mcp/tools.mdx`, `changelog/overview.mdx`, and the endpoint
-            counts in `index.mdx` / `api-reference/introduction.mdx`.
-          labels: |
-            docs
-            automated
+      - name: Commit and push if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet api-reference/openapi.json; then
+            echo "No spec changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api-reference/openapi.json
+          git commit -m "chore: sync OpenAPI spec from api.coinversa.ai"
+          git push

@@ -28,6 +28,7 @@ Reads the trader's full indexed history (since Coinversa began indexing the wall
 | Trader profile | `/pulse/trader/{address}`, `/pulse/trader/{address}/tokens` |
 | Discovery | `/pulse/leaderboard?period=allTime`, `/pulse/hidden-gems`, `/pulse/most-traded`, `/pulse/token-leaderboard/{coin}` |
 | Cohort summary | `/pulse/cohorts/summary` |
+| Daily Pulse | `/pulse/daily/{date}`, `/pulse/daily/latest` — editions are frozen once stamped and kept forever; any past date returns the exact document it returned on day one |
 
 ## Caller-bounded via `since`
 

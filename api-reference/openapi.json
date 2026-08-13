@@ -561,6 +561,14 @@
             "format": "double",
             "type": "number"
           },
+          "netBiasByCount": {
+            "format": "double",
+            "type": "number"
+          },
+          "netBiasByNotional": {
+            "format": "double",
+            "type": "number"
+          },
           "pnlTier": {
             "type": "string"
           },
@@ -581,6 +589,8 @@
           "longNotional",
           "shortNotional",
           "netBias",
+          "netBiasByNotional",
+          "netBiasByCount",
           "biasLabel"
         ],
         "type": "object"
@@ -1742,6 +1752,49 @@
           "perpTradersTotal",
           "overlap",
           "overlapPct"
+        ],
+        "type": "object"
+      },
+      "DailyPulseEdition": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/DailyPulseEdition.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "censusBlock": {
+            "description": "Frozen census claim captured at generation (verifiedAtBlock, capturedAt). Omitted when the census fetch failed at build time."
+          },
+          "date": {
+            "description": "Edition date (YYYY-MM-DD, UTC). Editions are frozen once written and never change.",
+            "type": "string"
+          },
+          "delayNote": {
+            "description": "Provenance note for the figures in this edition.",
+            "type": "string"
+          },
+          "generatedAt": {
+            "description": "When the edition was generated (RFC 3339, UTC).",
+            "type": "string"
+          },
+          "hero": {
+            "description": "Lead story object (type, entity, headline, receipt, score, optional news). Omitted when the edition has no hero."
+          },
+          "standing": {
+            "description": "Standing blocks: coinMovers, settledToday, leaderboardMovers. Older editions may carry legacy fields (e.g. biggestMoves)."
+          },
+          "stories": {
+            "description": "Ranked list of story objects, same shape as hero."
+          }
+        },
+        "required": [
+          "date",
+          "generatedAt"
         ],
         "type": "object"
       },
@@ -3613,6 +3666,9 @@
             "format": "double",
             "type": "number"
           },
+          "hasActivity": {
+            "type": "boolean"
+          },
           "markPx": {
             "format": "double",
             "type": "number"
@@ -3648,7 +3704,8 @@
           "fundingRate",
           "volume24h",
           "change24h",
-          "prevDayPx"
+          "prevDayPx",
+          "hasActivity"
         ],
         "type": "object"
       },
@@ -4092,6 +4149,9 @@
           "address": {
             "type": "string"
           },
+          "fillPnlBasis": {
+            "type": "string"
+          },
           "fills": {
             "items": {
               "$ref": "#/components/schemas/LifecycleFill"
@@ -4108,6 +4168,7 @@
         "required": [
           "address",
           "lifecycle",
+          "fillPnlBasis",
           "fills"
         ],
         "type": "object"
@@ -4115,6 +4176,25 @@
       "LifecycleFill": {
         "additionalProperties": false,
         "properties": {
+          "attributedBuilderFee": {
+            "format": "double",
+            "type": "number"
+          },
+          "attributedFee": {
+            "format": "double",
+            "type": "number"
+          },
+          "attributedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "attributedSize": {
+            "format": "double",
+            "type": "number"
+          },
+          "attributionAvailable": {
+            "type": "boolean"
+          },
           "builderFee": {
             "format": "double",
             "type": "number"
@@ -4131,6 +4211,10 @@
             "type": "number"
           },
           "px": {
+            "format": "double",
+            "type": "number"
+          },
+          "rawClosedPnl": {
             "format": "double",
             "type": "number"
           },
@@ -4160,6 +4244,12 @@
           "sz",
           "px",
           "pnl",
+          "rawClosedPnl",
+          "attributedSize",
+          "attributedPnl",
+          "attributedFee",
+          "attributedBuilderFee",
+          "attributionAvailable",
           "fee",
           "builderFee",
           "tradeTime"
@@ -8625,13 +8715,13 @@
             }
           },
           {
-            "description": "Look-back window in days (default 30, max 365)",
+            "description": "Look-back window in days (default 30, max 90)",
             "explode": false,
             "in": "query",
             "name": "days",
             "schema": {
               "default": 30,
-              "description": "Look-back window in days (default 30, max 365)",
+              "description": "Look-back window in days (default 30, max 90)",
               "format": "int64",
               "type": "integer"
             }
@@ -12293,6 +12383,8 @@
             "schema": {
               "default": 50,
               "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
               "type": "integer"
             }
           }
@@ -12816,6 +12908,175 @@
           }
         ],
         "summary": "Get API public v1 pulse compare"
+      }
+    },
+    "/api/public/v1/pulse/daily/latest": {
+      "get": {
+        "operationId": "get-api-public-v1-pulse-daily-latest",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyPulseEdition"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 pulse daily latest"
+      }
+    },
+    "/api/public/v1/pulse/daily/{date}": {
+      "get": {
+        "operationId": "get-api-public-v1-pulse-daily-by-date",
+        "parameters": [
+          {
+            "description": "Edition date (YYYY-MM-DD, UTC)",
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "description": "Edition date (YYYY-MM-DD, UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyPulseEdition"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 pulse daily by date"
       }
     },
     "/api/public/v1/pulse/hidden-gems": {
@@ -15996,6 +16257,8 @@
             "schema": {
               "default": 50,
               "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
               "type": "integer"
             }
           },
