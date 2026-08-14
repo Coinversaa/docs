@@ -8907,10 +8907,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "explode": false,
             "in": "query",
             "name": "tier",
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           }
@@ -11553,10 +11555,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "in": "path",
             "name": "tier",
             "required": true,
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           }
@@ -11654,10 +11658,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "in": "path",
             "name": "tier",
             "required": true,
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           },
@@ -11778,10 +11784,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "in": "path",
             "name": "tier",
             "required": true,
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           },
@@ -11899,10 +11907,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "in": "path",
             "name": "tier",
             "required": true,
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           },
@@ -12023,10 +12033,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "in": "path",
             "name": "tier",
             "required": true,
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           },
@@ -12322,10 +12334,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "in": "path",
             "name": "tier",
             "required": true,
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           },
@@ -12443,10 +12457,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "in": "path",
             "name": "tier",
             "required": true,
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           },
@@ -12566,10 +12582,12 @@
             }
           },
           {
+            "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
             "in": "path",
             "name": "tier",
             "required": true,
             "schema": {
+              "description": "Cohort tier slug. Accepts both vocabularies — new PnL slugs apex, sharps, grinders, scrapers, crowd, bleeders, trapped, blown_out and new size slugs heavyweights, cruiserweights, middleweights, welterweights, lightweights, featherweights, flyweights, strawweights are normalized to their legacy equivalents (money_printer, smart_money, grinder, humble_earner, exit_liquidity, semi_rekt, full_rekt, giga_rekt / leviathan, tidal_whale, whale, small_whale, apex_predator, dolphin, fish, shrimp). Responses continue to emit legacy slugs.",
               "type": "string"
             }
           },
