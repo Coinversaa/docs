@@ -3,6 +3,65 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="August 14, 2026" tags={["API"]}>
+
+## Cohort tiers renamed
+
+The trader cohort tiers have new display names and new canonical input slugs.
+The new slugs are **rolling out with this release** everywhere a tier is an
+input — path parameters, query parameters, and MCP tool arguments. Until the
+rollout reaches your endpoint (and until your MCP connector refreshes its
+cached tool schemas, which may still list only the legacy slugs), keep sending
+legacy slugs if a new slug is rejected. Nothing breaks either way: **legacy
+slugs remain accepted on input indefinitely, and responses are unchanged** —
+they continue to return the legacy slugs (e.g. `pnlTier` still returns
+`money_printer`).
+
+| Display name | New slug | Legacy slug |
+|--------------|----------|-------------|
+| Apex | `apex` | `money_printer` |
+| Sharps | `sharps` | `smart_money` |
+| Grinders | `grinders` | `grinder` |
+| Scrapers | `scrapers` | `humble_earner` |
+| The Crowd | `crowd` | `exit_liquidity` |
+| Bleeders | `bleeders` | `semi_rekt` |
+| Trapped | `trapped` | `full_rekt` |
+| Blown Out | `blown_out` | `giga_rekt` |
+| Heavyweights | `heavyweights` | `leviathan` |
+| Cruiserweights | `cruiserweights` | `tidal_whale` |
+| Middleweights | `middleweights` | `whale` |
+| Welterweights | `welterweights` | `small_whale` |
+| Lightweights | `lightweights` | `apex_predator` |
+| Featherweights | `featherweights` | `dolphin` |
+| Flyweights | `flyweights` | `fish` |
+| Strawweights | `strawweights` | `shrimp` |
+
+See [Trader cohorts](/concepts/cohorts) for the full tier reference.
+
+</Update>
+
+
+<Update label="August 14, 2026" tags={["API"]}>
+
+## Liquidation intelligence: notional, sides, and cohorts
+
+The liquidation summary (`GET /live/risk/liquidations/summary`) now returns
+the full two-layer picture:
+
+- **`totalNotional`** — liquidated position value (the industry-standard
+  headline number), alongside the existing `totalClosedPnl` realized losses.
+- **`longNotional` / `shortNotional`** and event counts — which side got
+  force-closed.
+- **`byCohort`** — liquidated notional, losses, events, and wallets broken
+  down by behavioral tier. See who actually gets liquidated.
+- **`wallets`** — distinct liquidated wallets in the window.
+
+The same aggregates power the explorer's new public
+[liquidations page](https://www.coinversa.ai/explorer/liquidations). Fields
+are additive — existing consumers are unaffected.
+
+</Update>
+
 <Update label="August 13, 2026" tags={["API"]}>
 
 ## The Daily Pulse — frozen daily editions via the API
@@ -25,6 +84,7 @@ Also in recent releases: lifecycle fills now carry per-fill PnL/fee
 attribution fields (`attributedPnl`, `attributedFee`, `attributedSize`,
 `rawClosedPnl`, `fillPnlBasis`), and cohort bias responses include
 `netBiasByCount` / `netBiasByNotional`.
+
 
 </Update>
 
