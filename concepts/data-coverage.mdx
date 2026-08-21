@@ -28,7 +28,7 @@ Some endpoints have **hard historical floors** because the underlying data colle
 - **Cohort tiers** — recomputed daily. Wallets active for less than ~1 week may not yet have a tier assigned.
 - **Builder-fee attribution** — orders complete from **2025-01-25**; trigger-order (stop/TP) fill capture live since **2026-08-20**, backfilled to **2026-03-24** with earlier history in progress. Ledger revenue has no floor (cumulative on-chain data). See [Builder codes & attribution](/concepts/builder-attribution).
 
-Per-tier max historical windows are documented in [authentication](/authentication#historical-window-caps).
+Separately from these floors, caller-controlled windows are silently clamped to **90 days on every tier** — see [Data windows](/api-reference/data-windows) and [authentication](/authentication#historical-window-caps).
 
 ## Freshness
 
@@ -58,6 +58,5 @@ Tools that take a `since` parameter accept a number plus unit:
 - `m` — minutes (e.g. `10m`)
 - `h` — hours (e.g. `24h`)
 - `d` — days (e.g. `7d`)
-- `w` — weeks (e.g. `2w`, on long-history endpoints only)
 
-Or use explicit `startTime` / `endTime` (unix ms or ISO date) for exact ranges. Both are validated against your tier's max window — see [authentication](/authentication#historical-window-caps).
+Weeks are not a unit — `2w` is rejected with `400 invalid since format`; use days (`14d`). Or use explicit `startTime` / `endTime` (unix ms or ISO date) for exact ranges. Both are silently clamped to the universal 90-day window — see [Data windows](/api-reference/data-windows).

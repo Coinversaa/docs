@@ -43,7 +43,7 @@ Window is whatever the caller passes. Defaults vary; see the per-endpoint refere
 | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` | varies |
 | `/market/historical-oi` | varies |
 
-The `since` parameter accepts a number + unit (`m`, `h`, `d`, `w`). The effective maximum is bounded by the underlying data freshness for each endpoint, not by your tier.
+The `since` parameter accepts a number + unit (`m`, `h`, `d` — weeks are not a unit; `2w` is rejected with a `400 invalid since format`). Values beyond 90 days are silently clamped to 90 days; within that, the effective maximum is bounded by the underlying data freshness for each endpoint, not by your tier.
 
 ## Builder analytics windows
 

@@ -26,15 +26,15 @@ Your key's tier is set by your active subscription. Free is the default; paid ti
 
 | Tier | Rate / min | Per day | Per month | Keys | Price |
 |------|-----------:|--------:|----------:|-----:|------:|
-| Free       | 30     | 1,000   | unlimited | 2   | $0           |
-| Starter    | 120    | 2,000   | 50,000    | 4   | $29 / mo     |
-| Pro        | 600    | 20,000  | 500,000   | 5   | $199 / mo    |
-| Enterprise | custom | custom  | custom    | 10+ | custom quote |
+| Free       | 30     | 1,000   | unlimited | 1   | $0           |
+| Starter    | 120    | 2,000   | 50,000    | 3   | $29 / mo     |
+| Pro        | 600    | 20,000  | 500,000   | 10  | $199 / mo    |
+| Enterprise | custom | custom  | custom    | unlimited | custom quote |
 
 See [pricing](/pricing) for what each tier unlocks.
 
 <Note>
-**Multiple keys share your account's best tier.** If you have three keys and one is on Pro, all three get Pro limits. The check looks at every active key on your account and uses the highest entitled tier.
+**Each key is checked on its own.** A key serves the tier it was provisioned at, capped by your account's active entitlement — a Free key calling alongside an unused Pro key on the same account still gets Free limits. See [how tier resolution works](/api-reference/tiers#how-tier-resolution-works).
 </Note>
 
 ## Rate-limit headers
@@ -127,20 +127,14 @@ All errors are JSON **problem details**: `title`, `status`, a human-readable `de
 </AccordionGroup>
 
 <Note>
-**No key at all?** The [builder analytics endpoints](/api-reference/builders) have keyless [x402 pay-per-call twins](/api-reference/tiers#x402-pay-per-call) — payment is negotiated per request via the x402 protocol instead of a subscription.
+**No key at all?** Every GET endpoint has a keyless [x402 pay-per-call twin](/api-reference/tiers#x402-pay-per-call) — payment is negotiated per request via the x402 protocol instead of a subscription. The [builder analytics endpoints](/api-reference/builders) are the documented x402 surface today.
 </Note>
 
 ## Historical-window caps
 
-Endpoints that read historical data cap how far back you can query, by tier:
+Caller-controlled history windows (`since`, `hours`/`days` params, explicit `startTime`/`endTime` ranges) are clamped to **90 days** on every tier — the cap is universal, not tier-based. The clamp is **silent**: no error is returned, the query just runs against the capped window, and the response may echo the window you asked for. Compare response timestamps against your requested range to detect truncation. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
 
-| Tier | Max window |
-|------|-----------:|
-| Free / Starter | 30 days  |
-| Pro            | 90 days  |
-| Enterprise     | 365 days |
-
-If you request a longer `since` or `startTime`/`endTime` range, the response is `400` with a `hint` pointing at upgrade options. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
+Longer windows are available on Enterprise as custom exports and negotiated data delivery, not as an API parameter. See [Data windows](/api-reference/data-windows) for per-endpoint window semantics.
 
 ## Usage logging
 

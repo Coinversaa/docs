@@ -72,7 +72,7 @@ Every builder response carries `builderName` (omitted when unknown), a `verified
 
 ## Errors
 
-Builder routes are served by the Go API and return **huma problem-details** errors (`title` / `status` / `detail` / `code`) — not the `success: false` shape some older endpoints use. A tier-gated request without sufficient entitlement returns:
+Builder routes return **huma problem-details** errors (`title` / `status` / `detail` / `code`), the same error model as every `/api/public/v1` endpoint — see [Authentication](/authentication#error-responses). A tier-gated request without sufficient entitlement returns:
 
 ```json
 {
@@ -97,7 +97,7 @@ curl "https://api.coinversa.ai/api/public/v1/builders/leaderboard?period=week" \
   -H "X-API-Key: cvsa_..."
 ```
 
-Auth is the `X-API-Key` header — **not** a Bearer token (a `Authorization: Bearer` header is ignored and treated as a missing key).
+Auth is the `X-API-Key` header — **not** a Bearer token (an `Authorization: Bearer` header is ignored and treated as a missing key).
 
 - **Gate handling** — on a 403, read `code`. If it's `"TIER_GATE"`, report `required_tier` and hand the human `upgrade_url` — or fall back to the endpoint's [x402 twin](/api-reference/tiers#x402-pay-per-call) for keyless pay-per-call.
 - **Stamp interpretation** — `verified.coverage === null` is normal (pipeline not yet live); never retry on it. Treat `verified.ledger_chain_time` as the freshness timestamp. `revenueUsd` is exact; `attributed*` fields slightly undercount — relay `dataNotes` whenever you present the numbers.

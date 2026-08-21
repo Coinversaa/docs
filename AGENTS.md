@@ -26,7 +26,7 @@ When a sync lands new endpoints, update these hand-maintained pages (the workflo
 - **Never document endpoints, params, or response fields that are not live in production.** In-review features get at most one hedged "coming" line in the changelog — no route docs, no promised dates.
 - Error responses are huma **problem details** (`title` / `status` / `detail` / `code`, plus `current_tier` / `required_tier` / `upgrade_url` on `TIER_GATE`) — not `success: false`. Auth failures are 403; there is no 401.
 - Auth is the `X-API-Key` header, never a Bearer token.
-- Tier limits and key counts come from the API repo's `tiers.go` `TIER_CONFIGS` (Free 2 keys / Starter 4 / Pro 5 / Enterprise 10) — ignore the legacy TS values left in comments there.
+- Rate limits (per-minute / daily / monthly) come from the API repo's `tiers.go` `TIER_CONFIGS` — but its 4th field is the rate-limiter **burst** amount (token-bucket burst consumed in `auth.go`), NOT a key count. Max active keys are enforced by the TS backend: `backend/src/billing/tiers.ts` `TIER_LIMITS.maxKeys` — Free 1 / Starter 3 / Pro 10 / Enterprise unlimited (`maxKeys: 0`).
 - State data caveats plainly and early (silent 90d `since` clamps, attribution coverage, backfill status). Builder responses carry a `dataNotes` disclosure — docs must reflect it, not soften it.
 
 ## Terminology
@@ -35,7 +35,7 @@ When a sync lands new endpoints, update these hand-maintained pages (the workflo
 - **Builder dex** — a venue built on Hyperliquid with its own listings (`xyz`, `flx`, `vntl`, `hyna`, `km`, `abcd`, `cash`). Every builder dex runs a builder code, but most builder codes are not dexes. Never use bare "builder" where the two could be confused; `concepts/markets.mdx` covers dexes, `concepts/builder-attribution.mdx` covers codes.
 - **Cohort tiers** — two systems: PnL tiers (Apex/`apex` … Blown Out/`blown_out`) and size tiers (Heavyweights/`heavyweights` … Strawweights/`strawweights`). Responses currently return the **legacy slugs** (`money_printer`…`giga_rekt`, `leviathan`…`shrimp`); new slugs are input-canonical. Builder endpoints use **lifetime** tiers; pulse `cohorts-recent` endpoints use 30d-rolling tiers.
 - **Ledger plane vs attribution plane** — builder revenue is exact (Hyperliquid's cumulative builder-fee ledger); fills/volume/user metrics are join-attributed and slightly undercount. Say "ledger-exact" for revenue, "attributed" for the rest.
-- **x402** — keyless pay-per-call twins at `/x402/api/public/v1/<same path>`, deliberately absent from the OpenAPI spec; documented in `api-reference/tiers.mdx`.
+- **x402** — keyless pay-per-call twins at `/x402/api/public/v1/<same path>`. The twin exists for **every GET endpoint** (registered by the shared route wrapper; live since May 2026) — builder endpoints are merely the first *documented* x402 surface. Deliberately absent from the OpenAPI spec; documented in `api-reference/tiers.mdx`.
 
 ## Style preferences
 
