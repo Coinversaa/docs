@@ -3,19 +3,32 @@ title: "Tier and pricing matrix"
 description: "Which endpoints each tier unlocks, rate limits, and pricing. Single source of truth."
 ---
 
-Tier gates are enforced server-side. A request to a tier-restricted endpoint without sufficient entitlement returns `403` with a `detail` message indicating the required tier — for example: `Tool not available for current tier, must be starter or higher`.
+Tier gates are enforced server-side. A request without sufficient entitlement returns `403` with code `TIER_GATE` and machine-actionable fields:
+
+```json
+{
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Api key needed for this request",
+  "code": "TIER_GATE",
+  "current_tier": "none",
+  "required_tier": "starter",
+  "upgrade_url": "https://coinversa.ai/developers#pricing"
+}
+```
+
+Every endpoint requires an API key — keyless requests are rejected with the shape above (`current_tier: "none"`), even on endpoints whose required tier is `free`. The keyless exception is the [x402 pay-per-call surface](#x402-pay-per-call) below.
 
 ## Comparison
 
 | Tier | Rate (req/min) | Daily cap | Monthly cap | Max keys | Price/mo |
 |------|---:|---:|---:|---:|---:|
-| Free (no key)   | 10 | 0 | 0 | 2 | $0 |
-| Free (API key)  | 30 | 1,000 | 0 | 2 | $0 |
+| Free            | 30 | 1,000 | 0 | 2 | $0 |
 | Starter         | 120 | 2,000 | 50,000 | 4 | $29 |
 | Pro             | 600 | 20,000 | 500,000 | 5 | $199 |
 | Enterprise      | 10,000+ | unlimited | unlimited | 10+ | from $1,999 |
 
-A daily cap of `0` means no allowance — Free-without-key calls only succeed if they hit endpoints with no tier gate at all. A monthly cap of `0` means unlimited within the daily cap.
+A monthly cap of `0` means unlimited within the daily cap.
 
 Rate-limit behavior, header semantics, and error response shapes are documented in [Authentication](/authentication).
 
@@ -36,6 +49,9 @@ Rate-limit behavior, header semantics, and error response shapes are documented 
     | Lifecycle (single) | `/pulse/lifecycle/{id}`, `/pulse/closed-positions/recent` |
     | Live state | All `/live/*` |
     | Market | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/historical-oi` |
+    | Exchange aggregates | `/exchange/volume`, `/exchange/oi`, `/exchange/active-traders`, `/exchange/positions` |
+    | HIP-4 | `/hip4/outcomes`, `/hip4/outcomes/{outcome_id}`, `/hip4/outcomes/{outcome_id}/recent-trades`, `/hip4/questions`, `/hip4/settlements/recent`, `/hip4/daily-volume`, `/hip4/most-active` |
+    | Utility | `/plan`, `/census/stamp` |
   </Accordion>
 
   <Accordion title="Starter — includes Free, plus">
@@ -46,6 +62,9 @@ Rate-limit behavior, header semantics, and error response shapes are documented 
     | Coin alpha | `/pulse/coin-alpha-map`, `/pulse/coin-kings` |
     | Behavior | `/pulse/hour-profitability`, `/pulse/style-distribution` |
     | Risk | `/pulse/top-liquidators` |
+    | Builder analytics | `/builders/leaderboard`, `/builders/{builder}/profile`, `/trader/{address}/builders` — see [Builder endpoints](/api-reference/builders) |
+    | Exchange aggregates | `/exchange/pnl-leaders` |
+    | HIP-4 | `/hip4/outcomes/{outcome_id}/summary`, `/hip4/top-traders`, `/hip4/trader/{address}/outcomes` |
   </Accordion>
 
   <Accordion title="Pro — includes Starter, plus">
@@ -56,6 +75,9 @@ Rate-limit behavior, header semantics, and error response shapes are documented 
     | Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/positions`, `/trades`, `/history` |
     | Cohort drilldowns (rolling 30d) | `/pulse/cohorts-recent/{tierType}/{tier}/positions`, `/trades`, `/lifecycle-stats`, `/top-positions`, `/alpha-concentration` |
     | Cohort timeseries | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` |
+    | Builder analytics (deep) | `/builders/{builder}/traders`, `/builders/{builder}/fills`, `/builders/{builder}/cohorts`, `/builders/{builder}/retention`, `/builders/{builder}/overlap` — see [Builder endpoints](/api-reference/builders) |
+    | Entity resolution | `/entity/{address}`, `/entities/leaderboard` |
+    | HIP-4 (deep) | `/hip4/cross-product/overlap`, `/hip4/outcomes/{outcome_id}/perp-position-context` |
   </Accordion>
 
   <Accordion title="Enterprise — everything, plus">
@@ -69,6 +91,21 @@ Rate-limit behavior, header semantics, and error response shapes are documented 
     Negotiated per-engagement. Contact [chat@coinversa.ai](mailto:chat@coinversa.ai).
   </Accordion>
 </AccordionGroup>
+
+## x402 pay-per-call
+
+Every [builder analytics endpoint](/api-reference/builders) has a **pay-per-call twin** — no API key, no subscription. The twin lives at the same path under the `/x402` prefix:
+
+```
+https://api.coinversa.ai/x402/api/public/v1/builders/leaderboard?period=week
+```
+
+Payment is negotiated via the [x402 protocol](https://www.x402.org/): an unpaid request returns `HTTP 402` with a challenge (base64 JSON in the `Payment-Required` header) listing the accepted networks, assets, and the per-call price; your client signs a payment and retries with the payment header. x402 client libraries handle the handshake automatically — the per-call price is whatever the 402 challenge quotes.
+
+Two things to know:
+
+- The x402 twins are **intentionally absent from the OpenAPI spec** and the "Try it" panels — this page and [Builder endpoints](/api-reference/builders) are their documentation surface.
+- The [MCP server](/mcp/setup) does not sign x402 payments natively — pay-per-call is a direct-REST feature today.
 
 ## How tier resolution works
 

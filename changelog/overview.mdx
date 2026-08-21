@@ -3,6 +3,61 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="August 21, 2026" tags={["API"]}>
+
+## Builder analytics: ledger-exact revenue for every builder code
+
+Eight new REST endpoints cover the Hyperliquid **builder-code economy** —
+the fees that front-ends, wallet apps, bots, and builder dexes earn on the
+order flow they route. Revenue is computed from Hyperliquid's own on-chain
+cumulative builder-fee ledger (validated to ±0.1% against the chain);
+fill-level detail comes from order→fill attribution. See the new
+[Builder codes & attribution](/concepts/builder-attribution) concept page
+and the [endpoint guide](/api-reference/builders).
+
+**Starter:**
+
+- **`GET /builders/leaderboard`** — every builder ranked by exact ledger
+  revenue, with attributed volume/users/fills and prior-period deltas.
+- **`GET /builders/{builder}/profile`** — one builder in depth: revenue,
+  daily series, top coins, user base, fee rate, first/last seen.
+- **`GET /trader/{address}/builders`** — which builders a wallet trades
+  through, ordered by fees paid.
+
+**Pro:**
+
+- **`GET /builders/{builder}/traders`** — the builder's users with PnL,
+  fees paid, equity, and cohort tiers.
+- **`GET /builders/{builder}/fills`** — the raw attributed fill stream
+  (perp / spot / HIP-4), filterable by coin and wallet.
+- **`GET /builders/{builder}/cohorts`** — who actually uses the builder:
+  user composition by PnL and size tier.
+- **`GET /builders/{builder}/retention`** — a 12-month monthly retention
+  triangle of first-order cohorts.
+- **`GET /builders/{builder}/overlap`** — the top 10 other builders a
+  builder's users also trade through (cross-builder switching — only
+  possible with all-builder attribution).
+
+Every response carries a **`verified` stamp** (the ledger block and chain
+time it was checked against) and a **`dataNotes`** disclosure. Attributed
+history is complete since **2025-01-25** (most trackers' builder data
+starts around August 2025). Honest caveat: trigger-order (stop/TP) fills
+currently attribute at ledger level only — per-builder attribution coverage
+is ~77–95% while the backfill completes (live capture since 2026-08-20,
+backfilled to 2026-03-24) — so attributed fills/volume/users slightly
+undercount versus the exact ledger revenue; every response says so in
+`dataNotes`.
+
+All 8 endpoints also ship **[x402 pay-per-call](/api-reference/tiers#x402-pay-per-call)
+twins** — Coinversa's first x402 surface: no API key, price quoted in the
+402 challenge.
+
+In review: order-level lifecycle/journey/heatmap endpoints, weekly and
+revenue-weighted retention, and a live attribution-coverage ratio in the
+verified stamp. Builder MCP tools are also on the way.
+
+</Update>
+
 <Update label="August 14, 2026" tags={["API"]}>
 
 ## Cohort tiers renamed

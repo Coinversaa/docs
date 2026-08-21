@@ -45,6 +45,23 @@ Window is whatever the caller passes. Defaults vary; see the per-endpoint refere
 
 The `since` parameter accepts a number + unit (`m`, `h`, `d`, `w`). The effective maximum is bounded by the underlying data freshness for each endpoint, not by your tier.
 
+## Builder analytics windows
+
+The [builder endpoints](/api-reference/builders) use their own window parameters, enforced server-side like everything else on this page:
+
+| Endpoint | Window parameter | Default | Bound |
+|----------|------------------|---------|-------|
+| `/builders/leaderboard` | `period` (`day\|week\|month`) | `week` | Also computes the immediately-preceding same-length window for deltas |
+| `/builders/{builder}/profile` | `period` | `month` | — |
+| `/builders/{builder}/traders`, `/cohorts`, `/overlap` | `period` | `week` | — |
+| `/builders/{builder}/fills` | `since` | `24h` | Clamped to 90d |
+| `/trader/{address}/builders` | `since` | `30d` | Clamped to 90d |
+| `/builders/{builder}/retention` | none | — | Fixed: last 12 calendar months |
+
+The `since` clamp is **silent**: the response's `window` field echoes what you requested even when the data was clamped to 90 days — same truncation-detection advice as above: compare response timestamps against your requested window.
+
+**Underlying history:** builder-fee orders and attributed fills are complete and gapless from **2025-01-25**. Trigger-order (stop/TP) fill capture went live **2026-08-20** with backfill to **2026-03-24** and earlier history in progress — until it completes, attributed metrics slightly undercount vs ledger revenue (disclosed in every response's `dataNotes`). Ledger revenue itself is cumulative on-chain data with no window floor. The clamps above are per-request query windows, not data floors — retention's 12-month triangle reads the full order history. See [Builder codes & attribution](/concepts/builder-attribution).
+
 ## Live / real-time
 
 Current snapshot only. No historical concept. Each call returns the latest state from the indexer.
