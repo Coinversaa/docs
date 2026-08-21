@@ -5,6 +5,10 @@ description: "Native Hyperliquid perps, the 7 builder dexes, and symbol-format c
 
 Hyperliquid hosts two layers of perpetual markets: the **native** L1 perps (BTC, ETH, SOL, HYPE, etc.) and **builder dexes** — independent perp exchanges built on top of Hyperliquid with their own collateral tokens and listings.
 
+<Note>
+**Builder dex ≠ builder code.** A builder *dex* is a venue with its own markets (this page). A builder *code* is any address that attaches a fee to the orders it routes — every builder dex runs one, but so do wallet apps, front-ends, and bots that list no markets of their own. The [builder analytics endpoints](/concepts/builder-attribution) are about builder codes.
+</Note>
+
 ## The 7 builder dexes
 
 | Dex    | What it trades             | Collateral | Example symbols                    |
