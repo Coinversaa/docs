@@ -1,55 +1,30 @@
-# Mintlify Starter Kit
+# Coinversa Pulse docs
 
-Use the starter kit to get your docs deployed and ready to customize.
+Documentation site for [Coinversa Pulse](https://coinversa.ai) — the Hyperliquid crypto-intelligence REST API and MCP server. Live at [docs.coinversa.ai](https://docs.coinversa.ai), built on [Mintlify](https://mintlify.com).
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## Layout
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+- Pages are MDX files with YAML frontmatter (`title` + `description` only — descriptions feed the auto-generated `/llms.txt`, so write them as standalone one-liners).
+- Navigation lives in `docs.json`.
+- `api-reference/openapi.json` is **auto-synced daily** (06:00 UTC) from `https://api.coinversa.ai/openapi.json` by `.github/workflows/sync-openapi.yml` — **never hand-edit it**. The workflow rewrites `servers` and strips an invalid `scheme` huma emits; if you must sync out of band, run the workflow via `workflow_dispatch` or replicate that exact massage.
+- Endpoint reference pages are generated from the spec at slugs derived from operation ids (e.g. `/api-reference/get-api-public-v1-builders-leaderboard`). Everything else is hand-maintained.
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+## Hand-maintained pages that track the API
 
-## AI-assisted writing
+When new endpoints land in the spec, these pages need matching updates (the sync workflow can't do it):
 
-Set up your AI coding tool to work with Mintlify:
-
-```bash
-npx skills add https://mintlify.com/docs
-```
-
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
-
-See the [AI tools guides](/ai-tools) for tool-specific setup.
+- `api-reference/tiers.mdx` — endpoint-by-tier matrix (verify gates against the API's Go route registrations)
+- `api-reference/data-windows.mdx` — window semantics
+- `changelog/overview.mdx` — release entry
+- `mcp/tools.mdx` — only if MCP tools shipped too
 
 ## Development
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
-npm i -g mint
-```
-
-Run the following command at the root of your documentation, where your `docs.json` is located:
-
-```
-mint dev
+```bash
+npx mint dev            # local preview at http://localhost:3000
+npx mint broken-links   # link check (MDX pages only — it skips plain .md files)
 ```
 
-View your local preview at `http://localhost:3000`.
+## Publishing
 
-## Publishing changes
-
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
-
-## Need help?
-
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+Pushes to `main` deploy automatically via the Mintlify GitHub app.
