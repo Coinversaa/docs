@@ -1,0 +1,105 @@
+---
+title: "Builder endpoints"
+description: "The 8 builder analytics endpoints: ledger-exact revenue, attributed flow, cohort mix, retention, and cross-builder overlap — REST and x402."
+---
+
+Eight endpoints cover the Hyperliquid builder-code economy, all under `https://api.coinversa.ai/api/public/v1` with the `X-API-Key` header. Every endpoint is **Starter** or **Pro**, and every one has an [x402 pay-per-call twin](/api-reference/tiers#x402-pay-per-call) that needs no key at all. For the data model — the exact-vs-attributed distinction, the verified stamp, `dataNotes`, and builder names — see [Builder codes & attribution](/concepts/builder-attribution).
+
+## Endpoint guide
+
+### `/builders/leaderboard` · Starter
+
+All builders ranked by **exact ledger revenue** over the period (`period=day|week|month`, default `week`; `limit` ≤100, `offset` ≤1000). Attributed metrics (volume, users, fills) ride along, each with the immediately-preceding same-length window's value for deltas. `feeTenthsBp` is the builder's most common requested fee over the last 7 days of orders, in tenths of a basis point.
+
+### `/builders/{builder}/profile` · Starter
+
+One builder in depth: exact `revenueUsd` for the period (default `month`), `firstSeen` / `lastSeen` in the fee ledger, distinct fee tokens, a daily attributed series with `biggestDay`, top coins (`topCoins` ≤50, default 10) with `marketType`, and user totals including `profitableUsers`. Gotcha: returns **404** when the builder has no revenue in the fee ledger; the daily series, coins, and user counts are attribution-plane.
+
+### `/trader/{address}/builders` · Starter
+
+The per-wallet view: every builder a wallet traded through in the window (`since`, default `30d`, clamped to 90d), ordered by fees paid descending, with fills, volume, and first/last seen. Gotcha: the response's `window` echoes what you requested even when the data was clamped to 90d.
+
+### `/builders/{builder}/traders` · Pro
+
+A builder's attributed wallets for the window, sortable by `sort=builderFee|volume|pnl` (default `builderFee`; `limit` ≤500). Each row carries realized PnL on attributed fills, fees paid, volume, live `equity`, and the exchange-wide all-time `pnlTier` / `sizeTier`. Gotcha: `equity` is `0` and both tiers are `null` when the wallet isn't in the cohort rollup yet.
+
+### `/builders/{builder}/fills` · Pro
+
+The raw attributed fill stream: time, wallet, coin, `marketType` (`perp|spot|hip4` — `@N` coins are spot, `#N` are HIP-4 outcomes), side, price, size, PnL, and the builder fee per fill, with `oid` (nullable) and `tid`. Filters: `since` (default `24h`, clamped to 90d), exact `coin` (`BTC`, `xyz:GOLD`, `@123`, `#10010`), and `address`.
+
+### `/builders/{builder}/cohorts` · Pro
+
+Cohort composition of the builder's user base for the period: users, share, fees paid, volume, PnL, and fills split by all-time PnL tier and size tier. Gotcha: wallets missing from the cohort rollup appear under tier `untracked`, so per-tier user counts always sum to `totalUsers`; `share` is `users / totalUsers`.
+
+### `/builders/{builder}/retention` · Pro
+
+Monthly retention triangle over the **last 12 calendar months**: wallets are cohorted by the month of their first builder-fee order via this builder, and `activeWallets[k]` counts how many were still active k months later (index 0 = the cohort month itself). No query parameters. Gotchas: "active" means *placed at least one builder-fee order that month* — the order need not fill, so these counts can exceed the attributed-fill user counts on `/cohorts` and `/overlap`. It's the heaviest builder query and is cached for 6 hours.
+
+### `/builders/{builder}/overlap` · Pro
+
+The top 10 **other** builders this builder's active users also traded through in the period, by shared users. Gotchas: `feesUsd` is what the shared users paid to the *other* builder, not to this one; `share` uses `activeUsers` (this builder's attributed users in the period) as the denominator.
+
+## Response envelope
+
+Every builder response carries `builderName` (omitted when unknown), a `verified` stamp, and the constant `dataNotes` disclosure. A trimmed leaderboard response:
+
+```json
+{
+  "period": "week",
+  "builders": [
+    {
+      "builder": "0x1922810825c90f4270048b96da7b1803cd8609ef",
+      "builderName": "Example Builder",
+      "revenueUsd": 1204551.18,
+      "prevRevenueUsd": 1150322.77,
+      "attributedVolumeUsd": 2410880412.55,
+      "attributedUsers": 4812,
+      "attributedFills": 1930211,
+      "feeTenthsBp": 10
+    }
+  ],
+  "verified": {
+    "ledger_block": 723441892,
+    "ledger_chain_time": "2026-08-21T14:02:11Z",
+    "coverage": null
+  },
+  "dataNotes": "Revenue figures are exact per Hyperliquid's cumulative builder-fee ledger. Trigger-order fills (stop/TP) currently attribute at ledger level only (~6% of fees ecosystem-wide) until the parser upgrade, so join-attributed fills, volume, and user counts slightly undercount versus ledger revenue."
+}
+```
+
+- `revenueUsd` is **exact** (ledger plane); `attributed*` fields come from the fill join and slightly undercount — see [the two data planes](/concepts/builder-attribution#two-data-planes).
+- `verified.coverage` is null until the reconciliation pipeline ships — [normal, not an error](/concepts/builder-attribution#the-verified-stamp).
+
+## Errors
+
+Builder routes are served by the Go API and return **huma problem-details** errors (`title` / `status` / `detail` / `code`) — not the `success: false` shape some older endpoints use. A tier-gated request without sufficient entitlement returns:
+
+```json
+{
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Api key needed for this request",
+  "code": "TIER_GATE",
+  "current_tier": "none",
+  "required_tier": "starter",
+  "upgrade_url": "https://coinversa.ai/developers#pricing"
+}
+```
+
+Other errors: `400` with `detail: "invalid ethereum address"` for a malformed builder or wallet address, and `404` from `/profile` when the builder has no revenue in the fee ledger.
+
+## For AI agents
+
+The canonical request:
+
+```bash
+curl "https://api.coinversa.ai/api/public/v1/builders/leaderboard?period=week" \
+  -H "X-API-Key: cvsa_..."
+```
+
+Auth is the `X-API-Key` header — **not** a Bearer token (a `Authorization: Bearer` header is ignored and treated as a missing key).
+
+- **Gate handling** — on a 403, read `code`. If it's `"TIER_GATE"`, report `required_tier` and hand the human `upgrade_url` — or fall back to the endpoint's [x402 twin](/api-reference/tiers#x402-pay-per-call) for keyless pay-per-call.
+- **Stamp interpretation** — `verified.coverage === null` is normal (pipeline not yet live); never retry on it. Treat `verified.ledger_chain_time` as the freshness timestamp. `revenueUsd` is exact; `attributed*` fields slightly undercount — relay `dataNotes` whenever you present the numbers.
+- **Field gotchas** — `builderName` absent means unknown, not invalid. Tier slugs are legacy (`smart_money`, not `sharps`) — match per [Trader cohorts](/concepts/cohorts). `since` silently clamps at 90d (the response echoes what you asked for). Retention's active counts are orders-plane and can exceed user counts elsewhere.
+- **MCP** — builder data is not in the [MCP tool catalog](/mcp/tools) yet. Agents with the Coinversa MCP connected must use REST for builders today.
