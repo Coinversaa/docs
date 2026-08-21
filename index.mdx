@@ -25,7 +25,7 @@ There are two ways into the same data. Both use the same API key and hit the sam
 </Columns>
 
 <Note>
-The MCP is a thin wrapper over the REST API — it translates tool calls into the same HTTP endpoints documented here. Anything the MCP can do, the REST API can do; the REST API also exposes endpoints not yet wrapped as tools, and supports [x402 pay-per-call](/authentication) which the MCP does not yet sign natively. When in doubt, the REST API is the full surface.
+The MCP is a thin wrapper over the REST API — it translates tool calls into the same HTTP endpoints documented here. Anything the MCP can do, the REST API can do; the REST API also exposes endpoints not yet wrapped as tools, and supports [x402 pay-per-call](/api-reference/tiers#x402-pay-per-call) which the MCP does not yet sign natively. When in doubt, the REST API is the full surface.
 </Note>
 
 ## Get started
@@ -38,7 +38,7 @@ The MCP is a thin wrapper over the REST API — it translates tool calls into th
     Connect Pulse to Claude, Cursor, or Perplexity.
   </Card>
   <Card title="API reference" icon="terminal" href="/api-reference">
-    96 endpoints, auto-generated from the live OpenAPI spec.
+    106 endpoints, auto-generated from the live OpenAPI spec.
   </Card>
   <Card title="Authentication" icon="key" href="/authentication">
     API keys, rate-limit headers, tier behavior.
@@ -53,6 +53,9 @@ The MCP is a thin wrapper over the REST API — it translates tool calls into th
   </Card>
   <Card title="Trader cohorts" icon="users" href="/concepts/cohorts">
     Every tracked wallet classified by PnL and size tier — from Apex to Blown Out, Heavyweights to Strawweights.
+  </Card>
+  <Card title="Builder analytics" icon="hammer" href="/concepts/builder-attribution">
+    Ledger-exact revenue for every builder code, plus attributed fills since Jan 2025 — retention triangles, cohort mix, and cross-builder overlap.
   </Card>
   <Card title="Cross-market assets" icon="layer-group" href="/concepts/cross-market-assets">
     Canonical taxonomy unifying native HL perps with builder dex listings — `PAXG`, `xyz:GOLD`, and `hyna:PAXG` all resolve to `GOLD`.

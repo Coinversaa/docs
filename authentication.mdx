@@ -29,12 +29,12 @@ Your key's tier is set by your active subscription. Free is the default; paid ti
 | Free       | 30     | 1,000   | unlimited | 1   | $0           |
 | Starter    | 120    | 2,000   | 50,000    | 3   | $29 / mo     |
 | Pro        | 600    | 20,000  | 500,000   | 10  | $199 / mo    |
-| Enterprise | custom | custom  | custom    | ∞   | custom quote |
+| Enterprise | custom | custom  | custom    | unlimited | custom quote |
 
 See [pricing](/pricing) for what each tier unlocks.
 
 <Note>
-**Multiple keys share your account's best tier.** If you have three keys and one is on Pro, all three get Pro limits. The check looks at every active key on your account and uses the highest entitled tier.
+**Each key is checked on its own.** A key serves the tier it was provisioned at, capped by your account's active entitlement — a Free key calling alongside an unused Pro key on the same account still gets Free limits. See [how tier resolution works](/api-reference/tiers#how-tier-resolution-works).
 </Note>
 
 ## Rate-limit headers
@@ -43,92 +43,98 @@ Every successful response includes:
 
 | Header | Meaning |
 |--------|---------|
-| `X-RateLimit-Tier`            | Tier resolved for this request (`free`, `starter`, `pro`, `enterprise`) |
-| `X-RateLimit-Limit`           | Requests per minute allowed |
-| `X-RateLimit-Remaining`       | Requests remaining in the current minute window |
-| `X-RateLimit-Reset`           | Seconds until the per-minute window resets |
-| `X-RateLimit-Daily-Remaining` | Requests remaining in the current 24h window (paid tiers) |
-| `X-RateLimit-Monthly-Limit`     | Total requests/month for your tier |
-| `X-RateLimit-Monthly-Remaining` | Requests remaining this calendar month |
-| `X-RateLimit-Monthly-Reset`     | Seconds until the next month starts |
-
-Some endpoints (e.g. `/pulse/leaderboard`, `/pulse/hidden-gems`) have additional per-route limits — those are returned as `X-Route-RateLimit-*`.
+| `X-RateLimit-Tier`      | Tier resolved for this request (`free`, `starter`, `pro`, `enterprise`) |
+| `X-RateLimit-Remaining` | Requests remaining in the current per-minute window |
+| `X-RateLimit-Next`      | Time until the window refills (a duration string, e.g. `12.4s`) |
+| `X-RateLimit-Route`     | Remaining allowance on the per-route limit, where one applies |
+| `X-RateLimit-Daily`     | Requests remaining today (only on tiers with a daily cap) |
+| `X-RateLimit-Monthly`   | Requests remaining this billing month (only on tiers with a monthly cap) |
 
 ## Error responses
 
-All errors return JSON with `success: false` and a human-readable `error`. Specific status codes:
+All errors are JSON **problem details**: `title`, `status`, a human-readable `detail`, and a machine-matchable `code`. Match on `code` — the `detail` wording can change. There is no 401 in this API: every auth failure is a `403`.
 
 <AccordionGroup>
-  <Accordion title="401 Unauthorized — missing key">
+  <Accordion title="403 Forbidden — missing key (code TIER_GATE)">
     ```json
     {
-      "success": false,
-      "error": "API key required for this endpoint.",
-      "message": "Hey — you need an API key to use this endpoint. Get a free one at https://developers.coinversa.ai",
-      "signup_url": "https://developers.coinversa.ai"
+      "title": "Forbidden",
+      "status": 403,
+      "detail": "Api key needed for this request",
+      "code": "TIER_GATE",
+      "current_tier": "none",
+      "required_tier": "free",
+      "upgrade_url": "https://coinversa.ai/developers#pricing"
     }
     ```
-    Action: include `X-API-Key` header.
+    Action: include the `X-API-Key` header. `required_tier` names the minimum tier for the endpoint — even `free` endpoints need a key.
   </Accordion>
 
-  <Accordion title="401 Unauthorized — invalid key">
+  <Accordion title="403 Forbidden — invalid key (code FORBIDDEN)">
     ```json
-    { "success": false, "error": "Invalid or inactive API key." }
+    {
+      "title": "Forbidden",
+      "status": 403,
+      "detail": "Invalid API key",
+      "code": "FORBIDDEN"
+    }
     ```
     Action: check the key isn't revoked or rotated in the [portal](https://developers.coinversa.ai/keys).
   </Accordion>
 
-  <Accordion title="403 Forbidden — tier gate">
+  <Accordion title="403 Forbidden — insufficient tier (code TIER_GATE)">
     ```json
     {
-      "success": false,
-      "error": "This endpoint requires Pro tier.",
+      "title": "Forbidden",
+      "status": 403,
+      "detail": "Tool not available for current tier, must be pro or higher",
+      "code": "TIER_GATE",
       "current_tier": "starter",
       "required_tier": "pro",
-      "upgrade_url": "https://api.coinversa.ai/api/billing/checkout/redirect?tier=pro&key_id=..."
+      "upgrade_url": "https://coinversa.ai/developers#pricing"
     }
     ```
-    Action: visit `upgrade_url` to start a Stripe checkout for the required tier.
+    Action: upgrade at `upgrade_url`, or (for [builder endpoints](/api-reference/builders)) fall back to the endpoint's [x402 pay-per-call twin](/api-reference/tiers#x402-pay-per-call). Agents: report `required_tier` to the human rather than retrying.
   </Accordion>
 
-  <Accordion title="429 Too Many Requests — rate limit">
+  <Accordion title="429 Too Many Requests — per-minute rate limit (code RATE_LIMITED)">
     ```json
     {
-      "success": false,
-      "error": "Rate limit exceeded (30/min for free). Try again shortly.",
-      "retryAfterSeconds": 47
+      "title": "Too Many Requests",
+      "status": 429,
+      "detail": "Rate limit exceeded for requests (Exceeded requests per minute)",
+      "code": "RATE_LIMITED"
     }
     ```
-    Action: back off until `retryAfterSeconds` elapses, or upgrade for higher RPM.
+    Action: back off until the duration in `X-RateLimit-Next` elapses, or upgrade for higher RPM.
   </Accordion>
 
-  <Accordion title="429 Too Many Requests — daily or monthly cap">
+  <Accordion title="429 Too Many Requests — daily or monthly cap (code RATE_LIMITED)">
     ```json
     {
-      "success": false,
-      "error": "Daily request cap reached (1000/day for free). Upgrade for higher limits.",
-      "upgrade_url": "https://api.coinversa.ai/api/billing/checkout/redirect?tier=starter&key_id=..."
+      "title": "Too Many Requests",
+      "status": 429,
+      "detail": "Exceeded daily and/or monthly request allowance update plan or wait for next reset",
+      "code": "RATE_LIMITED"
     }
     ```
-    Action: the daily window resets at 00:00 UTC; monthly on the 1st of the next month. Or upgrade.
+    Action: the daily window resets at 00:00 UTC; the monthly bucket at your billing period boundary. Or upgrade.
   </Accordion>
 
-  <Accordion title="502 Bad Gateway">
+  <Accordion title="502 Bad Gateway (code BAD_GATEWAY)">
     The upstream Hyperliquid endpoint timed out or returned an error. The MCP server retries automatically; direct callers should retry with backoff.
   </Accordion>
 </AccordionGroup>
 
+<Note>
+**No key at all?** Every GET endpoint has a keyless [x402 pay-per-call twin](/api-reference/tiers#x402-pay-per-call) — payment is negotiated per request via the x402 protocol instead of a subscription. The [builder analytics endpoints](/api-reference/builders) are the documented x402 surface today.
+</Note>
+
 ## Historical-window caps
 
-Endpoints that read historical data cap how far back you can query, by tier:
+Caller-controlled history windows (`since`, `hours`/`days` params, explicit `startTime`/`endTime` ranges) are clamped to **90 days** on every tier — the cap is universal, not tier-based. The clamp is **silent**: no error is returned, the query just runs against the capped window, and the response may echo the window you asked for. Compare response timestamps against your requested range to detect truncation. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
 
-| Tier | Max window |
-|------|-----------:|
-| Free / Starter | 30 days  |
-| Pro            | 90 days  |
-| Enterprise     | 365 days |
-
-If you request a longer `since` or `startTime`/`endTime` range, the response is `400` with a `hint` pointing at upgrade options. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
+Longer windows are available on Enterprise as custom exports and negotiated data delivery, not as an API parameter. See [Data windows](/api-reference/data-windows) for per-endpoint window semantics.
 
 ## Usage logging
 

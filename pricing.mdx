@@ -18,8 +18,7 @@ All accounts start on **Free**. Upgrade in the [billing portal](https://develope
 
 <AccordionGroup>
   <Accordion title="Free">
-    - All 91 MCP tools / 96 API endpoints (tier-gated)
-    - Historical windows up to 30 days
+    - All 91 MCP tools / 106 API endpoints (tier-gated)
     - 1 active key
     - Public-only data (no private wallet correlation)
   </Accordion>
@@ -27,19 +26,19 @@ All accounts start on **Free**. Upgrade in the [billing portal](https://develope
     - 4× the per-minute rate
     - 50k requests / month bucket
     - 3 active keys (rotate without disruption)
-    - Same data coverage as Free
+    - [Builder analytics](/api-reference/builders): leaderboard, builder profiles, per-wallet builder usage
   </Accordion>
   <Accordion title="Pro — $199 / mo">
     - 20× Free's per-minute rate
     - 500k requests / month bucket
     - 10 active keys
-    - Historical windows up to **90 days**
-    - Access to deeper analytics tools (HIP-4 perp-position context, etc.)
+    - Deep [builder analytics](/api-reference/builders): traders, fills, cohorts, retention, cross-builder overlap
+    - Access to deeper analytics tools (entity resolution, HIP-4 perp-position context, etc.)
   </Accordion>
   <Accordion title="Enterprise — custom">
     - Negotiated rate / volume / SLA
-    - Historical windows up to **365 days**
-    - Unlimited keys
+    - Custom historical exports beyond the standard [90-day window](/api-reference/data-windows)
+    - Unlimited active keys
     - Priority support, custom data delivery, optional SLAs
     - Email [chat@coinversa.ai](mailto:chat@coinversa.ai) to scope.
   </Accordion>
@@ -50,7 +49,7 @@ All accounts start on **Free**. Upgrade in the [billing portal](https://develope
 - Subscriptions are managed by Stripe. Manage payment methods, view invoices, change plan, and cancel in the [billing portal](https://developers.coinversa.ai/billing).
 - Plan changes take effect immediately on upgrade (prorated) and at period end on downgrade.
 - If your subscription lapses, keys fall back to **Free** limits — they're not deleted, they just stop being entitled to the paid tier.
-- Multiple keys on the same account share your account's best entitled tier.
+- Each key is entitlement-checked on its own: a key serves the tier it was provisioned at, capped by your account's active entitlement. A Free key is never promoted by a paid key on the same account — see [how tier resolution works](/api-reference/tiers#how-tier-resolution-works).
 
 ## FAQ
 
@@ -62,7 +61,7 @@ All accounts start on **Free**. Upgrade in the [billing portal](https://develope
     That's Enterprise — limits are negotiated independently. Email [chat@coinversa.ai](mailto:chat@coinversa.ai).
   </Accordion>
   <Accordion title="Are rate limits per key or per account?">
-    Per key for RPM and daily/monthly caps. Keys do share the tier (highest entitled across all your keys).
+    Per key for RPM and daily/monthly caps. Tiers are per key too — each key serves its own tier (capped by your account's entitlement), so a Free key doesn't inherit a paid sibling's limits.
   </Accordion>
   <Accordion title="Do MCP and direct API calls share the same limit?">
     Yes. The MCP server forwards your key to the API, so both paths consume the same quota.

@@ -67,6 +67,7 @@ If a new slug is rejected (for example, an MCP tool schema that still lists only
 ## When to use cohorts vs individual wallets
 
 - **Cohorts** when you want a *signal* — "are the Middleweights loading up on BTC?" / "are the Sharps bearish on ETH?".
+- **Builder cohorts** when you want the *user mix of a builder code* — the [builder endpoints](/api-reference/builders) label wallets with their **lifetime** tiers (`pnlTier` / `sizeTier`, legacy slugs), which can differ from the 30d-rolling tiers the `cohorts-recent` endpoints classify by. See [Builder codes & attribution](/concepts/builder-attribution#cohort-tiers-on-builder-endpoints).
 - **Individual wallets** when you want a *specific story* — "what is `0xabc...` doing?" / "how is this trader I follow performing?".
 
 Most agent workflows benefit from cohort-first analysis: it's signal-rich, and you can drill into specific wallets with `pulse_token_leaderboard` (top traders for a coin) when you want names.

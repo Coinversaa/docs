@@ -37,6 +37,7 @@
               "concepts/position-lifecycles",
               "concepts/cross-market-assets",
               "concepts/hip4",
+              "concepts/builder-attribution",
               "concepts/data-coverage"
             ]
           }
@@ -51,7 +52,8 @@
               "api-reference/introduction",
               "authentication",
               "api-reference/tiers",
-              "api-reference/data-windows"
+              "api-reference/data-windows",
+              "api-reference/builders"
             ]
           },
           {

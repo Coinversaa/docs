@@ -1,9 +1,9 @@
 ---
 title: "Introduction"
-description: "96 endpoints under /api/public/v1, auto-generated from the live Coinversa OpenAPI spec."
+description: "The full REST surface under /api/public/v1, auto-generated from the live Coinversa OpenAPI spec — trader analytics, builder analytics, market data, live risk, HIP-4, entities."
 ---
 
-The Coinversa Pulse REST API exposes everything the MCP server uses — 96 endpoints covering trader analytics, market data, live risk, HIP-4 outcomes, and the cross-market asset registry.
+The Coinversa Pulse REST API exposes everything the MCP server uses and more — 106 endpoints covering trader analytics, builder analytics, market data, live risk, HIP-4 outcomes, entity resolution, and the cross-market asset registry.
 
 **Base URL:** `https://api.coinversa.ai/api/public/v1`
 **Auth:** `X-API-Key` header on every request — see [authentication](/authentication)
@@ -11,25 +11,29 @@ The Coinversa Pulse REST API exposes everything the MCP server uses — 96 endpo
 
 The reference pages in the sidebar are auto-generated from the spec. Every endpoint has parameter docs, response schemas, and a "Try it" panel that issues live requests against production using your key.
 
-## Sections
+## Endpoint families
 
-- **Pulse** — historical trader and cohort analytics; the rich endpoints (`/pulse/*`).
+The spec has no tags yet, so the sidebar renders one flat list — these are the families you'll find in it:
+
+- **Pulse** — historical trader and cohort analytics; the rich endpoints (`/pulse/*`), including the Daily Pulse editions (`/pulse/daily/*`).
+- **Builders** — the builder-code economy: ledger-exact revenue, attributed flow, retention, overlap (`/builders/*`, `/trader/{address}/builders`). Start from the [endpoint guide](/api-reference/builders).
 - **Live** — near-real-time market and risk (`/live/*`).
 - **Market** — direct Hyperliquid passthroughs for mark price, OI, orderbook, candles (`/market/*`).
 - **Assets** — canonical cross-market taxonomy (`/assets/*`).
 - **HIP-4** — outcome contract discovery, settlements, perp-position context (`/hip4/*`).
-- **Wallet** — per-wallet risk and history (`/wallet/:address/*`).
+- **Entities & exchange** — owner-level resolution (`/entity/*`, `/entities/*`) and exchange-wide aggregates (`/exchange/*`).
+- **Utility** — plan introspection (`/plan`) and the chain-verification stamp (`/census/stamp`).
 
 ## Conventions
 
-- All responses use `success: true | false`. Errors include a human-readable `error` field.
+- Success responses return the resource body directly. **Errors are JSON problem details** — `title`, `status`, `detail`, and a machine-matchable `code` (plus `current_tier` / `required_tier` / `upgrade_url` on tier gates). See [error responses](/authentication#error-responses).
 - Timestamps are unix milliseconds unless explicitly noted as ISO strings.
 - Numeric fields are JSON numbers (be aware of float precision on large notionals — most are within JS-safe-integer range).
 - Pagination uses `limit` + `offset` or cursor-style `since` / `until` depending on the endpoint.
 
 ## Tier requirements
 
-Most endpoints are accessible to **all** tiers (Free included). A handful of deep-analytics endpoints require **Pro** (e.g. `/hip4/outcomes/{id}/perp-position-context`). Tier requirements are noted on each endpoint's reference page and enforced by the API — a 403 response includes a Stripe upgrade URL.
+Every endpoint requires an API key; each is gated at **Free**, **Starter**, or **Pro** — the full matrix is in [Tiers](/api-reference/tiers). A 403 carries `code: "TIER_GATE"` with `required_tier` and an `upgrade_url`, so agents can explain exactly what a request needs.
 
 ## Stability
 

@@ -255,6 +255,850 @@
         ],
         "type": "object"
       },
+      "BuilderCohortRow": {
+        "additionalProperties": false,
+        "properties": {
+          "builderFeesUsd": {
+            "description": "Builder fees this cohort paid in the period",
+            "format": "double",
+            "type": "number"
+          },
+          "fills": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pnl": {
+            "description": "Realized PnL on this cohort's attributed fills in the period",
+            "format": "double",
+            "type": "number"
+          },
+          "share": {
+            "description": "users / totalUsers; 0 when the builder had no attributed users",
+            "format": "double",
+            "type": "number"
+          },
+          "tier": {
+            "description": "All-time cohort tier label (money_printer..giga_rekt / leviathan..shrimp) or 'untracked'. Lifetime classification from the traders rollup — the pulse cohort endpoints use 30d-rolling tiers, so the same wallet can sit in a different cohort there; the period-scoped aggregates below are attributed to these lifetime labels",
+            "type": "string"
+          },
+          "users": {
+            "description": "Distinct attributed wallets in this tier over the period",
+            "format": "int32",
+            "type": "integer"
+          },
+          "volumeUsd": {
+            "description": "Attributed fill volume of this cohort in the period",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tier",
+          "users",
+          "share",
+          "builderFeesUsd",
+          "volumeUsd",
+          "pnl",
+          "fills"
+        ],
+        "type": "object"
+      },
+      "BuilderCohortsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/BuilderCohortsBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "builder": {
+            "type": "string"
+          },
+          "builderName": {
+            "description": "Known display name for the builder; omitted if unknown",
+            "type": "string"
+          },
+          "dataNotes": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "pnlTiers": {
+            "description": "Composition by profitability tier, largest cohort first",
+            "items": {
+              "$ref": "#/components/schemas/BuilderCohortRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "sizeTiers": {
+            "description": "Composition by size tier, largest cohort first",
+            "items": {
+              "$ref": "#/components/schemas/BuilderCohortRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "totalUsers": {
+            "description": "Distinct wallets with attributed fills in the period",
+            "format": "int32",
+            "type": "integer"
+          },
+          "verified": {
+            "$ref": "#/components/schemas/BuilderStamp"
+          }
+        },
+        "required": [
+          "builder",
+          "period",
+          "totalUsers",
+          "pnlTiers",
+          "sizeTiers",
+          "dataNotes"
+        ],
+        "type": "object"
+      },
+      "BuilderCoin": {
+        "additionalProperties": false,
+        "properties": {
+          "attributedFeesUsd": {
+            "format": "double",
+            "type": "number"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "fills": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "marketType": {
+            "enum": [
+              "perp",
+              "spot",
+              "hip4"
+            ],
+            "type": "string"
+          },
+          "volumeUsd": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "coin",
+          "marketType",
+          "volumeUsd",
+          "attributedFeesUsd",
+          "fills"
+        ],
+        "type": "object"
+      },
+      "BuilderCoverage": {
+        "additionalProperties": false,
+        "properties": {
+          "attributed_fees_usd": {
+            "description": "Join-attributed fees in the rollup window",
+            "format": "double",
+            "type": "number"
+          },
+          "computed_at": {
+            "description": "When the rollup was computed (RFC3339)",
+            "type": "string"
+          },
+          "ledger_fees_usd": {
+            "description": "Exact ledger revenue in the rollup window",
+            "format": "double",
+            "type": "number"
+          },
+          "ratio": {
+            "description": "attributed_fees / ledger_fees — the share of revenue the fill-level metrics account for",
+            "format": "double",
+            "type": "number"
+          },
+          "window_end": {
+            "description": "End of that window (RFC3339)",
+            "type": "string"
+          },
+          "window_start": {
+            "description": "Start of the window the coverage rollup was computed over (RFC3339)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_start",
+          "window_end",
+          "ledger_fees_usd",
+          "attributed_fees_usd",
+          "ratio",
+          "computed_at"
+        ],
+        "type": "object"
+      },
+      "BuilderDay": {
+        "additionalProperties": false,
+        "properties": {
+          "attributedFeesUsd": {
+            "format": "double",
+            "type": "number"
+          },
+          "date": {
+            "description": "UTC day (YYYY-MM-DD)",
+            "type": "string"
+          },
+          "fills": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "users": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "volumeUsd": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "attributedFeesUsd",
+          "volumeUsd",
+          "users",
+          "fills"
+        ],
+        "type": "object"
+      },
+      "BuilderFillRow": {
+        "additionalProperties": false,
+        "properties": {
+          "builderFeeUsd": {
+            "format": "double",
+            "type": "number"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "marketType": {
+            "description": "'@N' coins = spot, '#N' = HIP-4 outcome, else perp (native or builder-dex)",
+            "enum": [
+              "perp",
+              "spot",
+              "hip4"
+            ],
+            "type": "string"
+          },
+          "oid": {
+            "description": "Order id the fill attributes to; null if untracked",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "pnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "price": {
+            "format": "double",
+            "type": "number"
+          },
+          "side": {
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "type": "string"
+          },
+          "size": {
+            "format": "double",
+            "type": "number"
+          },
+          "tid": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "time": {
+            "description": "Fill time (RFC3339)",
+            "type": "string"
+          },
+          "volumeUsd": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "time",
+          "wallet",
+          "coin",
+          "marketType",
+          "side",
+          "price",
+          "size",
+          "volumeUsd",
+          "pnl",
+          "builderFeeUsd",
+          "oid",
+          "tid"
+        ],
+        "type": "object"
+      },
+      "BuilderFillsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/BuilderFillsBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "builder": {
+            "type": "string"
+          },
+          "builderName": {
+            "description": "Known display name for the builder; omitted if unknown",
+            "type": "string"
+          },
+          "dataNotes": {
+            "type": "string"
+          },
+          "fills": {
+            "items": {
+              "$ref": "#/components/schemas/BuilderFillRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "verified": {
+            "$ref": "#/components/schemas/BuilderStamp"
+          },
+          "window": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "builder",
+          "window",
+          "fills",
+          "dataNotes"
+        ],
+        "type": "object"
+      },
+      "BuilderLeaderboardBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/BuilderLeaderboardBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "builders": {
+            "items": {
+              "$ref": "#/components/schemas/BuilderLeaderboardRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dataNotes": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "verified": {
+            "$ref": "#/components/schemas/BuilderStamp"
+          }
+        },
+        "required": [
+          "period",
+          "builders",
+          "dataNotes"
+        ],
+        "type": "object"
+      },
+      "BuilderLeaderboardRow": {
+        "additionalProperties": false,
+        "properties": {
+          "attributedFills": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "attributedUsers": {
+            "description": "Distinct wallets with attributed fills in the window",
+            "format": "int32",
+            "type": "integer"
+          },
+          "attributedVolumeUsd": {
+            "description": "Join-attributed fill volume (see dataNotes)",
+            "format": "double",
+            "type": "number"
+          },
+          "builder": {
+            "type": "string"
+          },
+          "builderName": {
+            "description": "Known display name for the builder; omitted if unknown",
+            "type": "string"
+          },
+          "feeTenthsBp": {
+            "description": "Most common requested builder fee over the last 7d of orders, in tenths of a basis point",
+            "format": "int32",
+            "type": "integer"
+          },
+          "prevAttributedFills": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "prevAttributedUsers": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "prevAttributedVolumeUsd": {
+            "format": "double",
+            "type": "number"
+          },
+          "prevRevenueUsd": {
+            "description": "Same-length window immediately before, for deltas",
+            "format": "double",
+            "type": "number"
+          },
+          "revenueUsd": {
+            "description": "Exact, from HL's cumulative fee ledger",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "builder",
+          "revenueUsd",
+          "prevRevenueUsd",
+          "attributedVolumeUsd",
+          "attributedUsers",
+          "attributedFills",
+          "prevAttributedVolumeUsd",
+          "prevAttributedUsers",
+          "prevAttributedFills",
+          "feeTenthsBp"
+        ],
+        "type": "object"
+      },
+      "BuilderOverlapBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/BuilderOverlapBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "activeUsers": {
+            "description": "Distinct wallets with attributed fills via this builder in the period (share denominator)",
+            "format": "int32",
+            "type": "integer"
+          },
+          "builder": {
+            "type": "string"
+          },
+          "builderName": {
+            "description": "Known display name for the builder; omitted if unknown",
+            "type": "string"
+          },
+          "dataNotes": {
+            "type": "string"
+          },
+          "overlaps": {
+            "description": "Top 10 other builders by shared users",
+            "items": {
+              "$ref": "#/components/schemas/BuilderOverlapRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "period": {
+            "type": "string"
+          },
+          "verified": {
+            "$ref": "#/components/schemas/BuilderStamp"
+          }
+        },
+        "required": [
+          "builder",
+          "period",
+          "activeUsers",
+          "overlaps",
+          "dataNotes"
+        ],
+        "type": "object"
+      },
+      "BuilderOverlapRow": {
+        "additionalProperties": false,
+        "properties": {
+          "builder": {
+            "description": "The other builder's address",
+            "type": "string"
+          },
+          "builderName": {
+            "description": "Known display name for the other builder; omitted if unknown",
+            "type": "string"
+          },
+          "feesUsd": {
+            "description": "Builder fees those shared users paid to the OTHER builder in the period",
+            "format": "double",
+            "type": "number"
+          },
+          "share": {
+            "description": "sharedUsers / activeUsers",
+            "format": "double",
+            "type": "number"
+          },
+          "sharedUsers": {
+            "description": "This builder's active users who also had attributed fills via the other builder in the period",
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "builder",
+          "sharedUsers",
+          "share",
+          "feesUsd"
+        ],
+        "type": "object"
+      },
+      "BuilderProfileBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/BuilderProfileBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "biggestDay": {
+            "$ref": "#/components/schemas/BuilderDay",
+            "description": "Day with the highest attributed fees in the period"
+          },
+          "builder": {
+            "type": "string"
+          },
+          "builderName": {
+            "description": "Known display name for the builder; omitted if unknown",
+            "type": "string"
+          },
+          "coins": {
+            "description": "Top coins by attributed volume",
+            "items": {
+              "$ref": "#/components/schemas/BuilderCoin"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "daily": {
+            "description": "Daily attributed series (join plane — see dataNotes)",
+            "items": {
+              "$ref": "#/components/schemas/BuilderDay"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dataNotes": {
+            "type": "string"
+          },
+          "feeTenthsBp": {
+            "description": "Most common requested fee over the last 7d of orders; 0 if no recent orders",
+            "format": "int32",
+            "type": "integer"
+          },
+          "feeTokens": {
+            "description": "Distinct fee tokens the builder has accrued revenue in",
+            "format": "int32",
+            "type": "integer"
+          },
+          "firstSeen": {
+            "description": "First fee accrual in HL's ledger (RFC3339)",
+            "type": "string"
+          },
+          "lastSeen": {
+            "description": "Latest fee accrual in HL's ledger (RFC3339)",
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "profitableUsers": {
+            "description": "Of those, wallets that are all-time profitable per the traders rollup",
+            "format": "int32",
+            "type": "integer"
+          },
+          "revenueUsd": {
+            "description": "Exact ledger revenue over the period",
+            "format": "double",
+            "type": "number"
+          },
+          "totalUsers": {
+            "description": "Distinct wallets with attributed fills in the period",
+            "format": "int32",
+            "type": "integer"
+          },
+          "verified": {
+            "$ref": "#/components/schemas/BuilderStamp"
+          }
+        },
+        "required": [
+          "builder",
+          "period",
+          "firstSeen",
+          "lastSeen",
+          "feeTokens",
+          "feeTenthsBp",
+          "revenueUsd",
+          "daily",
+          "coins",
+          "totalUsers",
+          "profitableUsers",
+          "dataNotes"
+        ],
+        "type": "object"
+      },
+      "BuilderRetentionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/BuilderRetentionBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "builder": {
+            "type": "string"
+          },
+          "builderName": {
+            "description": "Known display name for the builder; omitted if unknown",
+            "type": "string"
+          },
+          "cohorts": {
+            "description": "Oldest cohort first; capped at the last 12 calendar months",
+            "items": {
+              "$ref": "#/components/schemas/BuilderRetentionCohort"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dataNotes": {
+            "type": "string"
+          },
+          "verified": {
+            "$ref": "#/components/schemas/BuilderStamp"
+          }
+        },
+        "required": [
+          "builder",
+          "cohorts",
+          "dataNotes"
+        ],
+        "type": "object"
+      },
+      "BuilderRetentionCohort": {
+        "additionalProperties": false,
+        "properties": {
+          "activeWallets": {
+            "description": "Of those, wallets active per subsequent calendar month, where 'active' = placed at least one builder-fee order that month (orders plane — the order need not fill, so these counts can exceed the attributed-fill user counts on the cohorts/overlap endpoints); index 0 = the cohort month itself (== newWallets), index k = k months later, up to the current month (max 12 entries)",
+            "items": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "month": {
+            "description": "Cohort calendar month (YYYY-MM, UTC) — wallets whose first order via this builder landed that month",
+            "type": "string"
+          },
+          "newWallets": {
+            "description": "Wallets first seen in this month (placed their first builder-fee order via this builder)",
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "month",
+          "newWallets",
+          "activeWallets"
+        ],
+        "type": "object"
+      },
+      "BuilderStamp": {
+        "additionalProperties": false,
+        "properties": {
+          "coverage": {
+            "$ref": "#/components/schemas/BuilderCoverage",
+            "description": "Attribution coverage vs the ledger; null until the coverage pipeline is provisioned"
+          },
+          "ledger_block": {
+            "description": "Latest block in HL's builder-fee ledger this data was verified against",
+            "format": "int64",
+            "type": "integer"
+          },
+          "ledger_chain_time": {
+            "description": "Chain timestamp of that ledger entry (RFC3339)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ledger_block",
+          "ledger_chain_time",
+          "coverage"
+        ],
+        "type": "object"
+      },
+      "BuilderTraderRow": {
+        "additionalProperties": false,
+        "properties": {
+          "builderFeesUsd": {
+            "description": "Builder fees the wallet paid in the window",
+            "format": "double",
+            "type": "number"
+          },
+          "equity": {
+            "description": "Latest account value from the traders rollup; 0 if untracked",
+            "format": "double",
+            "type": "number"
+          },
+          "fills": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pnl": {
+            "description": "Realized PnL on the wallet's attributed fills in the window",
+            "format": "double",
+            "type": "number"
+          },
+          "pnlTier": {
+            "description": "All-time cohort pnl tier (smart_money, exit_liquidity, ...); null if untracked. Lifetime classification — the pulse cohort endpoints use 30d-rolling tiers, so memberships can differ",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sizeTier": {
+            "description": "All-time cohort size tier (whale, shrimp, ...); null if untracked. Lifetime classification, see pnlTier",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "volumeUsd": {
+            "format": "double",
+            "type": "number"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "pnl",
+          "builderFeesUsd",
+          "volumeUsd",
+          "fills",
+          "equity",
+          "pnlTier",
+          "sizeTier"
+        ],
+        "type": "object"
+      },
+      "BuilderTradersBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/BuilderTradersBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "builder": {
+            "type": "string"
+          },
+          "builderName": {
+            "description": "Known display name for the builder; omitted if unknown",
+            "type": "string"
+          },
+          "dataNotes": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "string"
+          },
+          "traders": {
+            "items": {
+              "$ref": "#/components/schemas/BuilderTraderRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "verified": {
+            "$ref": "#/components/schemas/BuilderStamp"
+          }
+        },
+        "required": [
+          "builder",
+          "period",
+          "sort",
+          "traders",
+          "dataNotes"
+        ],
+        "type": "object"
+      },
       "CandlePoint": {
         "additionalProperties": false,
         "properties": {
@@ -6342,6 +7186,92 @@
         ],
         "type": "object"
       },
+      "TraderBuilderRow": {
+        "additionalProperties": false,
+        "properties": {
+          "builder": {
+            "type": "string"
+          },
+          "builderFeesUsd": {
+            "description": "Builder fees the wallet paid via this builder in the window",
+            "format": "double",
+            "type": "number"
+          },
+          "builderName": {
+            "description": "Known display name for the builder; omitted if unknown",
+            "type": "string"
+          },
+          "fills": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "firstSeen": {
+            "description": "First attributed fill via this builder within the window (RFC3339)",
+            "type": "string"
+          },
+          "lastSeen": {
+            "description": "Latest attributed fill via this builder within the window (RFC3339)",
+            "type": "string"
+          },
+          "volumeUsd": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "builder",
+          "fills",
+          "builderFeesUsd",
+          "volumeUsd",
+          "firstSeen",
+          "lastSeen"
+        ],
+        "type": "object"
+      },
+      "TraderBuildersBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/TraderBuildersBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "builders": {
+            "description": "Ordered by fees paid, descending",
+            "items": {
+              "$ref": "#/components/schemas/TraderBuilderRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dataNotes": {
+            "type": "string"
+          },
+          "verified": {
+            "$ref": "#/components/schemas/BuilderStamp"
+          },
+          "window": {
+            "description": "Echo of the requested since parameter; lookbacks beyond 90d still echo as requested while the data is clamped to 90d",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "window",
+          "builders",
+          "dataNotes"
+        ],
+        "type": "object"
+      },
       "TraderDailyStat": {
         "additionalProperties": false,
         "properties": {
@@ -7153,6 +8083,798 @@
           }
         ],
         "summary": "Get API public v1 assets by canonical cross market"
+      }
+    },
+    "/api/public/v1/builders/leaderboard": {
+      "get": {
+        "operationId": "get-api-public-v1-builders-leaderboard",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "period",
+            "schema": {
+              "default": "week",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderLeaderboardBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 builders leaderboard"
+      }
+    },
+    "/api/public/v1/builders/{builder}/cohorts": {
+      "get": {
+        "operationId": "get-api-public-v1-builders-by-builder-cohorts",
+        "parameters": [
+          {
+            "description": "Builder address (0x-hex)",
+            "in": "path",
+            "name": "builder",
+            "required": true,
+            "schema": {
+              "description": "Builder address (0x-hex)",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "period",
+            "schema": {
+              "default": "week",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderCohortsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 builders by builder cohorts"
+      }
+    },
+    "/api/public/v1/builders/{builder}/fills": {
+      "get": {
+        "operationId": "get-api-public-v1-builders-by-builder-fills",
+        "parameters": [
+          {
+            "description": "Builder address (0x-hex)",
+            "in": "path",
+            "name": "builder",
+            "required": true,
+            "schema": {
+              "description": "Builder address (0x-hex)",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Lookback window like 30m, 6h, 7d (clamped to 90d)",
+            "explode": false,
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "default": "24h",
+              "description": "Lookback window like 30m, 6h, 7d (clamped to 90d)",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional exact coin filter (BTC, xyz:GOLD, @123, #10010)",
+            "explode": false,
+            "in": "query",
+            "name": "coin",
+            "schema": {
+              "description": "Optional exact coin filter (BTC, xyz:GOLD, @123, #10010)",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional wallet filter (0x-hex)",
+            "explode": false,
+            "in": "query",
+            "name": "address",
+            "schema": {
+              "description": "Optional wallet filter (0x-hex)",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderFillsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 builders by builder fills"
+      }
+    },
+    "/api/public/v1/builders/{builder}/overlap": {
+      "get": {
+        "operationId": "get-api-public-v1-builders-by-builder-overlap",
+        "parameters": [
+          {
+            "description": "Builder address (0x-hex)",
+            "in": "path",
+            "name": "builder",
+            "required": true,
+            "schema": {
+              "description": "Builder address (0x-hex)",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "period",
+            "schema": {
+              "default": "week",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderOverlapBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 builders by builder overlap"
+      }
+    },
+    "/api/public/v1/builders/{builder}/profile": {
+      "get": {
+        "operationId": "get-api-public-v1-builders-by-builder-profile",
+        "parameters": [
+          {
+            "description": "Builder address (0x-hex)",
+            "in": "path",
+            "name": "builder",
+            "required": true,
+            "schema": {
+              "description": "Builder address (0x-hex)",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "period",
+            "schema": {
+              "default": "month",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "topCoins",
+            "schema": {
+              "default": 10,
+              "format": "int32",
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderProfileBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 builders by builder profile"
+      }
+    },
+    "/api/public/v1/builders/{builder}/retention": {
+      "get": {
+        "operationId": "get-api-public-v1-builders-by-builder-retention",
+        "parameters": [
+          {
+            "description": "Builder address (0x-hex)",
+            "in": "path",
+            "name": "builder",
+            "required": true,
+            "schema": {
+              "description": "Builder address (0x-hex)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderRetentionBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 builders by builder retention"
+      }
+    },
+    "/api/public/v1/builders/{builder}/traders": {
+      "get": {
+        "operationId": "get-api-public-v1-builders-by-builder-traders",
+        "parameters": [
+          {
+            "description": "Builder address (0x-hex)",
+            "in": "path",
+            "name": "builder",
+            "required": true,
+            "schema": {
+              "description": "Builder address (0x-hex)",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "period",
+            "schema": {
+              "default": "week",
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "builderFee",
+              "enum": [
+                "builderFee",
+                "volume",
+                "pnl"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderTradersBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 builders by builder traders"
       }
     },
     "/api/public/v1/census/stamp": {
@@ -16559,6 +18281,102 @@
           }
         ],
         "summary": "List API public v1 pulse wallet drawdown curve by address"
+      }
+    },
+    "/api/public/v1/trader/{address}/builders": {
+      "get": {
+        "operationId": "get-api-public-v1-trader-by-address-builders",
+        "parameters": [
+          {
+            "description": "Wallet address (0x-hex)",
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "description": "Wallet address (0x-hex)",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Lookback window like 30m, 6h, 30d (clamped to 90d)",
+            "explode": false,
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "default": "30d",
+              "description": "Lookback window like 30m, 6h, 30d (clamped to 90d)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraderBuildersBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 trader by address builders"
       }
     },
     "/api/public/v1/verify": {
