@@ -5,6 +5,19 @@ description: "Product updates and releases for Coinversa Pulse."
 
 <Update label="August 21, 2026" tags={["API"]}>
 
+## Builder analytics arrives on MCP (connector v0.11.0)
+
+The eight builder-analytics endpoints are now first-class MCP tools on both
+the hosted connector (`https://mcp.coinversa.ai/mcp`) and the npx package
+(`@coinversaa/mcp-server@0.11.0`), taking the tool surface from **91 → 99**:
+`builder_leaderboard`, `builder_profile`, `builder_traders`, `builder_fills`,
+`builder_cohorts`, `builder_retention`, `builder_overlap`, and the inverse
+`trader_builders`. Ask your agent *"which frontends do MetaMask's traders
+also use?"* and it can answer from cross-builder attribution no other data
+source has. Full catalog in [MCP tools](/mcp/tools); endpoint semantics in
+[Builder codes & attribution](/concepts/builder-attribution).
+
+
 ## Builder analytics: ledger-exact revenue for every builder code
 
 Eight new REST endpoints cover the Hyperliquid **builder-code economy** —
@@ -178,7 +191,7 @@ into your client and it opens the new authorization page:
 - **Existing users** sign in with their Coinversa account and connect a key
   in one click — or paste a saved `cvsa_` key directly.
 - **New users** create an account right on the page. Every new account gets
-  **14 days of Pro** — all 91 tools, no credit card — and the key is
+  **14 days of Pro** — all 99 tools, no credit card — and the key is
   provisioned automatically.
 - Keys stay visible once at creation and revocable any time from the
   [developer portal](https://developers.coinversa.ai/keys); revoking a key
