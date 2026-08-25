@@ -1019,9 +1019,12 @@
             "type": "number"
           },
           "competitiveLossFeesUsd": {
-            "description": "Builder fees the switched wallets paid to OTHER builders over the last 30 days — revenue measurably lost to competitors",
+            "description": "Builder fees the switched wallets paid to OTHER builders over the last 30 days — revenue measurably lost to competitors; null when the fee probe exceeded its budget (see dataNotes) — null means unknown, never zero",
             "format": "double",
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "cooling": {
             "$ref": "#/components/schemas/BuilderLifecycleStatus",
@@ -1261,9 +1264,12 @@
             "type": "string"
           },
           "feesUsd": {
-            "description": "Builder fees those shared users paid to the OTHER builder in the period",
+            "description": "Builder fees those shared users paid to the OTHER builder in the period; null when the fee probe exceeded its budget (see dataNotes) — null means unknown, never zero",
             "format": "double",
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "share": {
             "description": "sharedUsers / activeUsers",
@@ -1308,7 +1314,7 @@
             "type": "string"
           },
           "coins": {
-            "description": "Top coins by attributed volume",
+            "description": "Top coins by attributed volume; null (not empty) when the live coin-split pass exceeded its budget — see dataNotes. An empty array is a real 'no attributed coins'",
             "items": {
               "$ref": "#/components/schemas/BuilderCoin"
             },
@@ -6473,6 +6479,64 @@
         ],
         "type": "object"
       },
+      "OfficialOIBatchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/OfficialOIBatchBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "coins": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialOICoinSeries"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dex": {
+            "type": "string"
+          },
+          "hours": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dex",
+          "hours",
+          "coins"
+        ],
+        "type": "object"
+      },
+      "OfficialOICoinSeries": {
+        "additionalProperties": false,
+        "properties": {
+          "coin": {
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialOIEntry"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "coin",
+          "history"
+        ],
+        "type": "object"
+      },
       "OfficialOIEntry": {
         "additionalProperties": false,
         "properties": {
@@ -9306,7 +9370,7 @@
     },
     "/api/public/v1/builders/{builder}/lifecycle": {
       "get": {
-        "description": "Every wallet that ever traded via this builder, partitioned into mutually exclusive stages by recent activity: active (attributed fill within 7d), cooling (30d), switched (no fill via this builder in 30d but at least one via a DIFFERENT builder — detectable only with all-builder attribution), dormant (90d), and movedOn. Headline ratios: trueRetention, churn, and competitiveLoss (switched share) with competitiveLossFeesUsd — builder fees those switched wallets paid to other builders in the last 30d.",
+        "description": "Every wallet that ever traded via this builder, partitioned into mutually exclusive stages by recent activity: active (attributed fill within 7d), cooling (30d), switched (no fill via this builder in 30d but at least one via a DIFFERENT builder — detectable only with all-builder attribution), dormant (90d), and movedOn. Headline ratios: trueRetention, churn, and competitiveLoss (switched share) with competitiveLossFeesUsd — builder fees those switched wallets paid to other builders in the last 30d (null, meaning unknown and never zero, when the fee probe exceeds its budget — the buckets and ratios always serve; see the response's dataNotes).",
         "operationId": "get-api-public-v1-builders-by-builder-lifecycle",
         "parameters": [
           {
@@ -9518,7 +9582,7 @@
     },
     "/api/public/v1/builders/{builder}/overlap": {
       "get": {
-        "description": "The top 10 other builders this builder's active users also traded via in the period, ranked by shared users. Each row carries the overlap's share of this builder's active users and the builder fees those shared users paid to the OTHER builder in the period.",
+        "description": "The top 10 other builders this builder's active users also traded via in the period, ranked by shared users. Each row carries the overlap's share of this builder's active users and the builder fees those shared users paid to the OTHER builder in the period. feesUsd is null (unknown, never zero) when the fee probe exceeds its budget — the shared-user counts always serve; see the response's dataNotes.",
         "operationId": "get-api-public-v1-builders-by-builder-overlap",
         "parameters": [
           {
@@ -9631,7 +9695,7 @@
     },
     "/api/public/v1/builders/{builder}/profile": {
       "get": {
-        "description": "Single-builder overview: exact ledger revenue over the period, first/last fee accrual, distinct fee tokens, most common requested fee rate, a daily attributed series (fees, volume, users, fills) with the biggest day highlighted, top coins by attributed volume, and how many of the period's attributed wallets are all-time profitable. Returns 404 for addresses with no revenue in the fee ledger.",
+        "description": "Single-builder overview: exact ledger revenue over the period, first/last fee accrual, distinct fee tokens, most common requested fee rate, a daily attributed series (fees, volume, users, fills) with the biggest day highlighted, top coins by attributed volume, and how many of the period's attributed wallets are all-time profitable. coins is null (unknown, never an empty list) when the live coin-split pass exceeds its budget — everything else always serves; see the response's dataNotes. Returns 404 for addresses with no revenue in the fee ledger.",
         "operationId": "get-api-public-v1-builders-by-builder-profile",
         "parameters": [
           {
@@ -12577,6 +12641,118 @@
           }
         ],
         "summary": "Get API public v1 live long short history"
+      }
+    },
+    "/api/public/v1/live/official-oi": {
+      "get": {
+        "description": "Per-coin open-interest history for EVERY coin on the requested dex in one response, from Hyperliquid's official market snapshots (open interest, mark price, and rolling 24h notional volume per snapshot). The batch replaces N calls to /live/official-oi/{coin} with one window scan; the per-coin route remains for single-market callers. Hours is clamped to the 90-day product ceiling (1..2160). Coins are grouped in symbol order with each history ascending by time; a coin with no snapshots in the window is simply absent.",
+        "operationId": "get-api-public-v1-live-official-oi",
+        "parameters": [
+          {
+            "description": "Dex to list (hl for native, or a builder-dex prefix like xyz, km, cash)",
+            "explode": false,
+            "in": "query",
+            "name": "dex",
+            "schema": {
+              "default": "hl",
+              "description": "Dex to list (hl for native, or a builder-dex prefix like xyz, km, cash)",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Look-back window in hours (clamped to 1..2160)",
+            "explode": false,
+            "in": "query",
+            "name": "hours",
+            "schema": {
+              "default": 168,
+              "description": "Look-back window in hours (clamped to 1..2160)",
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfficialOIBatchBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Official OI history for a whole dex",
+        "tags": [
+          "Live Markets"
+        ]
       }
     },
     "/api/public/v1/live/official-oi/{coin}": {
