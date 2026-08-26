@@ -477,6 +477,31 @@
         ],
         "type": "object"
       },
+      "BuilderEcosystemStats": {
+        "additionalProperties": false,
+        "properties": {
+          "allTimeRevenueUsd": {
+            "description": "Total builder revenue since each code's first fee: sum of the latest cumulative ledger entry per (builder, token)",
+            "format": "double",
+            "type": "number"
+          },
+          "computedAt": {
+            "description": "When these stats were computed (RFC3339); refreshed on a short TTL, not per-request",
+            "type": "string"
+          },
+          "feePayingUsers24h": {
+            "description": "Distinct wallets whose fills carried a builder fee in the trailing 24h, across ALL builder codes, deduplicated — measured directly on fills, no attribution join",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feePayingUsers24h",
+          "allTimeRevenueUsd",
+          "computedAt"
+        ],
+        "type": "object"
+      },
       "BuilderFillConversion": {
         "additionalProperties": false,
         "properties": {
@@ -882,6 +907,10 @@
           },
           "dataNotes": {
             "type": "string"
+          },
+          "ecosystem": {
+            "$ref": "#/components/schemas/BuilderEcosystemStats",
+            "description": "Ecosystem-wide stats no row can provide (exact deduplicated 24h users, all-time revenue); omitted when temporarily unavailable"
           },
           "period": {
             "type": "string"
@@ -1304,7 +1333,7 @@
           },
           "biggestDay": {
             "$ref": "#/components/schemas/BuilderDay",
-            "description": "Day with the highest attributed fees in the period"
+            "description": "Day with the highest fees in the period, selected on the ledger's per-UTC-day deltas whenever the ledger covers it (attributedFeesUsd then carries the ledger figure — see dataNotes for the serving basis)"
           },
           "builder": {
             "type": "string"
