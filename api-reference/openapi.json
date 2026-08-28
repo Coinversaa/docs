@@ -771,9 +771,12 @@
             "type": "string"
           },
           "avgRevenueUsd": {
-            "description": "Mean lifetime attributed builder fees per qualifying wallet",
+            "description": "Mean lifetime attributed builder fees per qualifying wallet; null when there is no qualifying cohort (users = 0). Null means unknown, never zero",
             "format": "double",
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "builder": {
             "type": "string"
@@ -783,9 +786,12 @@
             "type": "string"
           },
           "concentration": {
-            "description": "avgRevenueUsd / medianRevenueUsd — how whale-skewed per-user revenue is (1 = evenly spread; 0 when the median is 0)",
+            "description": "avgRevenueUsd / medianRevenueUsd — how whale-skewed per-user revenue is (1 = evenly spread). Null when there is no qualifying cohort, and also when the median is 0 (the ratio is undefined)",
             "format": "double",
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "dataNotes": {
             "type": "string"
@@ -803,9 +809,12 @@
             "description": "Days from first fill to the day cumulative attributed fees first reached 75% of the wallet's lifetime total"
           },
           "medianRevenueUsd": {
-            "description": "Median lifetime attributed builder fees per qualifying wallet",
+            "description": "Median lifetime attributed builder fees per qualifying wallet; null when there is no qualifying cohort (users = 0). Null means unknown, never zero",
             "format": "double",
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "minFills": {
             "description": "Inclusion floor: wallets need >= this many lifetime attributed fills (fixed at 3 so one-shot wallets don't define days-to-peak as trivially zero)",
@@ -844,12 +853,20 @@
         "additionalProperties": false,
         "properties": {
           "avgDays": {
+            "description": "Mean across qualifying wallets; null when there is no qualifying cohort (users = 0) — an absence of data, not a zero",
             "format": "double",
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "medianDays": {
+            "description": "Median across qualifying wallets; null when there is no qualifying cohort (users = 0) — an absence of data, not a zero",
             "format": "double",
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
@@ -961,7 +978,7 @@
             "type": "string"
           },
           "feeTenthsBp": {
-            "description": "Most common requested builder fee over the last 7d of orders, in tenths of a basis point; null when unavailable",
+            "description": "Most common requested builder fee over the last 7d of orders, in tenths of a basis point. Fetched independently of the attributed figures above, so it can be null while they are populated and vice versa; null means the fee-rate pass was unavailable (see dataNotes), never that the builder charges nothing",
             "format": "int32",
             "type": [
               "integer",
@@ -9300,7 +9317,7 @@
     },
     "/api/public/v1/builders/{builder}/journey": {
       "get": {
-        "description": "Lifetime economics of the builder's trailing-year acquisition cohort (wallets with 3+ attributed fills): average and median revenue per wallet, concentration (avg/median), median days from first fill to peak-revenue day and to 50% and 75% of lifetime revenue, and where users peak (before day 7, days 7-30, after day 30). Answers how fast and how unevenly a builder monetizes new users.",
+        "description": "Lifetime economics of the builder's trailing-year acquisition cohort (wallets with 3+ attributed fills): average and median revenue per wallet, concentration (avg/median), median days from first fill to peak-revenue day and to 50% and 75% of lifetime revenue, and where users peak (before day 7, days 7-30, after day 30). Answers how fast and how unevenly a builder monetizes new users. BREAKING (2026-08-28): avgRevenueUsd, medianRevenueUsd, concentration, and every avgDays/medianDays field are now NULLABLE and serve null when users = 0 (no qualifying cohort). They previously served 0, which clients could not distinguish from a cohort that genuinely earned nothing. Counts (users, peakDayDistribution) are unchanged and still serve 0.",
         "operationId": "get-api-public-v1-builders-by-builder-journey",
         "parameters": [
           {
