@@ -9,7 +9,7 @@ The same endpoints power our own dashboard, every MCP client (Claude, Cursor, Pe
 
 ## Choose your path
 
-There are two ways into the same data. Both use the same API key and hit the same backend — pick the one that matches what you're building.
+There are three ways into the same data, all with the same API key — pick the one that matches what you're building.
 
 <Columns cols={2}>
   <Card title="Building an AI agent?" icon="robot" href="/mcp/setup">
@@ -21,6 +21,11 @@ There are two ways into the same data. Both use the same API key and hit the sam
     Use the **REST API** directly. Every endpoint, JSON, in your language. This is the complete and authoritative surface — the MCP wraps a curated subset of it.
 
     `https://api.coinversa.ai/api/public/v1`
+  </Card>
+  <Card title="Need fills as they happen?" icon="bolt" href="/websocket/overview">
+    Use the **WebSocket**. Every fill on Hyperliquid streamed at block cadence — the firehose, one coin, or one wallet — with the trader's wallet and PnL on each fill. Same key; limits are on connections, not messages.
+
+    `wss://ws.coinversa.ai`
   </Card>
 </Columns>
 
@@ -42,6 +47,9 @@ The MCP is a thin wrapper over the REST API — it translates tool calls into th
   </Card>
   <Card title="Authentication" icon="key" href="/authentication">
     API keys, rate-limit headers, tier behavior.
+  </Card>
+  <Card title="WebSocket API" icon="bolt" href="/websocket/overview">
+    Stream every fill: auth on the upgrade, three feeds, sequence numbers, plan limits.
   </Card>
 </Columns>
 
@@ -73,6 +81,7 @@ The MCP is a thin wrapper over the REST API — it translates tool calls into th
 - **AI agents** — install the [MCP server](/mcp/setup) into Claude / Cursor / Perplexity and the agent gets first-class tool access to the Pulse data surface.
 - **Trading bots & SDKs** — hit the [REST API](/api-reference) directly with `X-API-Key`. Same key, same tier, same data — and the full endpoint surface, including anything not yet exposed as an MCP tool.
 - **Dashboards** — the [Coinversa Pulse dashboard](https://coinversa.ai) and partner integrations consume the same REST endpoints.
+- **Indexers & live feeds** — subscribe over the [WebSocket](/websocket/overview) and receive every fill as it lands, instead of polling.
 
 <Note>
 The MCP server is open source: [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server). It's a thin transport layer — the API key you use governs the tier and rate limits at the API layer.

@@ -45,6 +45,8 @@ The `/live/*` endpoints are designed for near-real-time use. Typical freshness:
 
 The `pulse_market_overview` response includes `generatedAt` timestamps so you can measure staleness server-side.
 
+For fills themselves, polling is the wrong tool: the [WebSocket](/websocket/overview) pushes every fill at block cadence, with a per-subscription sequence number so you can tell when you missed one.
+
 ## What's not indexed
 
 - **Spot trades on non-canonical pairs** (`@N` indexes) — present in raw data, not classified into cohorts.

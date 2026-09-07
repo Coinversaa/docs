@@ -9,6 +9,8 @@ The Coinversa Pulse REST API exposes everything the MCP server uses and more —
 **Auth:** `X-API-Key` header on every request — see [authentication](/authentication)
 **Spec:** [`https://api.coinversa.ai/openapi.json`](https://api.coinversa.ai/openapi.json) (OpenAPI 3.1)
 
+The **WebSocket** fill stream is not part of this spec or this reference — it is a separate protocol on `wss://ws.coinversa.ai`, documented in the [WebSocket section](/websocket/overview).
+
 The reference pages in the sidebar are auto-generated from the spec. Every endpoint has parameter docs, response schemas, and a "Try it" panel that issues live requests against production using your key.
 
 ## Endpoint families
@@ -17,7 +19,7 @@ The spec has no tags yet, so the sidebar renders one flat list — these are the
 
 - **Pulse** — historical trader and cohort analytics; the rich endpoints (`/pulse/*`), including the Daily Pulse editions (`/pulse/daily/*`).
 - **Builders** — the builder-code economy: ledger-exact revenue, attributed flow, retention, overlap (`/builders/*`, `/trader/{address}/builders`). Start from the [endpoint guide](/api-reference/builders).
-- **Live** — near-real-time market and risk (`/live/*`).
+- **Live** — near-real-time market and risk (`/live/*`). For fills pushed as they land rather than polled, use the [WebSocket](/websocket/overview).
 - **Market** — direct Hyperliquid passthroughs for mark price, OI, orderbook, candles (`/market/*`).
 - **Assets** — canonical cross-market taxonomy (`/assets/*`).
 - **HIP-4** — outcome contract discovery, settlements, perp-position context (`/hip4/*`).

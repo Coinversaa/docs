@@ -14,6 +14,17 @@ All accounts start on **Free**. Upgrade in the [billing portal](https://develope
 | Pro        | 600  | 20,000  | 500,000   | 10  | $199   | $1,990 |
 | Enterprise | 10,000+ | unlimited | unlimited | unlimited | from $1,999 | custom quote |
 
+The websocket is metered separately, on **capacity** rather than requests — streaming never draws down the numbers above. Connections are capped **per account** (shared across all your keys), subscriptions per connection, and bandwidth is a fair-use allowance:
+
+| Tier | Websocket connections (per account) | Subscriptions per connection | Feeds | Fair-use bandwidth |
+|------|---:|---:|---|---:|
+| Free       | 1 | 2   | `tradesByCoin`, `tradesByUser` | 5 GB / mo |
+| Starter    | 1 | 25  | all, including the firehose    | 50 GB / mo |
+| Pro        | 5 | 100 | all                            | 250 GB / mo |
+| Enterprise | custom | custom | all                    | 250 GB / mo |
+
+Details in [WebSocket plan limits](/websocket/limits).
+
 ## What each tier unlocks
 
 <AccordionGroup>
@@ -21,12 +32,14 @@ All accounts start on **Free**. Upgrade in the [billing portal](https://develope
     - All 99 MCP tools / 110+ API endpoints (tier-gated)
     - 1 active key
     - Public-only data (no private wallet correlation)
+    - [WebSocket](/websocket/overview): 1 connection, 2 subscriptions, one-coin and one-wallet feeds
   </Accordion>
   <Accordion title="Starter — $29 / mo">
     - 4× the per-minute rate
     - 50k requests / month bucket
     - 3 active keys (rotate without disruption)
     - [Builder analytics](/api-reference/builders): leaderboard, builder profiles, per-wallet builder usage
+    - [WebSocket](/websocket/overview): 25 subscriptions per connection and the `trades` firehose
   </Accordion>
   <Accordion title="Pro — $199 / mo">
     - 20× Free's per-minute rate
@@ -34,6 +47,7 @@ All accounts start on **Free**. Upgrade in the [billing portal](https://develope
     - 10 active keys
     - Deep [builder analytics](/api-reference/builders): traders, fills, cohorts, retention, cross-builder overlap
     - Access to deeper analytics tools (entity resolution, HIP-4 perp-position context, etc.)
+    - [WebSocket](/websocket/overview): 5 concurrent connections, 100 subscriptions each, 250 GB fair-use bandwidth
   </Accordion>
   <Accordion title="Enterprise — custom">
     - Negotiated rate / volume / SLA
@@ -62,6 +76,8 @@ All accounts start on **Free**. Upgrade in the [billing portal](https://develope
   </Accordion>
   <Accordion title="Are rate limits per key or per account?">
     Per key for RPM and daily/monthly caps. Tiers are per key too — each key serves its own tier (capped by your account's entitlement), so a Free key doesn't inherit a paid sibling's limits.
+
+    The **websocket connection cap is the exception: it is per account**, shared across every key you own — five Pro connections are five in total, however many keys hold them. See [WebSocket plan limits](/websocket/limits).
   </Accordion>
   <Accordion title="Do MCP and direct API calls share the same limit?">
     Yes. The MCP server forwards your key to the API, so both paths consume the same quota.

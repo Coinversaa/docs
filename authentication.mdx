@@ -5,6 +5,8 @@ description: "API keys, rate-limit headers, tier behavior, and error responses."
 
 Every request to `api.coinversa.ai/api/public/v1/*` requires an API key. Get one at [developers.coinversa.ai](https://developers.coinversa.ai).
 
+This page is about the **REST API**. The [WebSocket](/websocket/overview) uses the same key but a different protocol: a Bearer token on the upgrade (or the `bearer` subprotocol from a browser), refusals as HTTP `401` / `429` / `503` or close codes rather than problem details, and capacity limits rather than request quotas. Its rules live in [WebSocket authentication](/websocket/overview#authentication), not here.
+
 ## Sending the key
 
 Pass your key in the `X-API-Key` header on every request:
@@ -14,10 +16,10 @@ curl https://api.coinversa.ai/api/public/v1/pulse/stats \
   -H "X-API-Key: cvsa_..."
 ```
 
-That's it — no OAuth, no bearer prefix, no signing.
+That's it — no OAuth, no bearer prefix, no signing. (The REST API ignores an `Authorization: Bearer` header entirely; that header is how the [WebSocket](/websocket/overview#authentication) authenticates.)
 
 <Warning>
-Never embed your key in client-side code or commit it to a public repo. Use a server-side proxy if you need to call Pulse from a browser, or use a separate key per environment so you can rotate without disrupting other clients.
+Never commit your key to a public repo, and never ship it in a page served to other people — a key in someone else's browser is a key you have published. For a REST call from a browser, keep the key on a server you control and proxy the request. The [WebSocket](/websocket/overview#authentication) can be opened directly from **your own** browser tools with the `bearer` subprotocol; the same publishing rule applies. Use a separate key per environment so you can rotate without disrupting other clients.
 </Warning>
 
 ## Tiers

@@ -32,6 +32,17 @@ A monthly cap of `0` means unlimited within the daily cap.
 
 Rate-limit behavior, header semantics, and error response shapes are documented in [Authentication](/authentication).
 
+These are **REST** limits. The [WebSocket](/websocket/overview) is metered on capacity instead — connections **per account** (shared across keys), subscriptions per connection, and fair-use bandwidth — and never draws down the request counts above:
+
+| Tier | Websocket connections (per account) | Subscriptions per connection | Feeds | Fair-use bandwidth / mo |
+|------|---:|---:|---|---:|
+| Free       | 1 | 2   | `tradesByCoin`, `tradesByUser` | 5 GB |
+| Starter    | 1 | 25  | all, including `trades`        | 50 GB |
+| Pro        | 5 | 100 | all                            | 250 GB |
+| Enterprise | custom overrides | custom overrides | all | 250 GB |
+
+Enterprise websocket numbers are per-account overrides reported in the `connected` frame — see [WebSocket plan limits](/websocket/limits).
+
 ## Endpoints by tier
 
 <AccordionGroup>
@@ -110,6 +121,8 @@ Two things to know:
 ## How tier resolution works
 
 Each API key carries its own tier independently. If you have multiple keys on the same account at different tiers, each key is rate-limited and entitlement-checked on its own — a Free key calling with a Pro key sitting unused in the same account still only gets Free limits.
+
+The websocket resolves differently: a connection gets the **highest entitled tier across the account's keys**, and its connection cap is shared by all of them. See [WebSocket plan limits](/websocket/limits#resolved-limits-not-the-table).
 
 Tier entitlement is granted by an active Stripe subscription or an explicit grandfather override. If a paid key's subscription lapses, that specific key falls back to Free limits but is **not deleted** — your existing integrations keep working at reduced quota until you reactivate.
 
