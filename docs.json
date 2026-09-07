@@ -63,6 +63,21 @@
         ]
       },
       {
+        "tab": "WebSocket",
+        "groups": [
+          {
+            "group": "WebSocket API",
+            "pages": [
+              "websocket/overview",
+              "websocket/quickstart",
+              "websocket/feeds",
+              "websocket/protocol",
+              "websocket/limits"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Changelog",
         "groups": [
           {

@@ -1,0 +1,45 @@
+---
+title: "WebSocket plan limits"
+description: "Websocket capacity by plan — concurrent connections per account, subscriptions per connection, which feeds each tier includes, fair-use bandwidth — and how the connection cap is shared across your API keys."
+---
+
+Websocket access is **capacity-based**: you are limited by how many connections and concurrent subscriptions your plan allows and by a fair-use bandwidth allowance, never by how many messages you receive. Streaming does not draw down your REST request quota, and REST rate limits say nothing about it — the two are separate meters on the same key.
+
+## By plan
+
+| Plan | Connections per account | Subscriptions per connection | Feeds | Fair-use bandwidth per month |
+|---|---:|---:|---|---:|
+| Free | 1 | 2 | `tradesByCoin`, `tradesByUser` | 5 GB |
+| Starter | 1 | 25 | all, including the `trades` firehose | 50 GB |
+| Pro | 5 | 100 | all | 250 GB |
+| Enterprise | custom | custom | all | 250 GB |
+
+Two of these differ from REST limits in a way that bites:
+
+- **The connection cap is per account, shared across every key.** Five Pro connections are five in total, however many keys you spread them over. An indexer on one key, a staging box on another and a tab left open on a third are three of them. REST rate limits, by contrast, are [per key](/pricing#faq).
+- **The subscription cap is per connection.** Each socket may hold that many distinct subscriptions; opening another connection (within the cap) gets you another set.
+
+A Pro trial account has Pro's websocket limits for the length of the trial.
+
+## Resolved limits, not the table
+
+The [`connected` frame](/websocket/overview#the-first-frame) reports what **your account** may do, with enterprise overrides already applied. Enterprise numbers are negotiated per account and can sit above or below the Pro row, so read the frame rather than this table when it matters. The same resolved numbers back the meters on the portal's [Usage page](https://developers.coinversa.ai/usage).
+
+## Fair use
+
+Bandwidth is measured as the payload bytes of data frames written to your connections, rolled up per hour, and shown against your allowance on the [Usage page](https://developers.coinversa.ai/usage). It is a **soft cap**: nothing is cut off at the line, and the counts are at-least-once analytics rather than a billing record. The firehose is where it goes — roughly a hundred and thirty fills a second across every market — so an indexer left running on `trades` is the case the allowance exists for.
+
+## When you hit a limit
+
+| Limit | How it shows up |
+|---|---|
+| Connection cap | The upgrade is refused: `HTTP 429` for header clients, close code `4429` for browser clients. No `Retry-After`; a connection that died silently frees its slot within about 40 seconds. |
+| Subscription cap | `{"channel":"error","data":"too many subscriptions"}` on the open socket. Unsubscribe one and the slot frees immediately. |
+| Feed not in plan | `{"channel":"error","data":"feed not in tier"}` on the open socket — the firehose on Free. |
+| Fair-use bandwidth | Nothing on the wire. The Usage page shows consumption against the allowance. |
+
+See the [wire protocol](/websocket/protocol#errors-on-an-open-socket) for the full error list and the [overview](/websocket/overview#when-the-handshake-is-refused) for refusals.
+
+## Watching your usage
+
+The portal's [Usage page](https://developers.coinversa.ai/usage) shows connections and subscriptions open right now against your caps — a snapshot the connection manager reports once a minute, so up to a minute old and hidden rather than guessed when no recent snapshot exists — plus bytes delivered against fair use, frames delivered, and connections opened over the period. "Connections opened" counts every successful connect, reconnects included; it is not how many are open.
