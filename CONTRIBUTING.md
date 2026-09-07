@@ -7,7 +7,8 @@ Thanks for helping improve the docs. A few repo-specific rules keep them trustwo
 - **Never hand-edit `api-reference/openapi.json`** — it's overwritten daily by the sync workflow (see the README).
 - **Never document endpoints, parameters, or fields that aren't live in production.** If a feature is in review, it gets at most one hedged "coming" line in the changelog — no route docs, no dates.
 - **State data caveats plainly and early.** These docs never hide limitations (silent clamps, attribution coverage, backfill status) — that honesty is a product feature.
-- Verify tier gates and response shapes against the live API before writing them down; the error shapes are huma problem details (`title` / `status` / `detail` / `code`), not `success: false`.
+- Verify tier gates and response shapes against the live API before writing them down; the REST error shapes are huma problem details (`title` / `status` / `detail` / `code`), not `success: false`.
+- The REST API and the WebSocket have different auth, failures and limits. `AGENTS.md` keeps a rulebook for each — scope every statement to one protocol, and never hand-write websocket client code (the samples are generated; see the README).
 
 ## How to contribute
 

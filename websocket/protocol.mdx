@@ -1,0 +1,66 @@
+---
+title: "Wire protocol"
+description: "Every frame on the Coinversa websocket — subscribe and unsubscribe acks, ping, data frames with per-subscription sequence numbers, and the exact error strings the server sends."
+---
+
+Every frame is a single JSON object. Client frames carry a `method`; server frames carry a `channel`. The error strings on this page are **exact** — match them verbatim; they will not change.
+
+## Subscribe
+
+The acknowledgement echoes your subscription back and adds a 16-character hex `id` identifying that subscription on this connection.
+
+```json
+→ {"method":"subscribe","subscription":{"type":"tradesByCoin","coin":"BTC"}}
+
+← {"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"coin":"BTC","type":"tradesByCoin"},"id":"bc0de255be1a5311"}}
+```
+
+## Unsubscribe
+
+Send the same subscription object back with `"method":"unsubscribe"`. The acknowledgement carries the **same** `id` the subscribe returned, so you can match the teardown to the setup. The slot frees immediately.
+
+```json
+→ {"method":"unsubscribe","subscription":{"type":"tradesByCoin","coin":"BTC"}}
+
+← {"channel":"subscriptionResponse","data":{"method":"unsubscribe","subscription":{"coin":"BTC","type":"tradesByCoin"},"id":"bc0de255be1a5311"}}
+```
+
+## Ping
+
+An application-level heartbeat, independent of the protocol-level ping frames your client library may already send. It is the only liveness probe a browser has.
+
+```json
+→ {"method":"ping"}
+
+← {"channel":"pong"}
+```
+
+## Data frames
+
+`channel` is the subscription type, `seq` is that subscription's counter, and `data` is an array of `[wallet, fill]` pairs — see [feeds and the fill object](/websocket/feeds#data-frames) for the full shape. There is no subscription id on a data frame.
+
+## Sequence numbers
+
+`seq` counts **per subscription** and increments by one per frame, starting at 1 on every new connection. Anything else between two consecutive frames on the same stream means frames that never arrived; a value at or below the previous one means the counter restarted — a new session, not a gap.
+
+Because a data frame carries no subscription id, key your tracking on what the frame itself identifies: the `channel` plus the coin or wallet of its first fill. Two `tradesByCoin` subscriptions on one connection both arrive on channel `tradesByCoin` with **separate** counters — tracking on the channel alone reports phantom gaps on every alternation. A client holding two subscriptions of the same type that cannot be told apart from the frame (two `tradesByUser` subscriptions where a fill matches both, say) cannot attribute the frame; hold those on separate connections if attribution matters.
+
+There is no replay: a gap is information about what you missed, not something you can request again. The generated [quickstart clients](/websocket/quickstart) implement the tracking above.
+
+## Errors on an open socket
+
+`{"channel":"error","data":"<string>"}` arrives **on an open socket** and never closes it — the connection keeps serving whatever it was already serving. This is the opposite of a [refused handshake](/websocket/overview#when-the-handshake-is-refused), which ends the connection before it exists.
+
+| `data` | What it means |
+|---|---|
+| `bad request` | The frame did not parse as JSON. Only a parse failure produces this — a well-formed frame the server cannot act on gets one of the strings below. |
+| `unknown method` | `method` is not `subscribe`, `unsubscribe` or `ping`. The retired `{"method":"auth"}` frame lands here: authentication happens on the upgrade, not in a frame. |
+| `unknown subscription type` | `type` is not in the catalog. The type is case-sensitive — `tradesByCoin` works, `TRADESBYCOIN` does not — and a subscribe carrying no subscription object at all answers this too. |
+| `missing argument <arg>` | A required argument was absent or empty, naming it: `missing argument coin`, `missing argument user`. |
+| `too many subscriptions` | This connection is at its subscription cap. The cap counts distinct subscriptions, so a repeat of one you already hold is free; unsubscribe one and the slot frees immediately. |
+| `server at subscription capacity` | A service-wide bound on unique subscriptions. Joining a subscription that already exists still works. |
+| `feed not in tier` | That subscription type is not included in your tier — the firehose on Free, for instance. Check `connected.data.limits.feeds`. |
+
+## Closing
+
+Close the socket from your side with a normal closure (`1000`); the connection is returned to your account's pool at once. A silent disconnect — a laptop lid, a dropped network — holds its slot until keepalive notices, roughly 40 seconds, which is why a fast reconnect after a crash can meet a `429` briefly.

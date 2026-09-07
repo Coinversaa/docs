@@ -18,6 +18,8 @@ When new endpoints land in the spec, these pages need matching updates (the sync
 - `changelog/overview.mdx` — release entry
 - `mcp/tools.mdx` — only if MCP tools shipped too
 
+The **WebSocket section** (`websocket/*.mdx`) is outside the OpenAPI spec entirely. It tracks `docs/protocol.md` in [Coinversaa/websocket](https://github.com/Coinversaa/websocket) (the `production` branch) and the portal reference at developers.coinversa.ai/websockets. Its client samples are generated: `node scripts/sync-websocket-samples.mjs /path/to/coinversa-developers` rewrites the marked block in `websocket/quickstart.mdx` from the portal's generator — never edit inside the markers.
+
 ## Development
 
 ```bash

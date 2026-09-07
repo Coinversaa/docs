@@ -3,6 +3,53 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 7, 2026" tags={["API"]}>
+
+## Browsers can connect to the WebSocket directly
+
+A browser `WebSocket` cannot set headers, so until now no page could
+authenticate to `wss://ws.coinversa.ai`. The connection manager now also
+takes the key as the second subprotocol after the literal `bearer` —
+`new WebSocket(url, ['bearer', key])` — so a dashboard or tool of your own
+can stream fills with no relay. The key still travels in a request header,
+never in the URL, and the `Authorization` header keeps working unchanged
+for every other client. A browser cannot read the HTTP status of a refused
+upgrade, so on this path the three refusals arrive as **close codes**
+instead: `4401` invalid or missing key, `4429` connection cap full, `4503`
+entitlement lookup unavailable. Details in
+[WebSocket authentication](/websocket/overview#authentication).
+
+The portal's Usage page now shows websocket usage honestly: bytes delivered
+against the fair-use allowance, frames and connections opened for the
+period, and connections and subscriptions open against the account's
+**resolved** caps — enterprise overrides included — updated every minute.
+
+</Update>
+
+<Update label="September 4, 2026" tags={["API"]}>
+
+## The WebSocket API is live
+
+Every fill on Hyperliquid — native perps, the seven builder dexes, spot —
+streamed over one socket at block cadence, with the trader's wallet on every
+fill and `closedPnl`, `dir` and `startPosition` already attached. Three feeds:
+**`trades`** (the firehose, Starter and above), **`tradesByCoin`** and
+**`tradesByUser`** (every plan; `tradesByUser` takes *any* address, not
+only wallets you control). Frame shapes are Hyperliquid-compatible, so
+existing client code is familiar, and every data frame carries a
+per-subscription `seq` so you can tell what you missed.
+
+Authentication is your existing API key, sent as `Authorization: Bearer`
+on the HTTP upgrade — there is no separate websocket key and no auth frame.
+Limits are on **capacity**, not messages: connections per account (shared
+across your keys), subscriptions per connection, and a fair-use bandwidth
+allowance; streaming never draws down your REST quota. Start at the
+[WebSocket overview](/websocket/overview), copy a
+[working client](/websocket/quickstart), and read the
+[plan limits](/websocket/limits).
+
+</Update>
+
 <Update label="August 21, 2026" tags={["API"]}>
 
 ## Builder analytics arrives on MCP (connector v0.11.0)

@@ -1,0 +1,91 @@
+---
+title: "WebSocket API"
+description: "Stream every Hyperliquid fill in real time over wss://ws.coinversa.ai — authenticate with your API key on the upgrade, subscribe to a coin, a wallet, or the firehose, and read fills as they land."
+---
+
+Coinversa streams **every fill on Hyperliquid** — native perps, the builder dexes, spot — over one websocket at block cadence, with the wallet attached to each fill and `closedPnl`, `dir` and `startPosition` already on it. Frame shapes mirror Hyperliquid's own websocket API, so existing Hyperliquid client code is familiar.
+
+It is the third way into the same data, beside the [REST API](/api-reference/introduction) and the [MCP server](/mcp/setup), and it uses the **same API key**. It is also a different protocol with its own rules: auth travels on the upgrade rather than in an `X-API-Key` header, refusals are HTTP statuses or close codes rather than problem details, and limits are **capacity** — connections and subscriptions — never per message. This section states those rules in full; the REST pages point here rather than repeating them.
+
+**Endpoint:** `wss://ws.coinversa.ai`
+**Reference in the portal:** [developers.coinversa.ai/websockets](https://developers.coinversa.ai/websockets)
+
+## Connecting
+
+Open the socket with your key on the HTTP upgrade, then send one `subscribe` frame per feed you want. The server acknowledges each and pushes a data frame whenever matching fills land in a block. Nothing is polled and nothing is replayed on connect — you receive fills from the moment you subscribe onward.
+
+**Every connection needs a key, including Free.** There is no anonymous tier and no auth frame to send once the socket is open. The request path is ignored — `/`, `/ws` and `/stream` all upgrade the same.
+
+## Authentication
+
+The key goes out **with the upgrade request**, so the socket is already authenticated by the time it opens. There are two places it can travel, and which one you use is decided by your runtime, not by preference.
+
+<Columns cols={2}>
+  <Card title="Servers: Authorization header" icon="server">
+    Node, Python, Go, and anything else that can set request headers sends
+    `Authorization: Bearer cvsa_...` on the upgrade. The `Bearer` scheme token is case-sensitive.
+  </Card>
+  <Card title="Browsers: bearer subprotocol" icon="globe">
+    A browser `WebSocket` cannot set headers, so it offers the key as the second subprotocol after the literal `bearer`:
+    `new WebSocket(url, ['bearer', key])`. The server selects and echoes `bearer`; the key is never echoed.
+  </Card>
+</Columns>
+
+```http
+→ GET / HTTP/1.1
+    Host: ws.coinversa.ai
+    Connection: Upgrade
+    Upgrade: websocket
+    Sec-WebSocket-Version: 13
+    Sec-WebSocket-Key: <16 random bytes, base64>
+    Authorization: Bearer cvsa_your_api_key
+
+← HTTP/1.1 101 Switching Protocols
+    upgrade: websocket
+    connection: upgrade
+    sec-websocket-accept: <derived from your Sec-WebSocket-Key>
+
+← {"channel":"connected","data":{"tier":"pro","limits":{"connections":5,
+    "subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser"]}}}
+```
+
+Whichever input is present decides on its own. A bad `Authorization` header is refused even if a valid subprotocol rides beside it; the subprotocol is read only when the header is absent. The key is **never** accepted in the URL — `?token=`, `?apiKey=` and `?key=` are refused exactly like no key at all, and a key in a URL is a key in every access log between you and us.
+
+<Warning>
+A key shipped to other people's browsers is a key you have published. The subprotocol path is for **your own** dashboards and tools. For anything served to other users, hold the socket on a server you control and relay what the page needs over your own transport.
+</Warning>
+
+## The first frame
+
+The first frame on every live connection is `connected`, and its `limits` are what **this account** may do: how many connections it may hold in total, how many concurrent subscriptions per connection, and which feeds its tier includes. They are the account's **resolved** numbers — enterprise overrides already applied — so read them back rather than hard-coding your plan. The tier is fixed for the life of the socket; moving to another key or plan means reconnecting.
+
+## When the handshake is refused
+
+A refused key is **fatal to the connection**: the upgrade never completes, no socket exists, and nothing you write in a message handler will run. This is a different code path from the `error` channel, and it is the one most clients get wrong.
+
+| Header clients see | Browser clients see | Meaning |
+|---|---|---|
+| `HTTP 401`, body `invalid or missing bearer token` | close code `4401` | No usable key. Not retryable — fix the key. |
+| `HTTP 429`, body `too many connections` | close code `4429` | Your account already holds every connection its plan allows. Close one you own, or retry with backoff. |
+| `HTTP 503`, body `authentication unavailable` | close code `4503` | The entitlement lookup behind the handshake could not be reached. Nothing is wrong with your key; retry with backoff. |
+
+A browser cannot read the status of a refused upgrade, so for a subprotocol client the handshake completes and the socket is closed at once with the verdict as a close code — the HTTP status plus 4000 — and the same reason text. **These close codes are a public wire contract**; match on them. A `1006` with no reason is the browser saying the handshake itself failed or the link dropped, and it will not say which.
+
+No `Retry-After` comes with a 429, and a connection that died silently can hold its slot until keepalive notices — roughly 40 seconds. Client libraries that hide the response surface a refused upgrade as close code `1002`, reason `Expected 101 status code`, with zero frames received; pick an API that hands you the status.
+
+## Where to go next
+
+<Columns cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/websocket/quickstart">
+    A complete client in Browser, Node, Python or Go — reconnect, resubscribe, sequence gaps, heartbeat.
+  </Card>
+  <Card title="Feeds and the fill object" icon="water" href="/websocket/feeds">
+    The firehose, one coin, one wallet — and every field on a fill.
+  </Card>
+  <Card title="Wire protocol" icon="code" href="/websocket/protocol">
+    Every frame, the exact error strings, and how sequence numbers work.
+  </Card>
+  <Card title="Plan limits" icon="gauge" href="/websocket/limits">
+    Connections per account, subscriptions per connection, fair-use bandwidth.
+  </Card>
+</Columns>
