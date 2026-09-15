@@ -3,6 +3,36 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 15, 2026" tags={["API"]}>
+
+## The full L4 order book, with wallets, on the WebSocket
+
+A new feed, **`l4Book`**, streams the complete order book of one
+Hyperliquid market — every resting order with the wallet behind it, plus
+the untriggered stop and take-profit orders — straight from the node, as
+**one snapshot followed by a diff message per block** (Hyperliquid's own
+public `l2Book` aggregates by price level; this is the order-level book,
+with the trader on every order). Any market the node knows, spelled as the
+node spells it: `BTC`, `xyz:GOLD`, `#28200`. The server holds no book; you
+apply the diffs, and the wire gives you what you need to do it safely —
+`height` and `prev` chain every block, empty blocks are still sent so
+silence is detectable, and a `partial` flag marks a block the node only
+half delivered. The client rule is one line: apply an update only if its
+`prev` is the last height you applied; otherwise resubscribe for a fresh
+snapshot, never jump to live.
+
+**Pro and above**, and listed in the `connected` frame's `limits.feeds`
+when your account has it. Two things to size for: the snapshot is the
+whole book in one message — about 30 MB for `BTC`, a few KB for most
+coins — so set your client's read limit, and a connection may hold at
+most **8** book subscriptions at once on top of its subscription cap.
+Read the feed page at [Order book (L4)](/websocket/order-book), copy an
+[order-book client](/websocket/quickstart#order-book) in Browser, Node,
+Python or Go, and see the [plan limits](/websocket/limits) for how
+snapshots count against fair use.
+
+</Update>
+
 <Update label="September 7, 2026" tags={["API"]}>
 
 ## Browsers can connect to the WebSocket directly

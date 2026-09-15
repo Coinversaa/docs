@@ -71,6 +71,7 @@
               "websocket/overview",
               "websocket/quickstart",
               "websocket/feeds",
+              "websocket/order-book",
               "websocket/protocol",
               "websocket/limits"
             ]
