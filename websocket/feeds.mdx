@@ -1,31 +1,35 @@
 ---
 title: "Feeds and the fill object"
-description: "The three websocket feeds — the Hyperliquid fill firehose, one coin, one wallet — which plans include each, and every field on a streamed fill."
+description: "The four websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, and the L4 order book — which plans include each, and every field on a streamed fill."
 ---
 
-Three raw feeds today. Each is a separate subscription with its own sequence counter, and you can hold as many as your plan's per-connection cap allows on one socket.
+Four raw feeds today: three stream fills, the fourth streams a coin's full order book. Each is a separate subscription with its own sequence counter, and you can hold as many as your plan's per-connection cap allows on one socket.
 
 | Feed | Argument | What arrives | Plans |
 |---|---|---|---|
 | `trades` | — | **The firehose** — every fill on every Hyperliquid dex, native perps, builder dexes and spot alike, in block order. | Starter and above |
 | `tradesByCoin` | `coin` | Fills for one market. Takes native tickers (`BTC`, `HYPE`) and builder-dex symbols (`xyz:GOLD`, `cash:TSLA`) alike — see [Markets & symbols](/concepts/markets). | Every plan |
 | `tradesByUser` | `user` | Fills for one address — **any** address on Hyperliquid, not only wallets you control. | Every plan |
+| `l4Book` | `coin` | **The full L4 order book** of one market — every resting order with its wallet, plus untriggered stop and take-profit orders — as one snapshot followed by a diff message per block. Its own page: [Order book (L4)](/websocket/order-book). | Pro and above |
 
 ```json
 {"method":"subscribe","subscription":{"type":"trades"}}
 {"method":"subscribe","subscription":{"type":"tradesByCoin","coin":"xyz:GOLD"}}
 {"method":"subscribe","subscription":{"type":"tradesByUser","user":"0xf3f4…8a2c"}}
+{"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}
 ```
 
-The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive. Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel with its own `seq` counter.
+The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive on the three fill feeds. `l4Book`'s `coin` is the exception: it is **case-sensitive** and must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing). Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel with its own `seq` counter.
 
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser` accepts any address. Hyperliquid's own websocket streams only wallets you control and caps subscribers at ten users per IP; there is no such restriction here beyond your plan's subscription count. The firehose answers `feed not in tier` on Free — check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser` accepts any address. Hyperliquid's own websocket streams only wallets you control and caps subscribers at ten users per IP; there is no such restriction here beyond your plan's subscription count. The firehose answers `feed not in tier` on Free, and `l4Book` answers it below Pro — check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames
+
+This is the frame shape on the three fill feeds. `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot).
 
 `channel` is the subscription type that produced the frame. `data` is an array of `[wallet, fill]` pairs — one entry per fill, with the address that made it in the first position. A single frame can carry many fills; both sides of a trade are separate fills, so most frames carry at least two pairs. The only top-level keys are `channel`, `seq` and `data` — **there is no subscription id on a data frame**, which matters as soon as you hold two subscriptions on one channel; see [sequence numbers](/websocket/protocol#sequence-numbers).
 
