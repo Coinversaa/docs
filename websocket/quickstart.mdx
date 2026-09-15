@@ -1369,7 +1369,7 @@ func main() {
 
 What the book handler adds, on top of everything above:
 
-- **Raises the read limit** where the library has one — Python's `max_size` and Go's `SetReadLimit` go to 64 MiB, since their defaults (1 MiB and 32 KiB) would close the socket on the snapshot. A browser `WebSocket` and Node's `ws` have no limit to raise; expect `JSON.parse` to take a moment on a large book.
+- **Raises the read limit** where the library has one — Python's `max_size` and Go's `SetReadLimit` go to 64 MiB, since their defaults (1 MiB and 32 KiB) would close the socket on the snapshot. A browser `WebSocket` has no limit; Node's `ws` defaults to 100 MiB, which a 30 MB snapshot fits. Expect `JSON.parse` to take a moment on a large book.
 - **Applies the [client rule](/websocket/order-book#the-client-rule)**: the snapshot sets the height, each update is applied only if its `prev` is the last applied height, and any mismatch — or `partial: true` — unsubscribes and resubscribes for a fresh snapshot rather than jumping to live.
-- **Handles [book errors](/websocket/order-book#errors-on-the-book-channel) on the channel itself**: `unknown coin` is a spelling problem and is not retried as is; anything else is worth a resubscribe with backoff.
+- **Handles [book errors](/websocket/order-book#errors-on-the-book-channel) on the channel itself**: `unknown coin` is a spelling problem and is not retried as is. For any other reason the generated handler logs the error and forgets the coin's height; resubscribing with backoff is left to you.
 - **Forgets the book on every new connection**, because a new socket starts with a new snapshot, and dispatches `l4Book` frames before the `seq` tracking that the fill feeds use.
