@@ -255,6 +255,64 @@
         ],
         "type": "object"
       },
+      "BookCoverageBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/BookCoverageBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "age_s": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "coins": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "latest_block_time": {
+            "type": "string"
+          },
+          "latest_height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "oldest_block_time": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "coins",
+          "latest_height",
+          "latest_block_time",
+          "oldest_block_time",
+          "age_s",
+          "stale",
+          "source",
+          "notes"
+        ],
+        "type": "object"
+      },
       "BuilderCohortRow": {
         "additionalProperties": false,
         "properties": {
@@ -13728,6 +13786,605 @@
           }
         ],
         "summary": "Get API public v1 live risk overview"
+      }
+    },
+    "/api/public/v1/market/book/coverage": {
+      "get": {
+        "description": "How fresh the L4 order-book rollups are: coins covered, the newest L1 block height and block time, the age of the freshest row and whether the source is stale. Returns no book data, so it is free — this is the `book` dataset behind the MCP's data_coverage tool.",
+        "operationId": "get-api-public-v1-market-book-coverage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookCoverageBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "L4 order book coverage",
+        "tags": [
+          "Market"
+        ]
+      }
+    },
+    "/api/public/v1/market/book/levels/{coin}": {
+      "get": {
+        "description": "The depth ladder with the detail L2 discards: the top price levels per side, best-first, each with total size, order count, DISTINCT wallet count and the age of the oldest order on it — so a level held by one wallet is distinguishable from the same size across twenty. Snapshot-derived, refreshed every 60s, latest-only.",
+        "operationId": "get-api-public-v1-market-book-levels-by-coin",
+        "parameters": [
+          {
+            "description": "Coin in the node's own spelling, case-sensitive. Not normalized. Spot pairs (names containing '/') are not addressable on this path.",
+            "in": "path",
+            "name": "coin",
+            "required": true,
+            "schema": {
+              "description": "Coin in the node's own spelling, case-sensitive. Not normalized. Spot pairs (names containing '/') are not addressable on this path.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Price levels returned per side.",
+            "explode": false,
+            "in": "query",
+            "name": "depth",
+            "schema": {
+              "default": 50,
+              "description": "Price levels returned per side.",
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "L4 order book price levels",
+        "tags": [
+          "Market"
+        ]
+      }
+    },
+    "/api/public/v1/market/book/stops/{coin}": {
+      "get": {
+        "description": "Where the stops are: every untriggered stop / take-profit order bucketed by distance from mid in 0.25% steps out to within_pct, with per bucket the count, size, reduce-only share, stop vs take-profit split and side split — plus totals below and above mid, the nearest trigger each side, and how many sit beyond the window. Snapshot-derived, refreshed every 60s, latest-only.",
+        "operationId": "get-api-public-v1-market-book-stops-by-coin",
+        "parameters": [
+          {
+            "description": "Coin in the node's own spelling, case-sensitive. Not normalized. Spot pairs (names containing '/') are not addressable on this path.",
+            "in": "path",
+            "name": "coin",
+            "required": true,
+            "schema": {
+              "description": "Coin in the node's own spelling, case-sensitive. Not normalized. Spot pairs (names containing '/') are not addressable on this path.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Half-width of the bucketed window, in percent of mid. The stored map always covers ±10%; this slices it.",
+            "explode": false,
+            "in": "query",
+            "name": "within_pct",
+            "schema": {
+              "default": 10,
+              "description": "Half-width of the bucketed window, in percent of mid. The stored map always covers ±10%; this slices it.",
+              "format": "int64",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "L4 order book stop map",
+        "tags": [
+          "Market"
+        ]
+      }
+    },
+    "/api/public/v1/market/book/summary/{coin}": {
+      "get": {
+        "description": "How deep and how lopsided a book is right now: touch prices, spread in bps, and per side the size / order count / distinct wallet count within 0.5, 1, 2, 5 and 10% of mid, plus near- and far-band imbalance, the orders resting at the touch, their median age and post-only share. Snapshot-derived, refreshed every 60s, latest-only. /market/orderbook/{symbol} remains the aggregated L2 view.",
+        "operationId": "get-api-public-v1-market-book-summary-by-coin",
+        "parameters": [
+          {
+            "description": "Coin in the node's own spelling, case-sensitive: BTC, xyz:GOLD, #28200. Not normalized. Spot pairs (names containing '/') are not addressable on this path.",
+            "in": "path",
+            "name": "coin",
+            "required": true,
+            "schema": {
+              "description": "Coin in the node's own spelling, case-sensitive: BTC, xyz:GOLD, #28200. Not normalized. Spot pairs (names containing '/') are not addressable on this path.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "L4 order book summary",
+        "tags": [
+          "Market"
+        ]
+      }
+    },
+    "/api/public/v1/market/book/whales/{coin}": {
+      "get": {
+        "description": "Who is sitting on a book: the largest resting orders (wallet, side, price, size, distance from mid, tif, order type, rest duration) and the biggest wallets per side by total resting size. Wallet addresses join to the trader routes. Snapshot-derived, refreshed every 60s, latest-only.",
+        "operationId": "get-api-public-v1-market-book-whales-by-coin",
+        "parameters": [
+          {
+            "description": "Coin in the node's own spelling, case-sensitive. Not normalized. Spot pairs (names containing '/') are not addressable on this path.",
+            "in": "path",
+            "name": "coin",
+            "required": true,
+            "schema": {
+              "description": "Coin in the node's own spelling, case-sensitive. Not normalized. Spot pairs (names containing '/') are not addressable on this path.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many orders, and how many wallets per side, to return.",
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "description": "How many orders, and how many wallets per side, to return.",
+              "format": "int64",
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "L4 order book whales",
+        "tags": [
+          "Market"
+        ]
       }
     },
     "/api/public/v1/market/historical-oi": {
