@@ -1,11 +1,11 @@
 ---
 title: "WebSocket quickstart"
-description: "Copy-and-run websocket clients for Hyperliquid fills and the L4 order book in Node, Python, Go and the browser — connect with your API key, subscribe, reconnect with backoff, and detect sequence gaps."
+description: "Copy-and-run websocket clients for Hyperliquid fills and the L4 order book in Node, Python, Go and the browser — connect with your API key, subscribe, reconnect with backoff, and check sequence ordering."
 ---
 
 Put your key in `COINVERSA_API_KEY` and run any of these as it stands (the Browser client takes the key in a placeholder instead, because a page cannot read the environment). There is no unauthenticated mode to fall back on — without the key the upgrade is refused before a socket exists, which every client below handles.
 
-Each client is a **working subscriber, not a connect line**: it reconnects with jittered backoff and resubscribes, resets the backoff once the `connected` frame lands, detects [sequence gaps](/websocket/protocol#sequence-numbers) per stream, sends a heartbeat ping, and tells the three [handshake refusals](/websocket/overview#when-the-handshake-is-refused) apart from a drop — never retrying an invalid key. They subscribe to **two coins on one connection** deliberately, because that is the case where gap detection keyed on `channel` alone quietly falls apart.
+Each client is a **working subscriber, not a connect line**: it reconnects with jittered backoff and resubscribes, resets the backoff once the `connected` frame lands, checks [sequence ordering](/websocket/protocol#sequence-numbers) per stream, sends a heartbeat ping, and tells the three [handshake refusals](/websocket/overview#when-the-handshake-is-refused) apart from a drop — never retrying an invalid key. They subscribe to **two coins on one connection** deliberately, because that is the case where gap detection keyed on `channel` alone quietly falls apart.
 
 ## Check your key in one command
 
@@ -53,10 +53,11 @@ const PING_MS = 30000;
 let attempt = 0;
 let stopped = false;
 
-// seq counts per SUBSCRIPTION and restarts on every new connection. A data
-// frame carries no subscription id, so key gap tracking on the stream you can
-// identify from the frame itself: channel plus the coin or wallet of its
-// first fill.
+// seq is the SOURCE BLOCK HEIGHT, the same on every feed. A filtered feed
+// skips numbers whenever a block matches nothing, so a jump is normal and
+// only a repeat or a rewind is a fault. A data frame carries no subscription
+// id, so key the check on the stream you can identify from the frame itself:
+// channel plus the coin or wallet of its first fill.
 const streamKey = (msg) => {
   const [, fill] = msg.data?.[0] || [];
   if (msg.channel === 'tradesByCoin' && fill?.coin) return `tradesByCoin:${fill.coin}`;
@@ -66,7 +67,7 @@ const streamKey = (msg) => {
 
 function connect() {
   if (stopped) return;
-  const lastSeq = new Map(); // fresh per connection: seq restarts at 1
+  const lastSeq = new Map(); // per connection; seq is a block height, so it only moves forward
   const ws = new WebSocket(URL, ['bearer', apiKey]);
   let heartbeat = null;
 
@@ -95,9 +96,10 @@ function connect() {
 
     const key = streamKey(msg);
     const previous = lastSeq.get(key);
-    if (previous != null && msg.seq !== previous + 1) {
-      if (msg.seq <= previous) console.warn(`${key}: sequence restarted — new session`);
-      else console.warn(`${key}: gap ${previous} -> ${msg.seq} (${msg.seq - previous - 1} frames never arrived)`);
+    // seq must INCREASE, not increase by one: a filtered feed skips the
+    // blocks that matched nothing. Going backwards or repeating is the fault.
+    if (previous != null && msg.seq <= previous) {
+      console.warn(`${key}: sequence went ${msg.seq === previous ? 'nowhere' : 'backwards'} ${previous} -> ${msg.seq} — frames replayed or reordered`);
     }
     lastSeq.set(key, msg.seq);
 
@@ -148,10 +150,11 @@ const PING_MS = 30000;
 let attempt = 0;
 let stopped = false;
 
-// seq counts per SUBSCRIPTION and restarts on every new connection. A data
-// frame carries no subscription id, so key gap tracking on the stream you can
-// identify from the frame itself: channel plus the coin or wallet of its
-// first fill.
+// seq is the SOURCE BLOCK HEIGHT, the same on every feed. A filtered feed
+// skips numbers whenever a block matches nothing, so a jump is normal and
+// only a repeat or a rewind is a fault. A data frame carries no subscription
+// id, so key the check on the stream you can identify from the frame itself:
+// channel plus the coin or wallet of its first fill.
 const streamKey = (msg) => {
   const [, fill] = msg.data?.[0] || [];
   if (msg.channel === 'tradesByCoin' && fill?.coin) return `tradesByCoin:${fill.coin}`;
@@ -169,7 +172,7 @@ function scheduleReconnect(why) {
 
 function connect() {
   if (stopped) return;
-  const lastSeq = new Map(); // fresh per connection: seq restarts at 1
+  const lastSeq = new Map(); // per connection; seq is a block height, so it only moves forward
   const ws = new WebSocket(URL, { headers: { Authorization: `Bearer ${apiKey}` } });
   let heartbeat = null;
   let refused = false;
@@ -213,9 +216,10 @@ function connect() {
 
     const key = streamKey(msg);
     const previous = lastSeq.get(key);
-    if (previous != null && msg.seq !== previous + 1) {
-      if (msg.seq <= previous) console.warn(`${key}: sequence restarted — new session`);
-      else console.warn(`${key}: gap ${previous} -> ${msg.seq} (${msg.seq - previous - 1} frames never arrived)`);
+    // seq must INCREASE, not increase by one: a filtered feed skips the
+    // blocks that matched nothing. Going backwards or repeating is the fault.
+    if (previous != null && msg.seq <= previous) {
+      console.warn(`${key}: sequence went ${msg.seq === previous ? 'nowhere' : 'backwards'} ${previous} -> ${msg.seq} — frames replayed or reordered`);
     }
     lastSeq.set(key, msg.seq);
 
@@ -265,9 +269,11 @@ PING_SECONDS = 30.0
 
 
 def stream_key(msg):
-    # seq counts per SUBSCRIPTION and restarts on every new connection. A data
-    # frame carries no subscription id, so key gap tracking on the stream the
-    # frame itself identifies: channel plus the coin or wallet of its first fill.
+    # seq is the SOURCE BLOCK HEIGHT, the same on every feed. A filtered feed
+    # skips numbers whenever a block matches nothing, so a jump is normal and
+    # only a repeat or a rewind is a fault. A data frame carries no
+    # subscription id, so key the check on the stream the frame itself
+    # identifies: channel plus the coin or wallet of its first fill.
     entry = (msg.get("data") or [[None, {}]])[0]
     wallet, fill = entry if isinstance(entry, list) and len(entry) == 2 else (None, entry if isinstance(entry, dict) else {})
     if msg["channel"] == "tradesByCoin" and fill.get("coin"):
@@ -290,7 +296,7 @@ async def session(attempt_reset):
         for subscription in SUBSCRIPTIONS:
             await ws.send(json.dumps({"method": "subscribe", "subscription": subscription}))
         pinger = asyncio.create_task(heartbeat(ws))
-        last_seq = {}  # fresh per connection: seq restarts at 1
+        last_seq = {}  # per connection; seq is a block height, so it only moves forward
         try:
             async for raw in ws:
                 msg = json.loads(raw)
@@ -314,11 +320,11 @@ async def session(attempt_reset):
                 key = stream_key(msg)
                 seq = msg["seq"]
                 previous = last_seq.get(key)
-                if previous is not None and seq != previous + 1:
-                    if seq <= previous:
-                        print(f"{key}: sequence restarted - new session")
-                    else:
-                        print(f"{key}: gap {previous} -> {seq} ({seq - previous - 1} frames never arrived)")
+                # seq must INCREASE, not increase by one: a filtered feed
+                # skips the blocks that matched nothing.
+                if previous is not None and seq <= previous:
+                    went = "nowhere" if seq == previous else "backwards"
+                    print(f"{key}: sequence went {went} {previous} -> {seq} - frames replayed or reordered")
                 last_seq[key] = seq
 
                 # .get(): a fill that lacks a field must not take the client down.
@@ -482,7 +488,7 @@ func session(ctx context.Context, apiKey string, live func()) error {
 		}
 	}()
 
-	lastSeq := map[string]int64{} // fresh per connection: seq restarts at 1
+	lastSeq := map[string]int64{} // per connection; seq is a block height, so it only moves forward
 	for {
 		_, raw, err := conn.Read(ctx)
 		if err != nil {
@@ -526,12 +532,14 @@ func session(ctx context.Context, apiKey string, live func()) error {
 			continue
 		}
 		key := streamKey(f, pairs)
-		if previous, ok := lastSeq[key]; ok && f.Seq != previous+1 {
-			if f.Seq <= previous {
-				log.Printf("%s: sequence restarted — new session", key)
-			} else {
-				log.Printf("%s: gap %d -> %d (%d frames never arrived)", key, previous, f.Seq, f.Seq-previous-1)
+		// seq must INCREASE, not increase by one: a filtered feed skips the
+		// blocks that matched nothing. Backwards or repeated is the fault.
+		if previous, ok := lastSeq[key]; ok && f.Seq <= previous {
+			went := "backwards"
+			if f.Seq == previous {
+				went = "nowhere"
 			}
+			log.Printf("%s: sequence went %s %d -> %d — frames replayed or reordered", key, went, previous, f.Seq)
 		}
 		lastSeq[key] = f.Seq
 
@@ -578,7 +586,7 @@ func main() {
 
 - **Authenticates on the upgrade.** Node, Python and Go send `Authorization: Bearer`; the Browser client offers `['bearer', key]` as the subprotocol. Neither ever puts the key in the URL.
 - **Subscribes after `open`**, one frame per subscription, and re-sends them on every reconnect.
-- **Tracks `seq` per stream.** A data frame carries no subscription id, so the key is the channel plus the coin or wallet of the frame's first fill. A jump means frames never arrived; a value at or below the last one means a new session.
+- **Checks that `seq` increases.** `seq` is the source block height, so a forward jump is a block that matched nothing, not a lost frame. A value at or below the last one means frames were replayed or reordered — the only real fault. A data frame carries no subscription id, so per-stream tracking keys on the channel plus the coin or wallet of the frame's first fill.
 - **Reconnects with backoff** — 1 s doubling to 30 s, with jitter so a fleet does not reconnect in lockstep — and resets once live. An invalid key is never retried, and the process exits non-zero on it so a supervisor sees a failure.
 - **Sends a heartbeat** every 30 seconds, which keeps an idle connection warm and doubles as a liveness check.
 
@@ -612,10 +620,11 @@ const PING_MS = 30000;
 let attempt = 0;
 let stopped = false;
 
-// seq counts per SUBSCRIPTION and restarts on every new connection. A data
-// frame carries no subscription id, so key gap tracking on the stream you can
-// identify from the frame itself: channel plus the coin or wallet of its
-// first fill.
+// seq is the SOURCE BLOCK HEIGHT, the same on every feed. A filtered feed
+// skips numbers whenever a block matches nothing, so a jump is normal and
+// only a repeat or a rewind is a fault. A data frame carries no subscription
+// id, so key the check on the stream you can identify from the frame itself:
+// channel plus the coin or wallet of its first fill.
 const streamKey = (msg) => {
   const [, fill] = msg.data?.[0] || [];
   if (msg.channel === 'tradesByCoin' && fill?.coin) return `tradesByCoin:${fill.coin}`;
@@ -670,7 +679,7 @@ function onBookFrame(ws, msg) {
 
 function connect() {
   if (stopped) return;
-  const lastSeq = new Map(); // fresh per connection: seq restarts at 1
+  const lastSeq = new Map(); // per connection; seq is a block height, so it only moves forward
   bookHeight.clear(); // fresh per connection: a new socket starts with a new snapshot
   const ws = new WebSocket(URL, ['bearer', apiKey]);
   let heartbeat = null;
@@ -701,9 +710,10 @@ function connect() {
 
     const key = streamKey(msg);
     const previous = lastSeq.get(key);
-    if (previous != null && msg.seq !== previous + 1) {
-      if (msg.seq <= previous) console.warn(`${key}: sequence restarted — new session`);
-      else console.warn(`${key}: gap ${previous} -> ${msg.seq} (${msg.seq - previous - 1} frames never arrived)`);
+    // seq must INCREASE, not increase by one: a filtered feed skips the
+    // blocks that matched nothing. Going backwards or repeating is the fault.
+    if (previous != null && msg.seq <= previous) {
+      console.warn(`${key}: sequence went ${msg.seq === previous ? 'nowhere' : 'backwards'} ${previous} -> ${msg.seq} — frames replayed or reordered`);
     }
     lastSeq.set(key, msg.seq);
 
@@ -753,10 +763,11 @@ const PING_MS = 30000;
 let attempt = 0;
 let stopped = false;
 
-// seq counts per SUBSCRIPTION and restarts on every new connection. A data
-// frame carries no subscription id, so key gap tracking on the stream you can
-// identify from the frame itself: channel plus the coin or wallet of its
-// first fill.
+// seq is the SOURCE BLOCK HEIGHT, the same on every feed. A filtered feed
+// skips numbers whenever a block matches nothing, so a jump is normal and
+// only a repeat or a rewind is a fault. A data frame carries no subscription
+// id, so key the check on the stream you can identify from the frame itself:
+// channel plus the coin or wallet of its first fill.
 const streamKey = (msg) => {
   const [, fill] = msg.data?.[0] || [];
   if (msg.channel === 'tradesByCoin' && fill?.coin) return `tradesByCoin:${fill.coin}`;
@@ -819,7 +830,7 @@ function scheduleReconnect(why) {
 
 function connect() {
   if (stopped) return;
-  const lastSeq = new Map(); // fresh per connection: seq restarts at 1
+  const lastSeq = new Map(); // per connection; seq is a block height, so it only moves forward
   bookHeight.clear(); // fresh per connection: a new socket starts with a new snapshot
   const ws = new WebSocket(URL, { headers: { Authorization: `Bearer ${apiKey}` } });
   let heartbeat = null;
@@ -865,9 +876,10 @@ function connect() {
 
     const key = streamKey(msg);
     const previous = lastSeq.get(key);
-    if (previous != null && msg.seq !== previous + 1) {
-      if (msg.seq <= previous) console.warn(`${key}: sequence restarted — new session`);
-      else console.warn(`${key}: gap ${previous} -> ${msg.seq} (${msg.seq - previous - 1} frames never arrived)`);
+    // seq must INCREASE, not increase by one: a filtered feed skips the
+    // blocks that matched nothing. Going backwards or repeating is the fault.
+    if (previous != null && msg.seq <= previous) {
+      console.warn(`${key}: sequence went ${msg.seq === previous ? 'nowhere' : 'backwards'} ${previous} -> ${msg.seq} — frames replayed or reordered`);
     }
     lastSeq.set(key, msg.seq);
 
@@ -919,9 +931,11 @@ BOOK_MAX_SIZE = 64 * 1024 * 1024
 
 
 def stream_key(msg):
-    # seq counts per SUBSCRIPTION and restarts on every new connection. A data
-    # frame carries no subscription id, so key gap tracking on the stream the
-    # frame itself identifies: channel plus the coin or wallet of its first fill.
+    # seq is the SOURCE BLOCK HEIGHT, the same on every feed. A filtered feed
+    # skips numbers whenever a block matches nothing, so a jump is normal and
+    # only a repeat or a rewind is a fault. A data frame carries no
+    # subscription id, so key the check on the stream the frame itself
+    # identifies: channel plus the coin or wallet of its first fill.
     entry = (msg.get("data") or [[None, {}]])[0]
     wallet, fill = entry if isinstance(entry, list) and len(entry) == 2 else (None, entry if isinstance(entry, dict) else {})
     if msg["channel"] == "tradesByCoin" and fill.get("coin"):
@@ -996,7 +1010,7 @@ async def session(attempt_reset):
         for subscription in SUBSCRIPTIONS:
             await ws.send(json.dumps({"method": "subscribe", "subscription": subscription}))
         pinger = asyncio.create_task(heartbeat(ws))
-        last_seq = {}  # fresh per connection: seq restarts at 1
+        last_seq = {}  # per connection; seq is a block height, so it only moves forward
         BOOK_HEIGHT.clear()  # fresh per connection: a new socket starts with a new snapshot
         try:
             async for raw in ws:
@@ -1024,11 +1038,11 @@ async def session(attempt_reset):
                 key = stream_key(msg)
                 seq = msg["seq"]
                 previous = last_seq.get(key)
-                if previous is not None and seq != previous + 1:
-                    if seq <= previous:
-                        print(f"{key}: sequence restarted - new session")
-                    else:
-                        print(f"{key}: gap {previous} -> {seq} ({seq - previous - 1} frames never arrived)")
+                # seq must INCREASE, not increase by one: a filtered feed
+                # skips the blocks that matched nothing.
+                if previous is not None and seq <= previous:
+                    went = "nowhere" if seq == previous else "backwards"
+                    print(f"{key}: sequence went {went} {previous} -> {seq} - frames replayed or reordered")
                 last_seq[key] = seq
 
                 # .get(): a fill that lacks a field must not take the client down.
@@ -1270,7 +1284,7 @@ func session(ctx context.Context, apiKey string, live func()) error {
 		}
 	}()
 
-	lastSeq := map[string]int64{} // fresh per connection: seq restarts at 1
+	lastSeq := map[string]int64{} // per connection; seq is a block height, so it only moves forward
 	// fresh per connection too: a new socket starts with a new snapshot
 	bookHeight := map[string]int64{}
 	for {
@@ -1319,12 +1333,14 @@ func session(ctx context.Context, apiKey string, live func()) error {
 			continue
 		}
 		key := streamKey(f, pairs)
-		if previous, ok := lastSeq[key]; ok && f.Seq != previous+1 {
-			if f.Seq <= previous {
-				log.Printf("%s: sequence restarted — new session", key)
-			} else {
-				log.Printf("%s: gap %d -> %d (%d frames never arrived)", key, previous, f.Seq, f.Seq-previous-1)
+		// seq must INCREASE, not increase by one: a filtered feed skips the
+		// blocks that matched nothing. Backwards or repeated is the fault.
+		if previous, ok := lastSeq[key]; ok && f.Seq <= previous {
+			went := "backwards"
+			if f.Seq == previous {
+				went = "nowhere"
 			}
+			log.Printf("%s: sequence went %s %d -> %d — frames replayed or reordered", key, went, previous, f.Seq)
 		}
 		lastSeq[key] = f.Seq
 

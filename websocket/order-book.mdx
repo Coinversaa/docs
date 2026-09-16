@@ -9,8 +9,8 @@ description: "The l4Book websocket feed — Hyperliquid's full L4 order book for
 → {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}
 
 ← {"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"coin":"BTC","type":"l4Book"},"id":"7d1e4c9a2f5b8306"}}
-← {"channel":"l4Book","coin":"BTC","snapshot":true,"height":100,"time_ms":1757815848097,"seq":0,"data":{"book_orders":[[…],[…]],"untriggered_orders":[…]}}
-← {"channel":"l4Book","coin":"BTC","seq":1,"height":101,"prev":100,"time_ms":1757815848173,"partial":false,"data":{"raw_book_diffs":[…],"order_statuses":[…]}}
+← {"channel":"l4Book","coin":"BTC","snapshot":true,"height":100,"time_ms":1757815848097,"seq":100,"data":{"book_orders":[[…],[…]],"untriggered_orders":[…]}}
+← {"channel":"l4Book","coin":"BTC","seq":101,"height":101,"prev":100,"time_ms":1757815848173,"partial":false,"data":{"raw_book_diffs":[…],"order_statuses":[…]}}
 ```
 
 ## Who gets it
@@ -37,14 +37,14 @@ One argument, `coin`, and it is **case-sensitive** — the one exception to the 
 **Each subscription starts with the whole book as one message.** BTC's snapshot is about **30 MB**; HYPE's and ETH's are about 15 and 11 MB; the median coin is about 5 KB. Set your library's read limit accordingly before you subscribe — there is no depth option, and the [generated clients](/websocket/quickstart#order-book) raise it for you.
 </Warning>
 
-A connection may hold at most **8** `l4Book` subscriptions at once, on top of the tier's overall [subscription cap](/websocket/limits); a ninth subscribe is refused with `too many subscriptions`. Unsubscribing frees the slot immediately, and a book subscription that ends in an error frees it too.
+`l4Book` subscriptions count against the tier's per-connection [subscription cap](/websocket/limits) like any other; there is no separate book-only limit. Going over answers `too many subscriptions`. Unsubscribing frees the slot immediately, and a book subscription that ends in an error frees it too.
 
 ## The snapshot
 
 Exactly one per subscription, first, sent only to the subscriber. It is fetched when you subscribe, after the subscribe ack.
 
 ```json
-{"channel":"l4Book","coin":"BTC","snapshot":true,"height":H,"time_ms":T,"seq":0,"data":{"book_orders":[bids,asks],"untriggered_orders":[…]}}
+{"channel":"l4Book","coin":"BTC","snapshot":true,"height":H,"time_ms":T,"seq":H,"data":{"book_orders":[bids,asks],"untriggered_orders":[…]}}
 ```
 
 | Field | Meaning |
@@ -54,7 +54,7 @@ Exactly one per subscription, first, sent only to the subscriber. It is fetched 
 | `snapshot` | `true`. Only the snapshot carries this key. |
 | `height` | The block the snapshot reflects, **inclusive**: the book is the state after block `H`. |
 | `time_ms` | That block's time, milliseconds since the Unix epoch. |
-| `seq` | `0` on the snapshot — see [seq versus prev](#seq-versus-prev). |
+| `seq` | Equal to `height` — see [seq versus prev](#seq-versus-prev). |
 | `data` | The node's `l4Snapshots` export for the coin, compacted (whitespace removed) and otherwise untouched. |
 
 Inside `data`:
@@ -64,7 +64,11 @@ Inside `data`:
 - Every entry in all three is a positional **`[wallet, {order}]` pair**. Wallet addresses are always included.
 - The order object is passed through as the node writes it — nothing is added, renamed or reordered. Read its fields from the node's export rather than from a mapping of ours; there is none.
 
-The snapshot is the node's most recent export, which is normally some blocks — up to about a minute's worth — **behind the live stream**. The server bridges the two for you: the updates that arrive live meanwhile are held (up to 1,024 blocks), the blocks between `H` and the first held one are replayed from the node's recent history, and the held updates are released behind them, so what you read is **one unbroken chain from `H+1`** with nothing lost and nothing repeated. Replayed updates are the same message as any other update but carry `seq: 0`. You never receive a second snapshot for a subscription: a snapshot is always the first message, and only the first.
+The snapshot is the node's most recent export, which is normally some blocks — up to about a minute's worth — **behind the live stream**. The server closes that distance before it sends you anything: it buffers live updates until they span a run of blocks wide enough to join a snapshot onto (**105 source blocks**, roughly 7.6 s), then fetches the snapshot and discards the buffered updates at or before it. What you read is **one unbroken chain from `H+1`** with nothing lost and nothing repeated.
+
+That buffering is why the first message on a book subscription takes a while: **typically 10–70 seconds**, depending on where the gateway is in its 60-second export cycle. The server retries up to 10 times, each after the buffer widens by another interval, and gives up after 3 minutes with `snapshot buffer did not fill` rather than sending a snapshot the updates cannot be joined to.
+
+You never receive a second snapshot for a subscription: a snapshot is always the first message, and only the first.
 
 ## Updates
 
@@ -76,7 +80,7 @@ Then one message per block, on the same channel, **whether or not the block touc
 
 | Field | Meaning |
 |---|---|
-| `seq` | The per-subscription frame counter: `1` for the first live update, `+1` per update. `0` on the updates replayed to bridge the snapshot to the live stream. |
+| `seq` | The source block height — the same value as `height` on this feed. |
 | `height` | The block this update is for — the node's `block_number`. |
 | `prev` | The height of the block the node produced this one after — the node's `prev_block_number`, as the gateway sequenced them. **Not** the last message you happened to receive, so a block missing anywhere between the node and you is visible in `prev` without counting messages. |
 | `time_ms` | The block's time. |
@@ -86,24 +90,24 @@ Then one message per block, on the same channel, **whether or not the block touc
 
 Both arrays are the node's event bytes exactly, in the node's order. A block with nothing for this coin carries **two empty arrays** — the height still advances, so silence is detectable.
 
-A subscription therefore reads, in order (`data` elided) — here the snapshot was two blocks behind the live stream, so 101 and 102 were replayed:
+A subscription therefore reads, in order (`data` elided) — `seq` and `height` agree on every line, snapshot included:
 
 ```json
-{"channel":"l4Book","coin":"BTC","snapshot":true,"height":100,"time_ms":1757815848097,"seq":0,"data":{…}}
-{"channel":"l4Book","coin":"BTC","seq":0,"height":101,"prev":100,"time_ms":1757815848173,"partial":false,"data":{…}}
-{"channel":"l4Book","coin":"BTC","seq":0,"height":102,"prev":101,"time_ms":1757815848249,"partial":false,"data":{"raw_book_diffs":[],"order_statuses":[]}}
-{"channel":"l4Book","coin":"BTC","seq":1,"height":103,"prev":102,"time_ms":1757815848325,"partial":false,"data":{…}}
-{"channel":"l4Book","coin":"BTC","seq":2,"height":104,"prev":103,"time_ms":1757815848401,"partial":false,"data":{…}}
+{"channel":"l4Book","coin":"BTC","snapshot":true,"height":100,"time_ms":1757815848097,"seq":100,"data":{…}}
+{"channel":"l4Book","coin":"BTC","seq":101,"height":101,"prev":100,"time_ms":1757815848173,"partial":false,"data":{…}}
+{"channel":"l4Book","coin":"BTC","seq":102,"height":102,"prev":101,"time_ms":1757815848249,"partial":false,"data":{"raw_book_diffs":[],"order_statuses":[]}}
+{"channel":"l4Book","coin":"BTC","seq":103,"height":103,"prev":102,"time_ms":1757815848325,"partial":false,"data":{…}}
+{"channel":"l4Book","coin":"BTC","seq":104,"height":104,"prev":103,"time_ms":1757815848401,"partial":false,"data":{…}}
 ```
 
 ## seq versus prev
 
 They answer different questions.
 
-- **`seq`** is the per-subscription frame counter every feed has: a step other than `+1` between two live updates means a websocket frame was lost between the server and you — a slow consumer is dropped from, not throttled, exactly as on the [trade feeds](/websocket/protocol#sequence-numbers).
-- **`prev`** is the chain of blocks: a `prev` you have not applied means a block is missing anywhere between the node and you, whatever the cause — a dropped frame, a server-side reconnect, a frame the node could not split.
+- **`seq`** is the source block height every feed carries, and your [reconnect cursor](/websocket/protocol#reconnecting). On this feed it equals `height`, so it says the same thing `height` does.
+- **`prev`** is the chain of blocks: it names the **exact predecessor**, so a `prev` you have not applied means a block is missing anywhere between the node and you, whatever the cause — a dropped frame, a server-side reconnect, a frame the node could not split.
 
-**Gate on `prev`**; it catches everything `seq` does and more. `seq` is `0` on every replayed update, and the first live update after them carries whatever number the stream is on — the server discards the live updates the snapshot and the replay already cover, their numbers included — so compare `seq` only between consecutive **non-zero** values.
+**Gate on `prev`.** `seq` tells you where you are; `prev` tells you whether you got there without skipping anything, which is the question a book has to answer. Keep the last `seq` you applied anyway — it is what you pass back to resume after a disconnect.
 
 ## The client rule
 
@@ -111,7 +115,7 @@ From the wire contract, verbatim:
 
 > Apply an update only if its `prev` equals the last applied height; on any mismatch, or `partial:true` when attribution matters, unsubscribe and resubscribe to get a fresh snapshot. Never jump to live.
 
-The first update after the snapshot has `prev == H`, whether it was replayed or live; you cannot tell the two apart by `prev`, and need not. A server-side reconnect that could not resume where it left off shows up the same way, as a `prev` you have not applied. `seq` going backwards between two non-zero values means a new session, as on every other feed, and a resubscribe is the answer there too. The generated [order-book clients](/websocket/quickstart#order-book) implement the rule.
+The first update after the snapshot has `prev == H`, whether it was replayed or live; you cannot tell the two apart by `prev`, and need not. A server-side reconnect that could not resume where it left off shows up the same way, as a `prev` you have not applied. The generated [order-book clients](/websocket/quickstart#order-book) implement the rule.
 
 ## Errors on the book channel
 

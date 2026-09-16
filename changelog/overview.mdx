@@ -3,6 +3,57 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 17, 2026" tags={["API", "Breaking"]}>
+
+## `seq` is now the source block height
+
+<Warning>
+  **Breaking for any client that checks sequence contiguity.** `seq` used to be
+  a per-subscription counter that started at 1 and incremented by one per
+  frame. It is now the **source block height**, the same number on every feed.
+  A client that checks `seq === last + 1` will report almost every frame on a
+  filtered feed as a lost message.
+</Warning>
+
+Check that `seq` **increases**, not that it increases by one. A filtered feed
+sends no frame for a block that matched nothing, so `tradesByCoin` on a quiet
+coin legitimately skips hundreds of numbers between frames. What is actually
+broken is `seq` going backwards or repeating — the chain only moves forward,
+so that means frames were replayed or reordered.
+
+On `l4Book` the snapshot now carries `seq` equal to its `height` (it was `0`),
+and every update carries `seq == height`. The replay-bridge frames that used
+to arrive with `seq: 0` are gone. Keep gating the book on `prev`: it names the
+exact predecessor block, which `seq` alone does not.
+
+**New: resume instead of starting over.** Pass the last `seq` you applied back
+on resubscribe and the server replays what you missed, with no snapshot:
+
+```json
+{"method":"subscribe","subscription":{"type":"tradesByCoin","coin":"BTC","sequence":123456}}
+```
+
+Retention is 10,000 messages per feed, and an idle feed group stays warm for 60
+seconds; past either you get `sequence is not retained` or `sequence is older
+than retained history`, and should subscribe without the cursor. `sequence` and
+`snapshot` are control data — they do not change the subscription id, so a
+resume continues the same subscription. To skip initial state entirely, pass
+`"snapshot": false`.
+
+**Also changed:** the 8-concurrent-`l4Book`-subscriptions limit is gone — book
+subscriptions count against the per-connection cap like any other. A new
+`snapshot buffer did not fill` error replaces sending a snapshot the updates
+cannot be joined to. And the first `l4Book` message now takes **10–70 seconds**
+typically, because the server buffers 105 source blocks before fetching the
+snapshot so it has history to join it onto; the 30 MB message requirement for
+`BTC` is unchanged.
+
+See [sequence numbers](/websocket/protocol#sequence-numbers),
+[reconnecting](/websocket/protocol#reconnecting) and
+[Order book (L4)](/websocket/order-book).
+
+</Update>
+
 <Update label="September 15, 2026" tags={["API"]}>
 
 ## The full L4 order book, with wallets, on the WebSocket
@@ -24,8 +75,8 @@ snapshot, never jump to live.
 **Pro and above**, and listed in the `connected` frame's `limits.feeds`
 when your account has it. Two things to size for: the snapshot is the
 whole book in one message — about 30 MB for `BTC`, a few KB for most
-coins — so set your client's read limit, and a connection may hold at
-most **8** book subscriptions at once on top of its subscription cap.
+coins — so set your client's read limit, and book subscriptions count
+against your connection's subscription cap like any other.
 Read the feed page at [Order book (L4)](/websocket/order-book), copy an
 [order-book client](/websocket/quickstart#order-book) in Browser, Node,
 Python or Go, and see the [plan limits](/websocket/limits) for how
