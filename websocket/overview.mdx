@@ -12,7 +12,7 @@ It is the third way into the same data, beside the [REST API](/api-reference/int
 
 ## Connecting
 
-Open the socket with your key on the HTTP upgrade, then send one `subscribe` frame per feed you want. The server acknowledges each and pushes a data frame whenever matching fills land in a block. Nothing is polled and nothing is replayed on connect — you receive fills from the moment you subscribe onward.
+Open the socket with your key on the HTTP upgrade, then send one `subscribe` frame per feed you want. The server acknowledges each and pushes a data frame whenever matching fills land in a block. Nothing is polled, and by default nothing is replayed on connect — you receive fills from the moment you subscribe onward. Pass a [`sequence`](/websocket/protocol#reconnecting) to resume where a dropped connection left off instead.
 
 **Every connection needs a key, including Free.** There is no anonymous tier and no auth frame to send once the socket is open. The request path is ignored — `/`, `/ws` and `/stream` all upgrade the same.
 

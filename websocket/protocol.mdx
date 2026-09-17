@@ -1,6 +1,6 @@
 ---
 title: "Wire protocol"
-description: "Every frame on the Coinversa websocket — subscribe and unsubscribe acks, ping, data frames with per-subscription sequence numbers, the order-book snapshot, update and error frames, and the exact error strings the server sends."
+description: "Every frame on the Coinversa websocket — subscribe and unsubscribe acks, ping, data frames carrying the source block height as `seq`, the order-book snapshot, update and error frames, and the exact error strings the server sends."
 ---
 
 Every frame is a single JSON object. Client frames carry a `method`; server frames carry a `channel`. The error strings on this page are **exact** — match them verbatim; they will not change.
@@ -54,7 +54,7 @@ An application-level heartbeat, independent of the protocol-level ping frames yo
 **Update** — one per block after the snapshot, whether or not the block touched the coin; `height` and `prev` chain the blocks, and `seq` equals `height` on every one:
 
 ```json
-← {"channel":"l4Book","coin":"BTC","seq":1,"height":103,"prev":102,"time_ms":1757815848325,"partial":false,"data":{"raw_book_diffs":[…],"order_statuses":[…]}}
+← {"channel":"l4Book","coin":"BTC","seq":103,"height":103,"prev":102,"time_ms":1757815848325,"partial":false,"data":{"raw_book_diffs":[…],"order_statuses":[…]}}
 ```
 
 **Book error** — the subscription is gone; reported on the channel itself, not as an `error` frame, so it names the coin:
@@ -76,7 +76,7 @@ A filtered feed sends no frame for a block that matched nothing, so `tradesByCoi
 
 What is broken is `seq` going **backwards or repeating**: the chain only moves forward, so a value at or below the last one you applied means frames were replayed or reordered.
 
-Because a data frame carries no subscription id, key any per-stream tracking on what the frame itself identifies: the `channel` plus the coin or wallet of its first fill. Two `tradesByCoin` subscriptions on one connection both arrive on channel `tradesByCoin`; they now share the same height sequence, so tracking on the channel alone no longer produces phantom gaps, but it also cannot tell you which subscription a frame belongs to.
+Because a data frame carries no subscription id, key any per-stream tracking on what the frame itself identifies: the `channel` plus the coin or wallet of its first fill. Two `tradesByCoin` subscriptions on one connection both arrive on channel `tradesByCoin`, and because `seq` is now a shared block height they will both report the same number for the same block — so tracking on the `channel` alone sees that as a **repeat**, which is exactly the fault this page tells you to act on. Key per subscription, not per channel.
 
 `seq` is also your **reconnect cursor** — record the last one you applied and pass it back on resubscribe; see [Reconnecting](#reconnecting).
 
@@ -98,7 +98,7 @@ Retention is **10,000 messages per feed** per connection manager, and an empty f
 
 | `data` | What it means |
 |---|---|
-| `sequence is not retained` | The cursor is not in the buffer — often because the feed group had gone cold. |
+| `sequence is not retained` | The feed group is holding nothing to replay — usually because it had gone cold and was dropped. |
 | `sequence is older than retained history` | The cursor predates the oldest message still held. |
 | `sequence and snapshot cannot be combined` | `snapshot: true` with a `sequence`. Pick one. |
 
@@ -132,7 +132,7 @@ Omitting `snapshot` defaults to sending one, unless you supplied a `sequence`.
 | `snapshot buffer did not fill` | The server could not collect enough consecutive blocks to join a snapshot onto before giving up. The source has stalled; subscribe again. |
 | `invalid sequence` / `invalid snapshot` | `sequence` was not a number, or `snapshot` was not a boolean. |
 
-A book subscription that starts and then fails — an unknown coin, a snapshot or replay that could not be fetched, an update chain that would not close onto the snapshot — is reported on the `l4Book` channel itself, not here; see [errors on the book channel](/websocket/order-book#errors-on-the-book-channel).
+A book subscription that starts and then fails — an unknown coin, a snapshot that could not be fetched, a buffer that never filled — is **dropped** and reported here, on the ordinary `error` channel, as `{"channel":"error","data":"<reason>"}`. The frame does not name the coin, so a connection holding several books cannot tell which one ended from the frame alone. The reasons are listed under [when a book subscription is dropped](/websocket/order-book#when-a-book-subscription-is-dropped).
 
 ## Closing
 

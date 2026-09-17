@@ -638,7 +638,20 @@ const streamKey = (msg) => {
 // frame of diffs. A browser WebSocket has no message-size limit, so there is
 // nothing to configure, but expect JSON.parse to take a moment on the snapshot.
 //
-// The client rule, from the protocol reference: "Apply an update only if its prev equals the last applied height; on any mismatch, or partial:true when attribution matters, unsubscribe and resubscribe to get a fresh snapshot. Never jump to live."
+// The client rule, from the protocol reference: "Apply an update only if its prev equals the last applied height; on any mismatch, or partial:true when attribution matters, reconnect with the last successfully applied seq. If that cursor is no longer retained, subscribe without it to rebuild from a fresh snapshot."
+//
+// This client takes the rule's FALLBACK path: it resubscribes without a
+// cursor, which costs a fresh snapshot (~30 MB on BTC, 10-70 s). Passing
+// {"sequence": <last applied seq>} on the resubscribe resumes instead, with
+// no snapshot — add it if that cost matters, and fall back to this path when
+// the server answers "sequence is not retained".
+//
+// A book subscription that fails after it starts — unknown coin, the gateway
+// unreachable, the snapshot buffer never filling — is dropped and reported on
+// the ordinary error channel as {"channel":"error","data":"<reason>"}. That
+// frame does NOT name the coin, so with more than one l4Book subscription on
+// a socket you cannot tell which one died from the frame alone; treat an
+// error frame as a reason to re-check every book you hold.
 const bookHeight = new Map(); // coin -> last applied height
 
 function resubscribeBook(ws, coin, why) {
@@ -650,15 +663,6 @@ function resubscribeBook(ws, coin, why) {
 }
 
 function onBookFrame(ws, msg) {
-  if (msg.error) {
-    // The subscription is gone and its ack no longer stands. "unknown coin"
-    // is a spelling problem — the coin is case-sensitive and must be the
-    // node's own spelling (BTC, xyz:GOLD, #28200); do not retry it as is.
-    // Anything else is worth a resubscribe with backoff.
-    console.error(`l4Book ${msg.coin}: ${msg.error} — ${msg.reason}`);
-    bookHeight.delete(msg.coin);
-    return;
-  }
   if (msg.snapshot) {
     const [bids, asks] = msg.data.book_orders;
     bookHeight.set(msg.coin, msg.height);
@@ -781,7 +785,20 @@ const streamKey = (msg) => {
 // frame of diffs. ws has no message-size limit by default, so there is
 // nothing to configure, but expect JSON.parse to take a moment on the snapshot.
 //
-// The client rule, from the protocol reference: "Apply an update only if its prev equals the last applied height; on any mismatch, or partial:true when attribution matters, unsubscribe and resubscribe to get a fresh snapshot. Never jump to live."
+// The client rule, from the protocol reference: "Apply an update only if its prev equals the last applied height; on any mismatch, or partial:true when attribution matters, reconnect with the last successfully applied seq. If that cursor is no longer retained, subscribe without it to rebuild from a fresh snapshot."
+//
+// This client takes the rule's FALLBACK path: it resubscribes without a
+// cursor, which costs a fresh snapshot (~30 MB on BTC, 10-70 s). Passing
+// {"sequence": <last applied seq>} on the resubscribe resumes instead, with
+// no snapshot — add it if that cost matters, and fall back to this path when
+// the server answers "sequence is not retained".
+//
+// A book subscription that fails after it starts — unknown coin, the gateway
+// unreachable, the snapshot buffer never filling — is dropped and reported on
+// the ordinary error channel as {"channel":"error","data":"<reason>"}. That
+// frame does NOT name the coin, so with more than one l4Book subscription on
+// a socket you cannot tell which one died from the frame alone; treat an
+// error frame as a reason to re-check every book you hold.
 const bookHeight = new Map(); // coin -> last applied height
 
 function resubscribeBook(ws, coin, why) {
@@ -793,15 +810,6 @@ function resubscribeBook(ws, coin, why) {
 }
 
 function onBookFrame(ws, msg) {
-  if (msg.error) {
-    // The subscription is gone and its ack no longer stands. "unknown coin"
-    // is a spelling problem — the coin is case-sensitive and must be the
-    // node's own spelling (BTC, xyz:GOLD, #28200); do not retry it as is.
-    // Anything else is worth a resubscribe with backoff.
-    console.error(`l4Book ${msg.coin}: ${msg.error} — ${msg.reason}`);
-    bookHeight.delete(msg.coin);
-    return;
-  }
   if (msg.snapshot) {
     const [bids, asks] = msg.data.book_orders;
     bookHeight.set(msg.coin, msg.height);
@@ -950,7 +958,21 @@ def stream_key(msg):
 # ~15 MB, ETH ~11 MB, the median coin ~5 KB), then one message of diffs per
 # block. BOOK_MAX_SIZE above lets it through.
 #
-# The client rule, from the protocol reference: "Apply an update only if its prev equals the last applied height; on any mismatch, or partial:true when attribution matters, unsubscribe and resubscribe to get a fresh snapshot. Never jump to live."
+# The client rule, from the protocol reference: "Apply an update only if its prev equals the last applied height; on any mismatch, or partial:true when attribution matters, reconnect with the last successfully applied seq. If that cursor is no longer retained, subscribe without it to rebuild from a fresh snapshot."
+#
+#
+# This client takes the rule's FALLBACK path: it resubscribes without a
+# cursor, which costs a fresh snapshot (~30 MB on BTC, 10-70 s). Passing
+# {"sequence": <last applied seq>} on the resubscribe resumes instead, with
+# no snapshot — add it if that cost matters, and fall back to this path when
+# the server answers "sequence is not retained".
+#
+# A book subscription that fails after it starts - unknown coin, the gateway
+# unreachable, the snapshot buffer never filling - is dropped and reported on
+# the ordinary error channel as {"channel":"error","data":"<reason>"}. That
+# frame does NOT name the coin, so with more than one l4Book subscription on
+# a socket you cannot tell which one died from the frame alone; treat an
+# error frame as a reason to re-check every book you hold.
 BOOK_HEIGHT = {}  # coin -> last applied height
 
 
@@ -964,14 +986,6 @@ async def resubscribe_book(ws, coin, why):
 
 async def on_book_frame(ws, msg):
     coin = msg.get("coin")
-    if msg.get("error"):
-        # The subscription is gone and its ack no longer stands. "unknown coin"
-        # is a spelling problem - the coin is case-sensitive and must be the
-        # node's own spelling (BTC, xyz:GOLD, #28200); do not retry it as is.
-        # Anything else is worth a resubscribe with backoff.
-        print(f'l4Book {coin}: {msg["error"]} - {msg.get("reason")}')
-        BOOK_HEIGHT.pop(coin, None)
-        return
     data = msg.get("data") or {}
     if msg.get("snapshot"):
         bids, asks = data.get("book_orders") or ([], [])
@@ -1147,8 +1161,6 @@ type bookFrame struct {
 	Height   int64  `json:"height"`
 	Prev     int64  `json:"prev"`
 	Partial  bool   `json:"partial"`
-	Error    string `json:"error"`
-	Reason   string `json:"reason"`
 	Data     struct {
 		BookOrders        [][]json.RawMessage `json:"book_orders"`
 		UntriggeredOrders []json.RawMessage   `json:"untriggered_orders"`
@@ -1183,7 +1195,20 @@ func streamKey(f frame, pairs [][2]json.RawMessage) string {
 // ~15 MB, ETH ~11 MB, the median coin ~5 KB) — then one message of diffs per
 // block. The read limit in session lets it through.
 //
-// The client rule, from the protocol reference: "Apply an update only if its prev equals the last applied height; on any mismatch, or partial:true when attribution matters, unsubscribe and resubscribe to get a fresh snapshot. Never jump to live."
+// The client rule, from the protocol reference: "Apply an update only if its prev equals the last applied height; on any mismatch, or partial:true when attribution matters, reconnect with the last successfully applied seq. If that cursor is no longer retained, subscribe without it to rebuild from a fresh snapshot."
+//
+// This client takes the rule's FALLBACK path: it resubscribes without a
+// cursor, which costs a fresh snapshot (~30 MB on BTC, 10-70 s). Passing
+// {"sequence": <last applied seq>} on the resubscribe resumes instead, with
+// no snapshot — add it if that cost matters, and fall back to this path when
+// the server answers "sequence is not retained".
+//
+// A book subscription that fails after it starts — unknown coin, the gateway
+// unreachable, the snapshot buffer never filling — is dropped and reported on
+// the ordinary error channel as {"channel":"error","data":"<reason>"}. That
+// frame does NOT name the coin, so with more than one l4Book subscription on
+// a socket you cannot tell which one died from the frame alone; treat an
+// error frame as a reason to re-check every book you hold.
 func resubscribeBook(ctx context.Context, conn *websocket.Conn, height map[string]int64, coin, why string) {
 	log.Printf("l4Book %s: %s — resubscribing for a fresh snapshot", coin, why)
 	delete(height, coin)
@@ -1198,15 +1223,6 @@ func onBookFrame(ctx context.Context, conn *websocket.Conn, height map[string]in
 	var b bookFrame
 	if err := json.Unmarshal(raw, &b); err != nil {
 		log.Printf("unparsable l4Book frame: %v", err)
-		return
-	}
-	if b.Error != "" {
-		// The subscription is gone and its ack no longer stands. "unknown
-		// coin" is a spelling problem — the coin is case-sensitive and must
-		// be the node's own spelling (BTC, xyz:GOLD, #28200), so
-		// do not retry it as is. Anything else: resubscribe with backoff.
-		log.Printf("l4Book %s: %s — %s", b.Coin, b.Error, b.Reason)
-		delete(height, b.Coin)
 		return
 	}
 	if b.Snapshot {
@@ -1387,5 +1403,5 @@ What the book handler adds, on top of everything above:
 
 - **Raises the read limit** where the library has one — Python's `max_size` and Go's `SetReadLimit` go to 64 MiB, since their defaults (1 MiB and 32 KiB) would close the socket on the snapshot. A browser `WebSocket` has no limit; Node's `ws` defaults to 100 MiB, which a 30 MB snapshot fits. Expect `JSON.parse` to take a moment on a large book.
 - **Applies the [client rule](/websocket/order-book#the-client-rule)**: the snapshot sets the height, each update is applied only if its `prev` is the last applied height, and any mismatch — or `partial: true` — unsubscribes and resubscribes for a fresh snapshot rather than jumping to live.
-- **Handles [book errors](/websocket/order-book#errors-on-the-book-channel) on the channel itself**: `unknown coin` is a spelling problem and is not retried as is. For any other reason the generated handler logs the error and forgets the coin's height; resubscribing with backoff is left to you.
+- **Leaves [book failures](/websocket/order-book#when-a-book-subscription-is-dropped) to the ordinary error channel.** A dropped book subscription arrives as `{"channel":"error","data":"<reason>"}` with no coin on it, so the client cannot attribute it when several books share a socket — the generated handler logs it and leaves the decision to you. `unknown coin` is a spelling problem and must not be retried as is.
 - **Forgets the book on every new connection**, because a new socket starts with a new snapshot, and dispatches `l4Book` frames before the `seq` tracking that the fill feeds use.
