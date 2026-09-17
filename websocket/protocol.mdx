@@ -43,7 +43,7 @@ An application-level heartbeat, independent of the protocol-level ping frames yo
 
 ## Order book frames
 
-`l4Book` speaks three frames of its own, all on channel `l4Book` and all carrying the `coin` as you sent it. The full contract — field meanings, the `data` layout, and the client rule — is on [Order book (L4)](/websocket/order-book).
+`l4Book` speaks two frames of its own, both on channel `l4Book` and both carrying the `coin` as you sent it. The full contract — field meanings, the `data` layout, and the client rule — is on [Order book (L4)](/websocket/order-book).
 
 **Snapshot** — exactly one, first, with `seq` equal to its `height`; `data` is the node's export of the whole book:
 
@@ -57,11 +57,10 @@ An application-level heartbeat, independent of the protocol-level ping frames yo
 ← {"channel":"l4Book","coin":"BTC","seq":103,"height":103,"prev":102,"time_ms":1757815848325,"partial":false,"data":{"raw_book_diffs":[…],"order_statuses":[…]}}
 ```
 
-**Book error** — the subscription is gone; reported on the channel itself, not as an `error` frame, so it names the coin:
+`l4Book` has no error frame of its own. A book subscription that is dropped is reported on the ordinary `error` channel, **without the coin on it** — see [when a book subscription is dropped](/websocket/order-book#when-a-book-subscription-is-dropped):
 
 ```json
-← {"channel":"l4Book","coin":"BTC","error":"snapshot","reason":"unknown coin"}
-← {"channel":"l4Book","coin":"BTC","error":"resync","reason":"updates not contiguous with snapshot"}
+← {"channel":"error","data":"unknown coin"}
 ```
 
 ## Sequence numbers
