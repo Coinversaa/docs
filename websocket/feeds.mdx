@@ -1,35 +1,43 @@
 ---
 title: "Feeds and the fill object"
-description: "The four websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, and the L4 order book — which plans include each, and every field on a streamed fill."
+description: "The eight websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, liquidations, leverage and margin changes, and the L4 order book — which plans include each, and every field on a streamed fill."
 ---
 
-Four raw feeds today: three stream fills, the fourth streams a coin's full order book. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries the source block height as `seq`.
+Eight raw feeds today: three stream fills, two stream liquidations, two stream leverage and isolated-margin changes, and the last streams a coin's full order book. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
 
 | Feed | Argument | What arrives | Plans |
 |---|---|---|---|
 | `trades` | — | **The firehose** — every fill on every Hyperliquid dex, native perps, builder dexes and spot alike, in block order. | Starter and above |
 | `tradesByCoin` | `coin` | Fills for one market. Takes native tickers (`BTC`, `HYPE`) and builder-dex symbols (`xyz:GOLD`, `cash:TSLA`) alike — see [Markets & symbols](/concepts/markets). | Every plan |
 | `tradesByUser` | `user` | Fills for one address — **any** address on Hyperliquid, not only wallets you control. | Every plan |
+| `liquidations` | — | **Every liquidation**, as it happens — the liquidated account, the coin, the penalty fee and the realized loss. [Below](#liquidations). | Pro and above |
+| `liquidationsByUser` | `user` | Liquidations of one account. The filter is the **liquidated** side only. | Pro and above |
+| `leverageUpdates` | — | **Accepted leverage and isolated-margin changes** — who moved their leverage, on what market, to what. [Below](#leverage-and-margin). | Pro and above |
+| `leverageUpdatesByUser` | `user` | Leverage and margin changes for one account. | Pro and above |
 | `l4Book` | `coin` | **The full L4 order book** of one market — every resting order with its wallet, plus untriggered stop and take-profit orders — as one snapshot followed by a diff message per block. Its own page: [Order book (L4)](/websocket/order-book). | Pro and above |
 
 ```json
 {"method":"subscribe","subscription":{"type":"trades"}}
 {"method":"subscribe","subscription":{"type":"tradesByCoin","coin":"xyz:GOLD"}}
 {"method":"subscribe","subscription":{"type":"tradesByUser","user":"0xf3f4…8a2c"}}
+{"method":"subscribe","subscription":{"type":"liquidations"}}
+{"method":"subscribe","subscription":{"type":"liquidationsByUser","user":"0xf3f4…8a2c"}}
+{"method":"subscribe","subscription":{"type":"leverageUpdates"}}
+{"method":"subscribe","subscription":{"type":"leverageUpdatesByUser","user":"0xf3f4…8a2c"}}
 {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}
 ```
 
-The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive on the three fill feeds. `l4Book`'s `coin` is the exception: it is **case-sensitive** and must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing). Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel. `sequence` and `snapshot` are the exception: they are recognised control data and steer the subscribe without changing its id — see [reconnecting](/websocket/protocol#reconnecting).
+The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive on the fill, liquidation and leverage feeds. `l4Book`'s `coin` is the exception: it is **case-sensitive** and must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing). Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel. `sequence` and `snapshot` are the exception: they are recognised control data and steer the subscribe without changing its id — see [reconnecting](/websocket/protocol#reconnecting).
 
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser` accepts any address. Hyperliquid's own websocket streams only wallets you control and caps subscribers at ten users per IP; there is no such restriction here beyond your plan's subscription count. The firehose answers `feed not in tier` on Free, and `l4Book` answers it below Pro — check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser`, `liquidationsByUser` and `leverageUpdatesByUser` accept any address. Hyperliquid's own websocket streams only wallets you control and caps subscribers at ten users per IP; there is no such restriction here beyond your plan's subscription count. The firehose answers `feed not in tier` on Free, and the liquidation, leverage and `l4Book` feeds answer it below Pro — check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames
 
-This is the frame shape on the three fill feeds. `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot).
+This is the frame shape on the three fill feeds. The liquidation and leverage feeds carry the same envelope with their own object in `data` — [below](#liquidations). `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot).
 
 `channel` is the subscription type that produced the frame. `data` is an array of `[wallet, fill]` pairs — one entry per fill, with the address that made it in the first position. A single frame can carry many fills; both sides of a trade are separate fills, so most frames carry at least two pairs. The only top-level keys are `channel`, `seq` and `data` — **there is no subscription id on a data frame**, which matters as soon as you hold two subscriptions on one channel; see [sequence numbers](/websocket/protocol#sequence-numbers).
 
@@ -89,6 +97,95 @@ The fill is passed through as Hyperliquid's node produced it — nothing is adde
 | `deployerFee` | string | sometimes | Fee paid to the deployer of a builder-dex market. Only on builder-dex fills. |
 | `priorityGas` | string | sometimes | Priority gas paid to jump the queue on this order. Absent when none was paid. |
 
+## Liquidations
+
+`liquidations` and `liquidationsByUser` are filtered out of the same fill stream, so they sequence on the source block height exactly as the trade feeds do. `data` is an array of **liquidation objects** — not `[wallet, fill]` pairs — one per liquidated side of a trade.
+
+```json
+{
+  "channel": "liquidations",
+  "seq": 928109999,
+  "data": [
+    {
+      "time": 1773878735890,
+      "liquidatedUser": "0x103c…",
+      "liquidator": "0x7c66…",
+      "coin": "ZRO",
+      "side": "A",
+      "px": "2.1027",
+      "sz": "21.0",
+      "markPx": "2.1023",
+      "method": "market",
+      "hash": "0xabc…",
+      "tid": 111,
+      "penaltyFee": "0.019075",
+      "closedPnl": "-5.4747"
+    }
+  ]
+}
+```
+
+| Field | Type | Present | Meaning |
+|---|---|---|---|
+| `time` | number | always | Liquidation timestamp, milliseconds since the Unix epoch. |
+| `liquidatedUser` | string | always | The account that was liquidated. This is what `liquidationsByUser` filters on. |
+| `liquidator` | string | sometimes | The counterparty that took the other side. Matched from the paired fill in the same block; **absent when no counterparty fill matched**. |
+| `coin` | string | always | Market the position was in. |
+| `side` | string | always | `B` or `A` — the side of the *liquidating* fill, not of the position that was closed. |
+| `px` | string | always | Price the liquidation filled at. |
+| `sz` | string | always | Size closed, in base units. |
+| `markPx` | string | sometimes | Mark price at the moment of liquidation. |
+| `method` | string | always | How it was closed — `market` and `backstop` are the ones you will see. |
+| `hash` | string | always | L1 transaction hash. |
+| `tid` | number | sometimes | Unique id of the underlying fill. |
+| `penaltyFee` | string | sometimes | The liquidation penalty, taken from the liquidated account. |
+| `closedPnl` | string | sometimes | Realized PnL on the closed portion — negative on a liquidation. |
+
+Numeric values keep the JSON type and precision the node sent. The filter on `liquidationsByUser` is **the liquidated account only** — a liquidator watching its own activity sees its side of the trade through `tradesByUser`.
+
+## Leverage and margin
+
+`leverageUpdates` and `leverageUpdatesByUser` carry **accepted** leverage and isolated-margin state changes, read from the node's replica-command stream rather than from fills. Three action types share the feed; `update_type` selects the variant.
+
+<Warning>
+  This feed does **not** sequence on block height. Its `seq` is the replica block's Unix timestamp in **nanoseconds**, because the replica stream does not expose its height outside the JSON payload. The number still only increases, and it is still your reconnect cursor — but never compare a `leverageUpdates` `seq` against one from a fill or book feed. See [sequence numbers](/websocket/protocol#sequence-numbers).
+</Warning>
+
+```json
+{
+  "channel": "leverageUpdates",
+  "seq": 1773878735123456789,
+  "data": [
+    {
+      "update_type": "leverage",
+      "time": 1773878735123,
+      "user": "0x9bad…",
+      "asset": 170003,
+      "tx_index": 1,
+      "is_cross": false,
+      "leverage": 9
+    }
+  ]
+}
+```
+
+| Field | Type | Present | Meaning |
+|---|---|---|---|
+| `update_type` | string | always | `leverage`, `isolated_margin`, or `top_up_isolated_margin`. Selects which of the fields below are present. |
+| `time` | number | always | Block timestamp, milliseconds since the Unix epoch. |
+| `user` | string | always | The account the change applied to. This is what `leverageUpdatesByUser` filters on. |
+| `asset` | number | always | The node's **numeric** asset id, builder-dex encoded ids included. Not a ticker — see the note below. |
+| `tx_index` | number | always | Position of the action within its block, for ordering changes inside one `seq`. |
+| `is_cross` | boolean | `leverage` | True for cross margin, false for isolated. |
+| `leverage` | number | `leverage` | The leverage the account moved to. |
+| `is_buy` | boolean | `isolated_margin` | Side of the isolated position the margin was adjusted on. |
+| `ntli` | string | `isolated_margin` | Notional transferred to or from isolated margin, as a decimal string. Converted from the node's integer millionths of USD. |
+| `target_leverage` | string | `top_up_isolated_margin` | Leverage the top-up targets, as the node's own decimal string. |
+
+**`asset` is a number, not a coin name.** The feed does not guess a ticker without a matching metadata snapshot, so resolve it yourself against [Markets & symbols](/concepts/markets) if you need a symbol.
+
+**Rejected actions never appear.** Requests are paired with the block's `resps.Full` by bundle hash and action index, and `user` is taken from the *accepted response* rather than from the broadcaster — which matters because the broadcaster can be an agent wallet acting for the account. A missing, malformed, hash-mismatched or cardinality-mismatched response fails closed for that whole block rather than reporting a request as an applied change.
+
 ## Hyperliquid compatibility
 
 The frame shapes — `subscribe` / `unsubscribe` with a `subscription` object, `subscriptionResponse` acks that echo it, `ping` / `pong`, and a fill object identical to Hyperliquid's — are deliberately Hyperliquid's own, so client code written against their websocket is familiar here. The differences are the ones the product exists for:
@@ -96,6 +193,7 @@ The frame shapes — `subscribe` / `unsubscribe` with a `subscription` object, `
 - **Authentication on the upgrade.** Hyperliquid's socket has none; ours needs your key, in a header or the `bearer` subprotocol.
 - **The wallet rides with every fill**, as the first element of each `[wallet, fill]` pair, on every feed — including coin-scoped ones.
 - **`tradesByUser` takes any address**, not only your own.
-- **`seq` on every data frame** — the source block height, and your reconnect cursor.
+- **Liquidations and leverage changes are feeds of their own**, not something you filter out of fills yourself — and both take any address.
+- **`seq` on every data frame** — a monotonic source position, and your reconnect cursor.
 
 Enriched cohort feeds are coming. They are not available yet, and this page will document them when they are. (Replaying what you missed after a disconnect is already here — that is the [`sequence`](/websocket/protocol#reconnecting) cursor, not a future feed.)

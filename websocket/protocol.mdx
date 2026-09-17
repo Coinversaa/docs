@@ -1,6 +1,6 @@
 ---
 title: "Wire protocol"
-description: "Every frame on the Coinversa websocket — subscribe and unsubscribe acks, ping, data frames carrying the source block height as `seq`, the order-book snapshot, update and error frames, and the exact error strings the server sends."
+description: "Every frame on the Coinversa websocket — subscribe and unsubscribe acks, ping, data frames carrying a monotonic source position as `seq`, the order-book snapshot, update and error frames, and the exact error strings the server sends."
 ---
 
 Every frame is a single JSON object. Client frames carry a `method`; server frames carry a `channel`. The error strings on this page are **exact** — match them verbatim; they will not change.
@@ -39,7 +39,7 @@ An application-level heartbeat, independent of the protocol-level ping frames yo
 
 ## Data frames
 
-`channel` is the subscription type, `seq` is the source block height, and `data` is an array of `[wallet, fill]` pairs — see [feeds and the fill object](/websocket/feeds#data-frames) for the full shape. There is no subscription id on a data frame.
+`channel` is the subscription type, `seq` is a monotonic source position — the block height on every feed but `leverageUpdates` — and `data` is an array of `[wallet, fill]` pairs on the fill feeds. The liquidation and leverage feeds put their own object in `data`; see [feeds and the fill object](/websocket/feeds#data-frames) for every shape. There is no subscription id on a data frame.
 
 ## Order book frames
 
@@ -65,7 +65,16 @@ An application-level heartbeat, independent of the protocol-level ping frames yo
 
 ## Sequence numbers
 
-`seq` is the **source block height** — the height of the block the frame was produced from. It is the same number on every feed, it does not restart on reconnect, it is not per subscription, and it does not start at 1.
+`seq` is a **monotonic source position** — the place in the source stream the frame was produced from. It does not restart on reconnect, it is not per subscription, and it does not start at 1.
+
+What the number *is* depends on the feed:
+
+| Feeds | `seq` is |
+|---|---|
+| `trades`, `tradesByCoin`, `tradesByUser`, `liquidations`, `liquidationsByUser`, `l4Book` | The **source block height** — the height of the block the frame was produced from. The same number across all of them. |
+| `leverageUpdates`, `leverageUpdatesByUser` | The replica block's **Unix timestamp in nanoseconds**, because the replica-command stream does not expose its height outside the JSON payload. |
+
+Both only ever increase, and both are valid reconnect cursors for their own feed. What you must not do is compare one against the other, or hold a single "last seq" across a mixture of the two — a nanosecond timestamp is about six orders of magnitude larger than a block height, so a shared counter would read every fill frame after a leverage frame as a replay.
 
 <Warning>
   This changed. `seq` used to be a per-subscription counter that started at 1 and incremented by one per frame. A client that checks `seq === last + 1` now reports almost every frame on a filtered feed as a lost message. Check that `seq` **increases**, not that it increases by one.
@@ -75,7 +84,7 @@ A filtered feed sends no frame for a block that matched nothing, so `tradesByCoi
 
 What is broken is `seq` going **backwards or repeating**: the chain only moves forward, so a value at or below the last one you applied means frames were replayed or reordered.
 
-Because a data frame carries no subscription id, key any per-stream tracking on what the frame itself identifies: the `channel` plus the coin or wallet of its first fill. Two `tradesByCoin` subscriptions on one connection both arrive on channel `tradesByCoin`, and because `seq` is now a shared block height they will both report the same number for the same block — so tracking on the `channel` alone sees that as a **repeat**, which is exactly the fault this page tells you to act on. Key per subscription, not per channel.
+Because a data frame carries no subscription id, key any per-stream tracking on what the frame itself identifies: the `channel` plus the coin or wallet of its first fill. Two `tradesByCoin` subscriptions on one connection both arrive on channel `tradesByCoin`, and because `seq` is now a shared source position they will both report the same number for the same block — so tracking on the `channel` alone sees that as a **repeat**, which is exactly the fault this page tells you to act on. Key per subscription, not per channel.
 
 `seq` is also your **reconnect cursor** — record the last one you applied and pass it back on resubscribe; see [Reconnecting](#reconnecting).
 

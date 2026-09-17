@@ -11,7 +11,7 @@ Websocket access is **capacity-based**: you are limited by how many connections 
 |---|---:|---:|---|---:|
 | Free | 1 | 2 | `tradesByCoin`, `tradesByUser` | 5 GB |
 | Starter | 1 | 25 | `trades` (the firehose), `tradesByCoin`, `tradesByUser` | 50 GB |
-| Pro | 5 | 100 | all, including the `l4Book` [order book](/websocket/order-book) | 250 GB |
+| Pro | 5 | 100 | all, including the `l4Book` [order book](/websocket/order-book), [liquidations](/websocket/feeds#liquidations) and [leverage changes](/websocket/feeds#leverage-and-margin) | 250 GB |
 | Enterprise | custom | custom | all | 250 GB |
 
 Two of these differ from REST limits in a way that bites:
@@ -42,7 +42,7 @@ An order-book snapshot is a data frame written to your connection, so **its byte
 | Connection cap | The upgrade is refused: `HTTP 429` for header clients, close code `4429` for browser clients. No `Retry-After`; a connection that died silently frees its slot within about 40 seconds. |
 | Subscription cap | `{"channel":"error","data":"too many subscriptions"}` on the open socket. Unsubscribe one and the slot frees immediately. |
 | Order-book cap | None of its own: `l4Book` subscriptions spend slots from the general per-connection cap. |
-| Feed not in plan | `{"channel":"error","data":"feed not in tier"}` on the open socket — the firehose on Free, `l4Book` below Pro. |
+| Feed not in plan | `{"channel":"error","data":"feed not in tier"}` on the open socket — the firehose on Free, and `l4Book`, `liquidations`, `liquidationsByUser`, `leverageUpdates` and `leverageUpdatesByUser` below Pro. |
 | Fair-use bandwidth | Nothing on the wire. The Usage page shows consumption against the allowance. |
 
 See the [wire protocol](/websocket/protocol#errors-on-an-open-socket) for the full error list and the [overview](/websocket/overview#when-the-handshake-is-refused) for refusals.
