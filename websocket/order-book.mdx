@@ -18,7 +18,7 @@ description: "The l4Book websocket feed — Hyperliquid's full L4 order book for
 `l4Book` is included on **Pro and above**. Below that, a subscribe answers `feed not in tier` on the `error` channel. The [`connected` frame](/websocket/overview#the-first-frame) lists `l4Book` in `limits.feeds` when your account may subscribe — read that rather than assuming from the plan table, since enterprise limits are resolved per account.
 
 ```json
-← {"channel":"connected","data":{"tier":"pro","limits":{"connections":5,"subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser","l4Book"]}}}
+← {"channel":"connected","data":{"tier":"pro","limits":{"connections":5,"subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser","liquidations","liquidationsByUser","leverageUpdates","leverageUpdatesByUser","l4Book"]}}}
 ```
 
 ## Subscribing

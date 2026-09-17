@@ -3,6 +3,48 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 17, 2026" tags={["API"]}>
+
+## Four new websocket feeds: liquidations and leverage
+
+**`liquidations`** and **`liquidationsByUser`** stream every liquidation on
+Hyperliquid as it lands — the liquidated account, the counterparty that took
+the other side, the coin, the penalty fee and the realized loss. Filtered out
+of the same fill stream, so they carry the source block height as `seq` like
+every trade feed.
+
+```json
+{"method":"subscribe","subscription":{"type":"liquidations"}}
+```
+
+**`leverageUpdates`** and **`leverageUpdatesByUser`** stream accepted leverage
+and isolated-margin changes read from the node's replica-command stream —
+`leverage`, `isolated_margin` and `top_up_isolated_margin`, with the account
+each one applied to. Rejected actions never appear: every request is paired
+with its accepted response by bundle hash and action index before anything is
+published as an applied change, and `user` comes from the response rather than
+the broadcaster, so an agent-signed action reaches the account it applied to.
+
+```json
+{"method":"subscribe","subscription":{"type":"leverageUpdatesByUser","user":"0x9bad…"}}
+```
+
+All four are **Pro and above**, and all four accept any address — not only
+wallets you control. Full field tables: [feeds and the fill
+object](/websocket/feeds#liquidations).
+
+<Warning>
+  **`seq` is no longer one kind of number.** It stays the source block height
+  on the fill, liquidation and book feeds, but `leverageUpdates` sequences on
+  the replica block's **Unix timestamp in nanoseconds**, because the replica
+  stream does not expose its height outside the payload. Both only increase and
+  both are valid reconnect cursors — but never compare one against the other,
+  and never hold a single "last seq" across a mixture of the two. See
+  [sequence numbers](/websocket/protocol#sequence-numbers).
+</Warning>
+
+</Update>
+
 <Update label="September 17, 2026" tags={["API", "Breaking"]}>
 
 ## `seq` is now the source block height

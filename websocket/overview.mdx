@@ -3,7 +3,7 @@ title: "WebSocket API"
 description: "Stream every Hyperliquid fill in real time over wss://ws.coinversa.ai — authenticate with your API key on the upgrade, subscribe to a coin, a wallet, or the firehose, and read fills as they land."
 ---
 
-Coinversa streams **every fill on Hyperliquid** — native perps, the builder dexes, spot — over one websocket at block cadence, with the wallet attached to each fill and `closedPnl`, `dir` and `startPosition` already on it. Frame shapes mirror Hyperliquid's own websocket API, so existing Hyperliquid client code is familiar. Pro accounts can also stream the **full L4 order book** of any coin — every resting order with its wallet, as one snapshot followed by per-block diffs — through the [`l4Book` feed](/websocket/order-book).
+Coinversa streams **every fill on Hyperliquid** — native perps, the builder dexes, spot — over one websocket at block cadence, with the wallet attached to each fill and `closedPnl`, `dir` and `startPosition` already on it. Frame shapes mirror Hyperliquid's own websocket API, so existing Hyperliquid client code is familiar. Pro accounts can also stream the **full L4 order book** of any coin — every resting order with its wallet, as one snapshot followed by per-block diffs — through the [`l4Book` feed](/websocket/order-book), plus [every liquidation](/websocket/feeds#liquidations) as it happens and [every accepted leverage and isolated-margin change](/websocket/feeds#leverage-and-margin).
 
 It is the third way into the same data, beside the [REST API](/api-reference/introduction) and the [MCP server](/mcp/setup), and it uses the **same API key**. It is also a different protocol with its own rules: auth travels on the upgrade rather than in an `X-API-Key` header, refusals are HTTP statuses or close codes rather than problem details, and limits are **capacity** — connections and subscriptions — never per message. This section states those rules in full; the REST pages point here rather than repeating them.
 
@@ -46,7 +46,7 @@ The key goes out **with the upgrade request**, so the socket is already authenti
     sec-websocket-accept: <derived from your Sec-WebSocket-Key>
 
 ← {"channel":"connected","data":{"tier":"pro","limits":{"connections":5,
-    "subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser","l4Book"]}}}
+    "subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser","liquidations","liquidationsByUser","leverageUpdates","leverageUpdatesByUser","l4Book"]}}}
 ```
 
 Whichever input is present decides on its own. A bad `Authorization` header is refused even if a valid subprotocol rides beside it; the subprotocol is read only when the header is absent. The key is **never** accepted in the URL — `?token=`, `?apiKey=` and `?key=` are refused exactly like no key at all, and a key in a URL is a key in every access log between you and us.
@@ -80,7 +80,7 @@ No `Retry-After` comes with a 429, and a connection that died silently can hold 
     A complete client in Browser, Node, Python or Go — reconnect, resubscribe, sequence ordering, heartbeat.
   </Card>
   <Card title="Feeds and the fill object" icon="water" href="/websocket/feeds">
-    The firehose, one coin, one wallet, the order book — and every field on a fill.
+    The firehose, one coin, one wallet, liquidations, leverage changes, the order book — and every field on a fill.
   </Card>
   <Card title="Wire protocol" icon="code" href="/websocket/protocol">
     Every frame, the exact error strings, and how sequence numbers work.
