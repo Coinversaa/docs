@@ -3,7 +3,7 @@ title: "Feeds and the fill object"
 description: "The four websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, and the L4 order book — which plans include each, and every field on a streamed fill."
 ---
 
-Four raw feeds today: three stream fills, the fourth streams a coin's full order book. Each is a separate subscription with its own sequence counter, and you can hold as many as your plan's per-connection cap allows on one socket.
+Four raw feeds today: three stream fills, the fourth streams a coin's full order book. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries the source block height as `seq`.
 
 | Feed | Argument | What arrives | Plans |
 |---|---|---|---|
@@ -19,7 +19,7 @@ Four raw feeds today: three stream fills, the fourth streams a coin's full order
 {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}
 ```
 
-The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive on the three fill feeds. `l4Book`'s `coin` is the exception: it is **case-sensitive** and must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing). Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel with its own `seq` counter.
+The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive on the three fill feeds. `l4Book`'s `coin` is the exception: it is **case-sensitive** and must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing). Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel. `sequence` and `snapshot` are the exception: they are recognised control data and steer the subscribe without changing its id — see [reconnecting](/websocket/protocol#reconnecting).
 
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
@@ -36,7 +36,7 @@ This is the frame shape on the three fill feeds. `l4Book` frames carry `data` as
 ```json
 {
   "channel": "tradesByCoin",
-  "seq": 1,
+  "seq": 1146772196,
   "data": [
     [
       "0x9f3781a54303ce694e47f7b6b694c87b87983216",
@@ -96,6 +96,6 @@ The frame shapes — `subscribe` / `unsubscribe` with a `subscription` object, `
 - **Authentication on the upgrade.** Hyperliquid's socket has none; ours needs your key, in a header or the `bearer` subprotocol.
 - **The wallet rides with every fill**, as the first element of each `[wallet, fill]` pair, on every feed — including coin-scoped ones.
 - **`tradesByUser` takes any address**, not only your own.
-- **`seq` on every data frame**, so you can detect what you missed.
+- **`seq` on every data frame** — the source block height, and your reconnect cursor.
 
-Replay and enriched cohort feeds are coming. They are not available yet, and this page will document them when they are.
+Enriched cohort feeds are coming. They are not available yet, and this page will document them when they are. (Replaying what you missed after a disconnect is already here — that is the [`sequence`](/websocket/protocol#reconnecting) cursor, not a future feed.)
