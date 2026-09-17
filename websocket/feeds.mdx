@@ -32,7 +32,7 @@ The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answer
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser`, `liquidationsByUser` and `leverageUpdatesByUser` accept any address. Hyperliquid's own websocket streams only wallets you control and caps subscribers at ten users per IP; there is no such restriction here beyond your plan's subscription count. The firehose answers `feed not in tier` on Free, and the liquidation, leverage and `l4Book` feeds answer it below Pro — check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser`, `liquidationsByUser` and `leverageUpdatesByUser` accept any address. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here you are bounded only by your plan's subscription count. The firehose answers `feed not in tier` on Free, and the liquidation, leverage and `l4Book` feeds answer it below Pro — check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames
@@ -191,9 +191,25 @@ Numeric values keep the JSON type and precision the node sent. The filter on `li
 The frame shapes — `subscribe` / `unsubscribe` with a `subscription` object, `subscriptionResponse` acks that echo it, `ping` / `pong`, and a fill object identical to Hyperliquid's — are deliberately Hyperliquid's own, so client code written against their websocket is familiar here. The differences are the ones the product exists for:
 
 - **Authentication on the upgrade.** Hyperliquid's socket has none; ours needs your key, in a header or the `bearer` subprotocol.
-- **The wallet rides with every fill**, as the first element of each `[wallet, fill]` pair, on every feed — including coin-scoped ones.
-- **`tradesByUser` takes any address**, not only your own.
-- **Liquidations and leverage changes are feeds of their own**, not something you filter out of fills yourself — and both take any address.
+- **Position context on a market-wide feed.** Their `trades` carries `users` — both sides' addresses — but not `dir`, `closedPnl`, `startPosition` or `fee`. Those live on `userFills`, which is per-user and subject to the ten-user ceiling below. Every feed here carries all of them.
+- **Liquidations and leverage changes are feeds of their own**, not something you filter per account — and both take any address.
 - **`seq` on every data frame** — a monotonic source position, and your reconnect cursor.
+
+### What each socket is for
+
+Hyperliquid's websocket is built to watch **your own account and a few markets**, and it is free, unauthenticated and closer to the matching engine than anything downstream of it can be. It also carries [far more market-data channels](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions) than this one — mids, candles, BBO, asset contexts, order updates, ledger and TWAP events among them.
+
+This socket is built to watch **everyone at once**. That is the whole of the difference:
+
+| | Hyperliquid | Coinversa |
+|---|---|---|
+| Liquidations | inside `userEvents`, one account at a time | `liquidations` — every one, unfiltered |
+| Leverage and margin changes | none; margin state only in per-user `clearinghouseState` snapshots | `leverageUpdates` |
+| Order book | `l2Book`, aggregated to price levels | `l4Book` — every resting order with its wallet |
+| Every fill, market-wide | none; `trades` is one coin, `userFills` is one account | `trades` |
+| Unique accounts you may watch | **ten per IP** | your plan's subscription count |
+| Fill context | `users` on `trades`; the rest only on `userFills` | `dir`, `closedPnl`, `startPosition`, `fee` on every feed |
+
+Hyperliquid's own limits are [1,000 websocket subscriptions and ten unique users per IP](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits). The ten-user ceiling is the one that decides things: tracking wallets past that number is not slow on their socket, it is not possible.
 
 Enriched cohort feeds are coming. They are not available yet, and this page will document them when they are. (Replaying what you missed after a disconnect is already here — that is the [`sequence`](/websocket/protocol#reconnecting) cursor, not a future feed.)
