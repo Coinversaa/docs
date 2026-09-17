@@ -421,10 +421,10 @@ type fill struct {
 	ClosedPnl string `json:"closedPnl"`
 }
 
-// streamKey: seq counts per SUBSCRIPTION and restarts on every new
-// connection. A data frame carries no subscription id, so gap tracking is
-// keyed on what the frame itself identifies: channel plus the coin or wallet
-// of its first fill.
+// streamKey: seq is the SOURCE BLOCK HEIGHT, the same on every feed, so a
+// forward jump is a block that matched nothing rather than a lost frame. A
+// data frame carries no subscription id, so the check is keyed on what the
+// frame itself identifies: channel plus the coin or wallet of its first fill.
 func streamKey(f frame, pairs [][2]json.RawMessage) string {
 	if len(pairs) == 0 {
 		return f.Channel
@@ -1169,10 +1169,10 @@ type bookFrame struct {
 	} `json:"data"`
 }
 
-// streamKey: seq counts per SUBSCRIPTION and restarts on every new
-// connection. A data frame carries no subscription id, so gap tracking is
-// keyed on what the frame itself identifies: channel plus the coin or wallet
-// of its first fill.
+// streamKey: seq is the SOURCE BLOCK HEIGHT, the same on every feed, so a
+// forward jump is a block that matched nothing rather than a lost frame. A
+// data frame carries no subscription id, so the check is keyed on what the
+// frame itself identifies: channel plus the coin or wallet of its first fill.
 func streamKey(f frame, pairs [][2]json.RawMessage) string {
 	if len(pairs) == 0 {
 		return f.Channel
