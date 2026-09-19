@@ -1,9 +1,9 @@
 ---
 title: "Feeds and the fill object"
-description: "The nine websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, liquidations, leverage and margin changes, OHLC candles, and the L4 order book — which plans include each, and every field on a streamed fill."
+description: "The fourteen websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, liquidations, leverage and margin changes, OHLC candles per coin or across every market, TWAP slice fills and TWAP order lifecycle, and the L4 order book — which plans include each, and every field on a streamed fill."
 ---
 
-Nine raw feeds today: three stream fills, two stream liquidations, two stream leverage and isolated-margin changes, one streams OHLC candles per coin and interval, and the last streams a coin's full order book. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
+Fourteen raw feeds today: three stream fills, two stream liquidations, two stream leverage and isolated-margin changes, two stream OHLC candles, two stream the fills a TWAP order executed, two stream the TWAP orders themselves, and the last streams a coin's full order book. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
 
 | Feed | Argument | What arrives | Plans |
 |---|---|---|---|
@@ -15,6 +15,11 @@ Nine raw feeds today: three stream fills, two stream liquidations, two stream le
 | `leverageUpdates` | — | **Accepted leverage and isolated-margin changes** — who moved their leverage, on what market, to what. [Below](#leverage-and-margin). | Pro and above |
 | `leverageUpdatesByUser` | `user` | Leverage and margin changes for one account. | Pro and above |
 | `candle` | `coin`, `interval`, optional `source` | **Live OHLC candles** for one market on one of 14 intervals. Trade-based by default, like Hyperliquid's own `candle`; `source: "mark"` builds the same shape from mark prices instead. [Below](#candles). | Every plan |
+| `allCandles` | `interval`, optional `source` | The same candles for **every market at once** on one subscription. [Below](#candles). | Starter and above |
+| `twapSliceFills` | — | **Every fill a TWAP order executed**, network-wide — the node's own `[wallet, fill]` pairs, filtered to fills carrying a `twapId`. [Below](#twap-slice-fills). | Starter and above |
+| `twapSliceFillsByUser` | `user` | TWAP slice fills for one account. | Every plan |
+| `twapOrders` | — | **TWAP placements, refusals and cancellations** — the order's terms, and the refusals that leave no other trace. [Below](#twap-orders). | Pro and above |
+| `twapOrdersByUser` | `user` | TWAP order lifecycle for one account. | Pro and above |
 | `l4Book` | `coin` | **The full L4 order book** of one market — every resting order with its wallet, plus untriggered stop and take-profit orders — as one snapshot followed by a diff message per block. Its own page: [Order book (L4)](/websocket/order-book). | Pro and above |
 
 ```json
@@ -23,6 +28,9 @@ Nine raw feeds today: three stream fills, two stream liquidations, two stream le
 {"method":"subscribe","subscription":{"type":"tradesByUser","user":"0xf3f4…8a2c"}}
 {"method":"subscribe","subscription":{"type":"liquidations"}}
 {"method":"subscribe","subscription":{"type":"liquidationsByUser","user":"0xf3f4…8a2c"}}
+{"method":"subscribe","subscription":{"type":"allCandles","interval":"1m"}}
+{"method":"subscribe","subscription":{"type":"twapSliceFills"}}
+{"method":"subscribe","subscription":{"type":"twapOrders"}}
 {"method":"subscribe","subscription":{"type":"leverageUpdates"}}
 {"method":"subscribe","subscription":{"type":"leverageUpdatesByUser","user":"0xf3f4…8a2c"}}
 {"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1m","source":"trade"}}
@@ -263,6 +271,49 @@ Anything else answers `invalid argument interval`. Note `1m` (one minute) agains
 ### Live only
 
 There is no historical snapshot: a subscription starts delivering the bucket that is open when it starts, so the first candle you receive is **partial** — it carries only what happened after you subscribed, not the whole interval. The same is true across a processor restart. Treat the first frame you receive as incomplete rather than as a closed candle; for candles that already closed, the REST API's `/pulse/market/candles/recent/{symbol}` is the passthrough to use.
+
+## TWAP slice fills
+
+`twapSliceFills` and `twapSliceFillsByUser` carry every fill the node attributes to a TWAP order, filtered out of the same fills stream by the fill's `twapId`. `data` is the node's own **`[wallet, fill]` pairs**, byte for byte the objects the trade feeds send — a client that already reads `trades` reads these unchanged — so [the fill object](#the-fill-object) above documents every field.
+
+```json
+{"channel":"twapSliceFills","seq":928110001,"data":[["0x9bad…",{"coin":"BTC","px":"70000.5","sz":"0.01","side":"B","time":1773878735890,"startPosition":"0.0","dir":"Open Long","closedPnl":"0.0","hash":"0xabc…","oid":344895887371,"crossed":true,"fee":"0.0245","tid":111,"feeToken":"USDC","twapId":77738308}]]}
+```
+
+One TWAP order produces many slices over its run. **Group by `twapId`** to follow one order, and sum `sz` to track its executed size. `twapSliceFillsByUser` takes a required `user`, matched case-insensitively like the trade feeds, and filters to the wallet the slice filled *for* — the counterparty of a slice is an ordinary fill with `twapId: null` and stays on the trade feeds. A fill with no `twapId` key at all is never a slice.
+
+<Note>
+This feed reports **execution only**. A TWAP that never fills a slice never appears here, and there is no placed or cancelled event — those are on [`twapOrders`](#twap-orders). `twapId` here equals `twap_id` there, so subscribing to both for one wallet and joining on it gives you an order's terms next to its executions.
+</Note>
+
+## TWAP orders
+
+`twapOrders` and `twapOrdersByUser` carry TWAP **placements, refusals and cancellations**, read from the node's replica-command stream. `update_type` selects the variant:
+
+| `update_type` | Meaning | Carries |
+|---|---|---|
+| `placed` | The node started the TWAP | `twap_id`, plus `is_buy`, `sz`, `reduce_only`, `minutes`, `randomize` |
+| `rejected` | The node refused it | the order's terms and the node's reason in `error`; **no `twap_id`** |
+| `cancelled` | A `twapCancel` the node applied | `twap_id` |
+| `cancel_rejected` | A `twapCancel` the node refused | `twap_id` and `error` |
+
+Every variant carries `time`, `user`, `asset` and `tx_index`.
+
+```json
+{"channel":"twapOrders","seq":1789772402886963614,"data":[{"update_type":"placed","time":1789772402886,"user":"0x28f0…","asset":159,"tx_index":0,"twap_id":2230681,"is_buy":false,"sz":"12","reduce_only":false,"minutes":14,"randomize":true},{"update_type":"rejected","time":1789772402886,"user":"0x4613…","asset":130008,"tx_index":1,"is_buy":true,"sz":"20000.0","reduce_only":false,"minutes":15,"randomize":false,"error":"Trading is halted."}]}
+```
+
+**Refusals are emitted, not dropped**, because a refused TWAP leaves no other trace anywhere on the network. Filter on `update_type` if you only want orders that ran.
+
+`asset` is the node's **numeric** asset id, builder-dex encoded ids included, as on [leverage and margin](#leverage-and-margin) — no coin name is guessed. `twap_id` is the join key to [`twapSliceFills`](#twap-slice-fills), whose fills carry it as `twapId`.
+
+`twapOrdersByUser` takes a required `user` and matches the **accepted response's** account, so an agent-signed action reaches the account it applied to rather than the broadcaster.
+
+<Warning>
+  **The node answers a refused TWAP with an outer status of `ok`.** Acceptance is read from the inner `response.data.status` — `{"running":{"twapId":N}}` or `{"error":"…"}` — never from the outer status alone. A client reimplementing this against the raw node output and checking only the outer status will report TWAPs as started that never ran. An action whose outer status is `err` never reached the block and is omitted here; an inner status this server does not recognise fails the whole block closed rather than guessing.
+</Warning>
+
+This feed **cannot see a TWAP finish or be terminated by the node** — those states exist only in the node's `node_twap_statuses` output, which the gateway does not carry. Count executed size from `twapSliceFills` instead. The `twapCancel` response shapes follow Hyperliquid's exchange-endpoint documentation and have not yet been confirmed against a captured block; the `twapOrder` shapes have.
 
 ## Hyperliquid compatibility
 

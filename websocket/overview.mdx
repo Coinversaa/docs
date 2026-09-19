@@ -46,7 +46,7 @@ The key goes out **with the upgrade request**, so the socket is already authenti
     sec-websocket-accept: <derived from your Sec-WebSocket-Key>
 
 ← {"channel":"connected","data":{"tier":"pro","limits":{"connections":5,
-    "subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser","liquidations","liquidationsByUser","leverageUpdates","leverageUpdatesByUser","candle","l4Book"]}}}
+    "subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser","liquidations","liquidationsByUser","leverageUpdates","leverageUpdatesByUser","candle","allCandles","l4Book","twapSliceFills","twapSliceFillsByUser","twapOrders","twapOrdersByUser"]}}}
 ```
 
 Whichever input is present decides on its own. A bad `Authorization` header is refused even if a valid subprotocol rides beside it; the subprotocol is read only when the header is absent. The key is **never** accepted in the URL — `?token=`, `?apiKey=` and `?key=` are refused exactly like no key at all, and a key in a URL is a key in every access log between you and us.

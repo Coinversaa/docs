@@ -9,9 +9,9 @@ Websocket access is **capacity-based**: you are limited by how many connections 
 
 | Plan | Connections per account | Subscriptions per connection | Feeds | Fair-use bandwidth per month |
 |---|---:|---:|---|---:|
-| Free | 1 | 2 | `tradesByCoin`, `tradesByUser`, `candle` | 5 GB |
-| Starter | 1 | 25 | `trades` (the firehose), `tradesByCoin`, `tradesByUser`, `candle` | 50 GB |
-| Pro | 5 | 100 | all, including the `l4Book` [order book](/websocket/order-book), [liquidations](/websocket/feeds#liquidations) and [leverage changes](/websocket/feeds#leverage-and-margin) | 250 GB |
+| Free | 1 | 2 | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser` | 5 GB |
+| Starter | 1 | 25 | Free's feeds plus `trades` (the firehose), `allCandles` and `twapSliceFills` | 50 GB |
+| Pro | 5 | 100 | all, including the `l4Book` [order book](/websocket/order-book), [liquidations](/websocket/feeds#liquidations), [leverage changes](/websocket/feeds#leverage-and-margin) and [TWAP orders](/websocket/feeds#twap-orders) | 250 GB |
 | Enterprise | custom | custom | all | 250 GB |
 
 Two of these differ from REST limits in a way that bites:

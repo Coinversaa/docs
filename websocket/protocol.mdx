@@ -72,7 +72,7 @@ What the number *is* depends on the feed:
 | Feeds | `seq` is |
 |---|---|
 | `trades`, `tradesByCoin`, `tradesByUser`, `liquidations`, `liquidationsByUser`, `l4Book`, `candle` on `source: "trade"` | The **source block height** — the height of the block the frame was produced from. The same number across all of them. |
-| `leverageUpdates`, `leverageUpdatesByUser`, `candle` on `source: "mark"` | The replica block's **Unix timestamp in nanoseconds**, because the replica-command stream does not expose its height outside the JSON payload. |
+| `leverageUpdates`, `leverageUpdatesByUser`, `twapOrders`, `twapOrdersByUser`, `candle` on `source: "mark"` | The replica block's **Unix timestamp in nanoseconds**, because the replica-command stream does not expose its height outside the JSON payload. |
 
 `candle` appears in both rows: it is the one feed whose `seq` depends on an argument. Its default `source: "trade"` is built from fills and carries a block height; `source: "mark"` is built from the replica-command stream and carries a nanosecond timestamp. Two candle subscriptions on one connection can therefore be sequencing on different kinds of number **on the same `candle` channel**, and data frames carry no subscription id to tell them apart — see [candles](/websocket/feeds#candles).
 
