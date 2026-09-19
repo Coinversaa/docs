@@ -48,6 +48,47 @@ these four tools, taking the catalog to 107. It also picks up two `data_coverage
 fixes that shipped between releases: source calls are now sequential and paced
 250 ms apart, with 429 backoff, so a coverage call no longer burns a key's burst
 allowance. Anyone pinned to 0.11.1 has been hitting the old behaviour.
+<Update label="September 19, 2026" tags={["API"]}>
+
+## `candle` — live OHLC on every plan
+
+**`candle`** streams live OHLC candles for one market on one of 14 intervals
+(`1m` … `1M`). It is the first new websocket feed since launch that is not
+Pro-gated: it is on **every plan**, Free included.
+
+```json
+{"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1m","source":"trade"}}
+```
+
+Candles are **trade-based by default** — built from fills, so `o`/`h`/`l`/`c`
+are traded prices, `v` is traded base volume and `n` is the trade count, the
+same meanings Hyperliquid's own `candle` channel carries. Both sides of a trade
+arrive as separate fills under one `tid`, and volume is counted once per `tid`
+rather than once per fill, so `v` matches Hyperliquid instead of doubling it.
+Trade candles sequence on the source block height, like the fill and book feeds.
+
+The previous mark-price behaviour is still available, now opt-in as
+`"source":"mark"`. It is byte-for-byte what it was. `source` defaults to
+`trade` before the subscription id is hashed, so an omitted `source` and an
+explicit `"trade"` are one subscription, not two.
+
+<Warning>
+  **On `source: "mark"`, `v` is always the string `"0"` and `n` counts
+  mark-price observations, not trades.** A mark-price update carries no traded
+  size. Hyperliquid client code pointed at a mark candle compiles, runs, and
+  quietly produces zeros in volume and a wrong VWAP — nothing errors. Mark
+  candles also sequence on the replica block's **Unix timestamp in
+  nanoseconds** rather than on block height, so one `candle` channel can carry
+  both kinds of `seq` depending on the argument; see [sequence
+  numbers](/websocket/protocol#sequence-numbers).
+</Warning>
+
+Arguments are case-sensitive, and `interval` is the one that bites: `1m` is one
+minute, `1M` is 30 days, and both are valid, so an upper-cased argument
+subscribes successfully to the wrong interval. A value outside the allowed set
+is refused in band with a new exact error string, `invalid argument <arg>` —
+`invalid argument interval` and `invalid argument source`. Full contract:
+[candles](/websocket/feeds#candles).
 
 </Update>
 
