@@ -37,17 +37,19 @@ Fourteen raw feeds today: three stream fills, two stream liquidations, two strea
 {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}
 ```
 
-The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive on the fill, liquidation and leverage feeds. Two feeds are the exception, and on both the value is hashed exactly as sent:
+The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive almost everywhere — including `candle`'s `coin`, which folds like any other market name. Two arguments are the exception, and both are hashed exactly as sent:
 
 - **`l4Book`'s `coin`** must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing).
-- **`candle`'s `coin` and `interval`** are both case-sensitive, and `interval` is the one that bites: `1m` is **one minute** and `1M` is **30 days**. Both are valid, so upper-casing your arguments does not produce an error — it produces a working subscription delivering candles 43,200× wider than you asked for. `2m` is not an interval at all and answers `invalid argument interval`.
+- **`candle`'s and `allCandles`' `interval`** bites hardest: `1m` is **one minute** and `1M` is **30 days**. Both are valid, so upper-casing it does not produce an error — it produces a working subscription delivering candles 43,200× wider than you asked for. `2m` is not an interval at all and answers `invalid argument interval`.
+
+A candle's `coin` is *not* in that list. It folds — `btc` and `BTC` are one subscription and one feed group — and the frame answers both with `"s":"BTC"`, so `s` is always a market name that exists.
 
 Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel. `sequence` and `snapshot` are the exception: they are recognised control data and steer the subscribe without changing its id, and `candle`'s optional `source` is a declared argument that is filled in with its default **before** the id is hashed, so omitting it changes nothing — see [reconnecting](/websocket/protocol#reconnecting).
 
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser`, `liquidationsByUser` and `leverageUpdatesByUser` accept any address. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here you are bounded only by your plan's subscription count. The firehose answers `feed not in tier` on Free, and the liquidation, leverage and `l4Book` feeds answer it below Pro — check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser` and `twapOrdersByUser` accept any address. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here you are bounded only by your plan's subscription count. `trades`, `allCandles` and `twapSliceFills` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order and `l4Book` feeds answer it below Pro — check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames
@@ -249,8 +251,9 @@ Built from the mark prices in the node's replica-command stream rather than from
 |---|---|---|
 | `t` | number | Open time of the bucket, milliseconds since the Unix epoch. |
 | `T` | number | Close time of the bucket, inclusive — one millisecond before the next bucket's `t`. |
-| `s` | string | The market, as you subscribed to it. |
+| `s` | string | The market, as the **data** spells it — not as you subscribed. A subscribe to `btc` is answered with `"s":"BTC"`. |
 | `i` | string | The interval, as you subscribed to it. |
+| `closed` | boolean | Present and `true` only on a **sealed** candle — the bucket's final republish once its interval closed. Absent on every open candle, so a client that ignores it sees what it always did. Hyperliquid's own channel has no such flag; this is an addition. |
 | `o` | string | Open — the first price in the bucket, as a decimal string at the node's own precision. |
 | `c` | string | Close — the most recent price in the bucket. Updates as the bucket fills. |
 | `h` | string | High. |
