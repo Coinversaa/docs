@@ -1,11 +1,11 @@
 ---
 title: "Tool catalog"
-description: "All 99 MCP tools by category, with descriptions and required tiers."
+description: "All 107 MCP tools by category, with descriptions and required tiers."
 ---
 
 Every MCP tool is a thin wrapper around a public API endpoint. Tier requirements match the underlying endpoint — discovery and market data are Free, single-trader and HIP-4 analytics are Starter, and the deep lifecycle / execution-quality / archetype tools are Pro.
 
-For the canonical schema (inputs, outputs, examples), see the [API reference](/api-reference) — every tool maps 1:1 to an endpoint. As of connector v0.11.0, that includes [builder analytics](/api-reference/builders): eight `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, and the inverse per-wallet view.
+For the canonical schema (inputs, outputs, examples), see the [API reference](/api-reference) — every tool maps 1:1 to an endpoint. As of connector **v0.12.0** that includes the [L4 order book](#l4-order-book-v0-12-0): four `book_*` tools answering a question each, rather than handing you a raw book to parse. v0.11.0 added [builder analytics](/api-reference/builders): eight `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, and the inverse per-wallet view.
 
 ## Builder analytics (v0.11.0)
 
@@ -196,6 +196,33 @@ owner entity and aggregate across the whole family.
 | `hip4_trader_outcomes`        | Outcomes one wallet has traded. |
 | `hip4_cross_product_overlap`  | Overlap between outcome traders and perp traders. |
 | `hip4_perp_position_context`  | Whether outcome holders have open perp positions on the underlying. **Pro tier.** |
+
+## L4 order book (v0.12.0)
+
+Four tools over the **order-level** book — every resting order with the wallet behind it — each shaped around a question rather than returning a book to parse yourself. All four are **Pro**.
+
+| Tool | Tier | What it answers |
+|---|---|---|
+| `book_summary` | Pro | How deep and how lopsided is this book right now? Touch prices, spread in bps, and per side the size / order count / distinct-wallet count within 0.5, 1, 2, 5 and 10% of mid — plus near- and far-band imbalance and the age of orders at the touch. |
+| `book_stop_map` | Pro | Where are the stops, and how much size fires if price gets there? Every untriggered stop and take-profit bucketed by distance from mid in 0.25% steps, with the reduce-only share and the stop/TP split per bucket. |
+| `book_whales` | Pro | Who is sitting on this book, and where? The largest resting orders with wallet, price, size, distance from mid and how long they have rested — plus the biggest wallets per side by total resting size. |
+| `book_levels` | Pro | What does the depth ladder look like, with the detail L2 throws away? Top levels per side, each with total size, order count, **distinct wallet count** and the age of its oldest order. |
+
+**The wallet addresses join to the trader tools.** `book_whales` returns addresses that go straight into `pulse_trader_profile` or `pulse_trader_performance` — so "who is holding up this bid, and are they any good" is one follow-up call, not a research project.
+
+<Warning>
+  **The coin is CASE-SENSITIVE on these four tools**, unlike every other coin-taking tool. It must be the node's own spelling — `BTC`, `HYPE`, `xyz:GOLD`, `cash:TSLA`, `#28200`. `btc` returns 404 with a hint rather than being normalised, because the rollups are keyed on the node's spelling. Use `list_markets` to discover exact names.
+</Warning>
+
+Bounds: `book_stop_map` takes `within_pct` 1–10 (default 10), `book_whales` takes `limit` 1–50 (default 20), `book_levels` takes `depth` 1–100 (default 50). All three are integers — a fraction is rejected before a request is made.
+
+<Note>
+  **Snapshot-derived, latest-only.** The gateway re-exports the node's full L4 book on a fixed cadence and the rollups are recomputed per coin, so there is **no history** — one row per coin, replaced each time its block height advances. Every response carries `as_of_height` (the L1 block the answer is true at) and `age_s`; check `age_s` before citing a number. Past the staleness ceiling the routes answer `503` rather than serving a stale book. For the aggregated L2 view with no tier gate, use `market_orderbook`.
+
+  `data_coverage` reports a `book` dataset with coins covered, the latest height and its freshness.
+</Note>
+
+For the live order-by-order stream rather than a rollup, see the [`l4Book` websocket feed](/websocket/order-book).
 
 <Note>
 Every tool accepts a `useToonFormat` flag (default `true`) that returns data in compact [TOON format](https://toon-format.dev) — about 50% fewer tokens than JSON for tabular data. Agents typically want this on; set to `false` if you need standard JSON.

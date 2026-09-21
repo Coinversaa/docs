@@ -59,7 +59,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Coin views | `/pulse/token-leaderboard/{coin}`, `/pulse/trades/recent` |
     | Lifecycle (single) | `/pulse/lifecycle/{id}`, `/pulse/closed-positions/recent` |
     | Live state | All `/live/*` |
-    | Market | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/historical-oi` |
+    | Market | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/historical-oi`, `/market/book/coverage` |
     | Exchange aggregates | `/exchange/volume`, `/exchange/oi`, `/exchange/active-traders`, `/exchange/positions` |
     | HIP-4 | `/hip4/outcomes`, `/hip4/outcomes/{outcome_id}`, `/hip4/outcomes/{outcome_id}/recent-trades`, `/hip4/questions`, `/hip4/settlements/recent`, `/hip4/daily-volume`, `/hip4/most-active` |
     | Utility | `/plan`, `/census/stamp` |
@@ -87,6 +87,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Cohort drilldowns (rolling 30d) | `/pulse/cohorts-recent/{tierType}/{tier}/positions`, `/trades`, `/lifecycle-stats`, `/top-positions`, `/alpha-concentration` |
     | Cohort timeseries | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` |
     | Builder analytics (deep) | `/builders/{builder}/traders`, `/builders/{builder}/fills`, `/builders/{builder}/cohorts`, `/builders/{builder}/retention`, `/builders/{builder}/overlap` — see [Builder endpoints](/api-reference/builders) |
+    | L4 order book | `/market/book/summary/{coin}`, `/market/book/stops/{coin}`, `/market/book/whales/{coin}`, `/market/book/levels/{coin}` — order-level, with the wallet on every order. `/market/book/coverage` is Free. |
     | Entity resolution | `/entity/{address}`, `/entities/leaderboard` |
     | HIP-4 (deep) | `/hip4/cross-product/overlap`, `/hip4/outcomes/{outcome_id}/perp-position-context` |
   </Accordion>
