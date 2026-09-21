@@ -3,6 +3,54 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 21, 2026" tags={["API", "MCP"]}>
+
+## L4 order book: four tools, four routes, and the wallet on every order
+
+Four question-shaped views over the **order-level** book — every resting order
+with the wallet behind it, not an aggregated ladder. Each answers one question
+rather than handing you a book to parse:
+
+| Tool | Route | Answers |
+|---|---|---|
+| `book_summary` | `/market/book/summary/{coin}` | How deep and how lopsided is this book? |
+| `book_stop_map` | `/market/book/stops/{coin}` | Where are the stops, and how much fires if price gets there? |
+| `book_whales` | `/market/book/whales/{coin}` | Who is sitting on this book, and where? |
+| `book_levels` | `/market/book/levels/{coin}` | What does the ladder look like, with the detail L2 throws away? |
+
+All four are **Pro**. `/market/book/coverage` is Free and reports coins covered,
+the latest L1 height and how fresh it is.
+
+**The wallets join to the trader tools.** `book_whales` returns addresses that go
+straight into `pulse_trader_profile` — so "who is holding up this bid, and are
+they any good" is one follow-up call. That join is the reason these exist as
+question-shaped views rather than a raw book dump.
+
+<Warning>
+  **The coin is CASE-SENSITIVE on these four**, unlike every other coin-taking
+  tool. It must be the node's own spelling — `BTC`, `xyz:GOLD`, `#28200`. `btc`
+  returns a 404 carrying a hint rather than being normalised, because the
+  rollups are keyed on the node's own spelling.
+</Warning>
+
+Snapshot-derived and **latest-only**: one row per coin, replaced when its block
+height advances, so there is no history. Every response carries `as_of_height`
+and `age_s` — check `age_s` before citing a number, and past the staleness
+ceiling the routes answer `503` rather than serving a stale book. `data_coverage`
+gains a `book` dataset. For the aggregated L2 view with no tier gate,
+`market_orderbook` is unchanged.
+
+Full contract: [MCP tools](/mcp/tools#l4-order-book-v0-12-0) and
+[tier matrix](/api-reference/tiers).
+
+**Connector v0.12.0 is published** — `npx @coinversaa/mcp-server` now carries
+these four tools, taking the catalog to 107. It also picks up two `data_coverage`
+fixes that shipped between releases: source calls are now sequential and paced
+250 ms apart, with 429 backoff, so a coverage call no longer burns a key's burst
+allowance. Anyone pinned to 0.11.1 has been hitting the old behaviour.
+
+</Update>
+
 <Update label="September 17, 2026" tags={["API"]}>
 
 ## Four new websocket feeds: liquidations and leverage
