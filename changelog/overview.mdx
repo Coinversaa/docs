@@ -3,6 +3,45 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 22, 2026" tags={["WebSocket"]}>
+
+## Multi-wallet feeds: 1,000 addresses on one subscription
+
+Every by-user websocket feed now has a **list variant** that follows a set of
+wallets on a single subscription. The catalog is **nineteen feeds**, up from
+fourteen.
+
+| Singular feed | List variant | Plans |
+|---|---|---|
+| `tradesByUser` | **`tradesByUsers`** | Starter and above |
+| `twapSliceFillsByUser` | **`twapSliceFillsByUsers`** | Starter and above |
+| `liquidationsByUser` | **`liquidationsByUsers`** | Pro and above |
+| `leverageUpdatesByUser` | **`leverageUpdatesByUsers`** | Pro and above |
+| `twapOrdersByUser` | **`twapOrdersByUsers`** | Pro and above |
+
+Each carries exactly what its singular feed carries — the same `[wallet, fill]`
+pairs, liquidation objects or replica updates, under the same `seq` — filtered
+to any wallet in the list. The wallets go in a required `users` JSON string
+array:
+
+```json
+{"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19"]}}
+```
+
+**A list holds up to 1,000 distinct wallets, and counts as one subscription**
+against your per-connection cap. The ceiling is the same on every plan.
+(Hyperliquid's own websocket allows ten unique users across every user-specific
+subscription per IP — that ceiling is what these feeds exist to lift.) The list
+is hashed as a set, so order and duplicates never change the subscription id: a
+copy-trading bot re-sending its roster in a different order rejoins the same
+stream rather than opening a second one.
+
+Full contract in [multi-wallet subscriptions](/websocket/feeds#multi-wallet-subscriptions);
+the refusal strings are on the [wire protocol](/websocket/protocol#errors-on-an-open-socket)
+page. The singular feeds are unchanged.
+
+</Update>
+
 <Update label="September 21, 2026" tags={["API", "MCP"]}>
 
 ## L4 order book: four tools, four routes, and the wallet on every order
@@ -48,6 +87,9 @@ these four tools, taking the catalog to 107. It also picks up two `data_coverage
 fixes that shipped between releases: source calls are now sequential and paced
 250 ms apart, with 429 backoff, so a coverage call no longer burns a key's burst
 allowance. Anyone pinned to 0.11.1 has been hitting the old behaviour.
+
+</Update>
+
 <Update label="September 20, 2026" tags={["API"]}>
 
 ## Five new feeds: `allCandles` and TWAP
