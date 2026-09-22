@@ -3,6 +3,45 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 22, 2026" tags={["WebSocket"]}>
+
+## Multi-wallet feeds: 1,000 addresses on one subscription
+
+Every by-user websocket feed now has a **list variant** that follows a set of
+wallets on a single subscription. The catalog is **nineteen feeds**, up from
+fourteen.
+
+| Singular feed | List variant | Plans |
+|---|---|---|
+| `tradesByUser` | **`tradesByUsers`** | Starter and above |
+| `twapSliceFillsByUser` | **`twapSliceFillsByUsers`** | Starter and above |
+| `liquidationsByUser` | **`liquidationsByUsers`** | Pro and above |
+| `leverageUpdatesByUser` | **`leverageUpdatesByUsers`** | Pro and above |
+| `twapOrdersByUser` | **`twapOrdersByUsers`** | Pro and above |
+
+Each carries exactly what its singular feed carries — the same `[wallet, fill]`
+pairs, liquidation objects or replica updates, under the same `seq` — filtered
+to any wallet in the list. The wallets go in a required `users` JSON string
+array:
+
+```json
+{"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19"]}}
+```
+
+**A list holds up to 1,000 distinct wallets, and counts as one subscription**
+against your per-connection cap. The ceiling is the same on every plan.
+(Hyperliquid's own websocket allows ten unique users across every user-specific
+subscription per IP — that ceiling is what these feeds exist to lift.) The list
+is hashed as a set, so order and duplicates never change the subscription id: a
+copy-trading bot re-sending its roster in a different order rejoins the same
+stream rather than opening a second one.
+
+Full contract in [multi-wallet subscriptions](/websocket/feeds#multi-wallet-subscriptions);
+the refusal strings are on the [wire protocol](/websocket/protocol#errors-on-an-open-socket)
+page. The singular feeds are unchanged.
+
+</Update>
+
 <Update label="September 21, 2026" tags={["API", "MCP"]}>
 
 ## L4 order book: four tools, four routes, and the wallet on every order
@@ -48,6 +87,94 @@ these four tools, taking the catalog to 107. It also picks up two `data_coverage
 fixes that shipped between releases: source calls are now sequential and paced
 250 ms apart, with 429 backoff, so a coverage call no longer burns a key's burst
 allowance. Anyone pinned to 0.11.1 has been hitting the old behaviour.
+
+</Update>
+
+<Update label="September 20, 2026" tags={["API"]}>
+
+## Five new feeds: `allCandles` and TWAP
+
+**`allCandles`** streams the same OHLC candles as [`candle`](#september-19-2026)
+for **every market at once** on one subscription — `interval` and an optional
+`source`, no coin. Starter and above.
+
+**`twapSliceFills`** and **`twapSliceFillsByUser`** carry every fill the node
+attributes to a TWAP order, as the node's own `[wallet, fill]` pairs — so a
+client that already reads `trades` reads these unchanged. Group by `twapId` to
+follow one order and sum `sz` to track its executed size. Starter for the
+unfiltered feed, every plan for the by-user one.
+
+**`twapOrders`** and **`twapOrdersByUser`** carry TWAP placements, refusals and
+cancellations. **Refusals are emitted rather than dropped**, because a refused
+TWAP leaves no other trace anywhere on the network — filter on `update_type` if
+you only want orders that ran. Pro and above.
+
+`twap_id` is the join key between the two: one gives an order's terms, the other
+its executions. Subscribe to both for a wallet and join on it.
+
+<Warning>
+  **A refused TWAP comes back from the node with an outer status of `ok`.**
+  Acceptance is read from the inner `response.data.status`, never from the outer
+  status alone. If you reimplement this against raw node output and check only
+  the outer status, you will report TWAPs as started that never ran — and the
+  only symptom is slices that never arrive.
+</Warning>
+
+Also on `candle`: a closed candle is now republished once with `"closed": true`
+(an `omitempty` addition, so nothing that ignores it is affected). Without it the
+newest candle had to be treated as open indefinitely. Hyperliquid's own channel
+has no such flag, so this is an addition rather than parity.
+
+And for the record, since it reads like a bug and is not: `1M` is **thirty days,
+not a calendar month**, and `1w` opens on a **Thursday**. Every interval is a
+flat bucket floored against the Unix epoch. That is measured against
+`api.hyperliquid.xyz`, where every observed `1M` bucket is exactly 30 days wide
+— keeping 30 days *is* matching Hyperliquid.
+
+</Update>
+
+<Update label="September 19, 2026" tags={["API"]}>
+
+## `candle` — live OHLC on every plan
+
+**`candle`** streams live OHLC candles for one market on one of 14 intervals
+(`1m` … `1M`). It is the first new websocket feed since launch that is not
+Pro-gated: it is on **every plan**, Free included.
+
+```json
+{"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1m","source":"trade"}}
+```
+
+Candles are **trade-based by default** — built from fills, so `o`/`h`/`l`/`c`
+are traded prices, `v` is traded base volume and `n` is the trade count, the
+same meanings Hyperliquid's own `candle` channel carries. Both sides of a trade
+arrive as separate fills under one `tid`, and volume is counted once per `tid`
+rather than once per fill, so `v` matches Hyperliquid instead of doubling it.
+Trade candles sequence on the source block height, like the fill and book feeds.
+
+The previous mark-price behaviour is still available, now opt-in as
+`"source":"mark"`. It is byte-for-byte what it was. `source` defaults to
+`trade` before the subscription id is hashed, so an omitted `source` and an
+explicit `"trade"` are one subscription, not two.
+
+<Warning>
+  **On `source: "mark"`, `v` is always the string `"0"` and `n` counts
+  mark-price observations, not trades.** A mark-price update carries no traded
+  size. Hyperliquid client code pointed at a mark candle compiles, runs, and
+  quietly produces zeros in volume and a wrong VWAP — nothing errors. Mark
+  candles also sequence on the replica block's **Unix timestamp in
+  nanoseconds** rather than on block height, so one `candle` channel can carry
+  both kinds of `seq` depending on the argument; see [sequence
+  numbers](/websocket/protocol#sequence-numbers).
+</Warning>
+
+`interval` is case-sensitive and it bites: `1m` is one minute, `1M` is 30 days,
+and both are valid, so an upper-cased argument subscribes successfully to the
+wrong interval. `coin` is **not** case-sensitive here — `btc` and `BTC` are one
+subscription — and `s` echoes the market as the data spells it. A value outside the allowed set
+is refused in band with a new exact error string, `invalid argument <arg>` —
+`invalid argument interval` and `invalid argument source`. Full contract:
+[candles](/websocket/feeds#candles).
 
 </Update>
 

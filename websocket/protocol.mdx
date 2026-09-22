@@ -1,6 +1,6 @@
 ---
 title: "Wire protocol"
-description: "Every frame on the Coinversa websocket — subscribe and unsubscribe acks, ping, data frames carrying a monotonic source position as `seq`, the order-book snapshot, update and error frames, and the exact error strings the server sends."
+description: "Every frame on the Coinversa websocket — subscribe and unsubscribe acks, multi-wallet `users` lists and how they hash, ping, data frames carrying a monotonic source position as `seq`, the order-book snapshot, update and error frames, and the exact error strings the server sends."
 ---
 
 Every frame is a single JSON object. Client frames carry a `method`; server frames carry a `channel`. The error strings on this page are **exact** — match them verbatim; they will not change.
@@ -15,11 +15,21 @@ The acknowledgement echoes your subscription back and adds a 16-character hex `i
 ← {"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"coin":"BTC","type":"tradesByCoin"},"id":"bc0de255be1a5311"}}
 ```
 
-The `id` is stable: the same type and arguments always hash to the same `id`. On the three fill feeds argument values are matched **case-insensitively** and case-folded before hashing, so `BTC` and `btc` are one subscription. `l4Book`'s `coin` is the exception — it is **case-sensitive**, hashed as sent, and must be the node's own spelling (`BTC`, `xyz:GOLD`, `#28200`); see [Order book (L4)](/websocket/order-book#subscribing).
+The `id` is stable: the same type and arguments always hash to the same `id`. It is the first 16 hex characters of a SHA-256 over the type and its arguments, not a full digest. On the fill feeds argument values are matched **case-insensitively** and case-folded before hashing, so `BTC` and `btc` are one subscription. `l4Book`'s `coin` is one exception — it is **case-sensitive**, hashed as sent, and must be the node's own spelling (`BTC`, `xyz:GOLD`, `#28200`); see [Order book (L4)](/websocket/order-book#subscribing). `candle`'s and `allCandles`' `interval` is the other: it is hashed as sent, so `1m` and `1M` are two different subscriptions carrying two different intervals — one minute and 30 days. A candle's `coin` is **not** an exception; it folds like any other market name, and the frame's `s` echoes the market as the data spells it. `candle` also takes an optional `source`, which defaults to `trade` **before** the id is hashed, so omitting it and sending `"source":"trade"` are one subscription with one `id`, not two.
+
+Arguments are strings or arrays of strings. The five [multi-wallet feeds](/websocket/feeds#multi-wallet-subscriptions) declare `users` as a list of up to 1,000; every other argument accepts at most one value. A `users` list is hashed as a **set** — sorted, case-folded and deduplicated — so `["0xb","0xa"]`, `["0xA","0xb"]` and `["0xa","0xb","0xa"]` all produce one `id` and one subscription. A one-element list hashes identically to the same argument sent as a bare string, which is also how a bare string is accepted: it becomes a one-item list.
+
+```json
+→ {"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19"]}}
+
+← {"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19"]},"id":"<16 hex>"}}
+```
+
+The ack echoes your subscription object **verbatim**, so the list comes back in the order you sent it rather than in the normalised order that produced the `id`.
 
 ## Unsubscribe
 
-Send the same subscription object back with `"method":"unsubscribe"`. The acknowledgement carries the **same** `id` the subscribe returned, so you can match the teardown to the setup. The slot frees immediately.
+Send the same subscription object back with `"method":"unsubscribe"`. The acknowledgement carries the **same** `id` the subscribe returned, so you can match the teardown to the setup. The slot frees immediately. Because a `users` list is a set, an unsubscribe listing the same wallets in any order releases the subscription.
 
 ```json
 → {"method":"unsubscribe","subscription":{"type":"tradesByCoin","coin":"BTC"}}
@@ -39,7 +49,7 @@ An application-level heartbeat, independent of the protocol-level ping frames yo
 
 ## Data frames
 
-`channel` is the subscription type, `seq` is a monotonic source position — the block height on every feed but `leverageUpdates` — and `data` is an array of `[wallet, fill]` pairs on the fill feeds. The liquidation and leverage feeds put their own object in `data`; see [feeds and the fill object](/websocket/feeds#data-frames) for every shape. There is no subscription id on a data frame.
+`channel` is the subscription type, `seq` is a monotonic source position — the block height on every feed but the `leverageUpdates` and `twapOrders` families and mark-source `candle` — and `data` is an array of `[wallet, fill]` pairs on the fill feeds. The liquidation, leverage and TWAP-order feeds put their own objects in `data`, `candle` puts a single OHLC object there, and `allCandles` an array of them; see [feeds and the fill object](/websocket/feeds#data-frames) for every shape. There is no subscription id on a data frame.
 
 ## Order book frames
 
@@ -71,8 +81,10 @@ What the number *is* depends on the feed:
 
 | Feeds | `seq` is |
 |---|---|
-| `trades`, `tradesByCoin`, `tradesByUser`, `liquidations`, `liquidationsByUser`, `l4Book` | The **source block height** — the height of the block the frame was produced from. The same number across all of them. |
-| `leverageUpdates`, `leverageUpdatesByUser` | The replica block's **Unix timestamp in nanoseconds**, because the replica-command stream does not expose its height outside the JSON payload. |
+| `trades`, `tradesByCoin`, `tradesByUser`, `tradesByUsers`, `liquidations`, `liquidationsByUser`, `liquidationsByUsers`, `twapSliceFills`, `twapSliceFillsByUser`, `twapSliceFillsByUsers`, `l4Book`, `candle` and `allCandles` on `source: "trade"` | The **source block height** — the height of the block the frame was produced from. The same number across all of them. |
+| `leverageUpdates`, `leverageUpdatesByUser`, `leverageUpdatesByUsers`, `twapOrders`, `twapOrdersByUser`, `twapOrdersByUsers`, `candle` and `allCandles` on `source: "mark"` | The replica block's **Unix timestamp in nanoseconds**, because the replica-command stream does not expose its height outside the JSON payload. |
+
+`candle` and `allCandles` appear in both rows: they are the only feeds whose `seq` depends on an argument. Its default `source: "trade"` is built from fills and carries a block height; `source: "mark"` is built from the replica-command stream and carries a nanosecond timestamp. Two candle subscriptions on one connection can therefore be sequencing on different kinds of number **on the same `candle` channel**, and data frames carry no subscription id to tell them apart — see [candles](/websocket/feeds#candles).
 
 Both only ever increase, and both are valid reconnect cursors for their own feed. What you must not do is compare one against the other, or hold a single "last seq" across a mixture of the two — a nanosecond timestamp is about six orders of magnitude larger than a block height, so a shared counter would read every fill frame after a leverage frame as a replay.
 
@@ -82,9 +94,15 @@ Both only ever increase, and both are valid reconnect cursors for their own feed
 
 A filtered feed sends no frame for a block that matched nothing, so `tradesByCoin` on a quiet coin legitimately skips hundreds of numbers between frames. That is the feed working.
 
-What is broken is `seq` going **backwards or repeating**: the chain only moves forward, so a value at or below the last one you applied means frames were replayed or reordered.
+What is broken is `seq` going **backwards**: the chain only moves forward, so a value below the last one you applied means frames were replayed or reordered.
+
+<Warning>
+  **`candle` is the one feed that legitimately repeats a `seq`.** A `source: "trade"` block that crosses an interval boundary emits **two frames on the same `seq`** — the sealed candle carrying `"closed": true`, then the newly opened one. The server declares this in the catalog (`repeatedSequence`), and it is the only feed that does. A client that treats any repeat as a fault will flag every sealed candle. Treat a repeat as a fault on every other feed; on `candle`, apply both frames in the order they arrive.
+</Warning>
 
 Because a data frame carries no subscription id, key any per-stream tracking on what the frame itself identifies: the `channel` plus the coin or wallet of its first fill. Two `tradesByCoin` subscriptions on one connection both arrive on channel `tradesByCoin`, and because `seq` is now a shared source position they will both report the same number for the same block — so tracking on the `channel` alone sees that as a **repeat**, which is exactly the fault this page tells you to act on. Key per subscription, not per channel.
+
+That recipe works on the by-coin and by-user feeds, where every frame on one subscription carries the same coin or the same wallet. It does **not** work on the [multi-wallet feeds](/websocket/feeds#multi-wallet-subscriptions): on a `…ByUsers` subscription the wallet in the first entry changes from frame to frame, so keying on it manufactures a new stream almost every frame and never catches a rewind. Nothing in a frame distinguishes two `tradesByUsers` lists sharing a connection. So **hold at most one subscription of a given list feed per connection** — then the channel *is* the stream key for it and the ordinary rule applies. A second list of the same type belongs on a second connection, within your [connection cap](/websocket/limits).
 
 `seq` is also your **reconnect cursor** — record the last one you applied and pass it back on resubscribe; see [Reconnecting](#reconnecting).
 
@@ -130,13 +148,17 @@ Omitting `snapshot` defaults to sending one, unless you supplied a `sequence`.
 
 | `data` | What it means |
 |---|---|
-| `bad request` | The frame did not parse as JSON. Only a parse failure produces this — a well-formed frame the server cannot act on gets one of the strings below. |
+| `bad request` | The frame did not parse as the server expects — malformed JSON, a non-string `type`, or an argument value that is neither a string nor an array of strings. A well-formed frame the server merely cannot act on gets one of the strings below. |
 | `unknown method` | `method` is not `subscribe`, `unsubscribe` or `ping`. The retired `{"method":"auth"}` frame lands here: authentication happens on the upgrade, not in a frame. |
-| `unknown subscription type` | `type` is not in the catalog. The type is case-sensitive — `tradesByCoin` works, `TRADESBYCOIN` does not — and a subscribe carrying no subscription object at all answers this too. |
-| `missing argument <arg>` | A required argument was absent or empty, naming it: `missing argument coin`, `missing argument user`. |
-| `too many subscriptions` | This connection is at its per-connection subscription cap. The cap counts distinct subscriptions, so a repeat of one you already hold is free; unsubscribe one and the slot frees immediately. |
+| `unknown subscription type` | `type` is not in the catalog. The type is case-sensitive — `tradesByCoin` works, `TRADESBYCOIN` does not. A subscribe carrying no `subscription` object, or a `subscription` with no `type`, never reaches this check and answers `bad request` instead. |
+| `unknown argument <arg>` | The subscription carried an argument this feed does not declare, naming it. |
+| `missing argument <arg>` | A required argument was absent or empty, naming it: `missing argument coin`, `missing argument user`. An **empty `users` array** lands here, not on `empty argument users`. |
+| `empty argument <arg>` | The argument was present but its value — or one item of its list — is the empty string. The check is per item. |
+| `too many values for argument <arg>` | More values than the argument accepts. Only `users` accepts more than one, and its ceiling is **1,000 distinct wallets** after deduplication; every other argument is scalar. |
+| `invalid argument <arg>` | The argument was present but its value is not one this feed accepts, naming it. Today only `candle` and `allCandles` declare allowed values, so this is `invalid argument interval` for anything outside the [14 intervals](/websocket/feeds#intervals) — `{"type":"candle","coin":"BTC","interval":"2m"}` answers it — and `invalid argument source` for a `source` that is neither `trade` nor `mark`. |
+| `too many subscriptions` | This connection is at its per-connection subscription cap. The cap counts distinct subscriptions, so a repeat of one you already hold is free, and a `users` list of 1,000 wallets counts as **one**; unsubscribe one and the slot frees immediately. |
 | `server at subscription capacity` | A service-wide bound on unique subscriptions. Joining a subscription that already exists still works. |
-| `feed not in tier` | That subscription type is not included in your tier — the firehose on Free, `l4Book` below Pro. Check `connected.data.limits.feeds`. |
+| `feed not in tier` | That subscription type is not included in your tier — the firehose and the Starter list feeds on Free, `l4Book` and the Pro list feeds below Pro. Check `connected.data.limits.feeds`. |
 | `snapshot buffer did not fill` | The server could not collect enough consecutive blocks to join a snapshot onto before giving up. The source has stalled; subscribe again. |
 | `invalid sequence` / `invalid snapshot` | `sequence` was not a number, or `snapshot` was not a boolean. |
 

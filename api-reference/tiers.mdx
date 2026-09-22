@@ -23,12 +23,12 @@ Every endpoint requires an API key — keyless requests are rejected with the sh
 
 | Tier | Rate (req/min) | Daily cap | Monthly cap | Max keys | Price/mo |
 |------|---:|---:|---:|---:|---:|
-| Free            | 30 | 1,000 | 0 | 1 | $0 |
+| Free            | 30 | 1,000 | unlimited | 1 | $0 |
 | Starter         | 120 | 2,000 | 50,000 | 3 | $29 |
 | Pro             | 600 | 20,000 | 500,000 | 10 | $199 |
 | Enterprise      | 10,000+ | unlimited | unlimited | unlimited | from $1,999 |
 
-A monthly cap of `0` means unlimited within the daily cap.
+Free has no monthly bucket — its ceiling is the daily cap.
 
 Rate-limit behavior, header semantics, and error response shapes are documented in [Authentication](/authentication).
 
@@ -36,10 +36,10 @@ These are **REST** limits. The [WebSocket](/websocket/overview) is metered on ca
 
 | Tier | Websocket connections (per account) | Subscriptions per connection | Feeds | Fair-use bandwidth / mo |
 |------|---:|---:|---|---:|
-| Free       | 1 | 2   | `tradesByCoin`, `tradesByUser` | 5 GB |
-| Starter    | 1 | 25  | all, including `trades`        | 50 GB |
-| Pro        | 5 | 100 | all                            | 250 GB |
-| Enterprise | custom overrides | custom overrides | all | 250 GB |
+| Free       | 1 | 2   | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser` | 5 GB |
+| Starter    | 1 | 25  | Free's feeds plus `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` | 50 GB |
+| Pro        | 5 | 100 | all 19, incl. `l4Book`, liquidations, leverage changes, TWAP orders and their [multi-wallet variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
+| Enterprise | custom overrides | custom overrides | all 19 | 250 GB |
 
 Enterprise websocket numbers are per-account overrides reported in the `connected` frame — see [WebSocket plan limits](/websocket/limits).
 

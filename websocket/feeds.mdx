@@ -1,43 +1,67 @@
 ---
 title: "Feeds and the fill object"
-description: "The eight websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, liquidations, leverage and margin changes, and the L4 order book — which plans include each, and every field on a streamed fill."
+description: "The nineteen websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, a list of up to 1,000 wallets, liquidations, leverage and margin changes, OHLC candles per coin or across every market, TWAP slice fills and TWAP order lifecycle, and the L4 order book — which plans include each, and every field on a streamed fill."
 ---
 
-Eight raw feeds today: three stream fills, two stream liquidations, two stream leverage and isolated-margin changes, and the last streams a coin's full order book. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
+Nineteen raw feeds today: four stream fills, three stream liquidations, three stream leverage and isolated-margin changes, two stream OHLC candles, three stream the fills a TWAP order executed, three stream the TWAP orders themselves, and the last streams a coin's full order book. Five of them are **multi-wallet** list feeds that follow up to 1,000 addresses on one subscription — [below](#multi-wallet-subscriptions). Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
 
 | Feed | Argument | What arrives | Plans |
 |---|---|---|---|
 | `trades` | — | **The firehose** — every fill on every Hyperliquid dex, native perps, builder dexes and spot alike, in block order. | Starter and above |
 | `tradesByCoin` | `coin` | Fills for one market. Takes native tickers (`BTC`, `HYPE`) and builder-dex symbols (`xyz:GOLD`, `cash:TSLA`) alike — see [Markets & symbols](/concepts/markets). | Every plan |
 | `tradesByUser` | `user` | Fills for one address — **any** address on Hyperliquid, not only wallets you control. | Every plan |
+| `tradesByUsers` | `users` | Fills for **a list of up to 1,000 addresses** on one subscription — the same pairs `tradesByUser` carries, filtered to any wallet in the set. [Below](#multi-wallet-subscriptions). | Starter and above |
 | `liquidations` | — | **Every liquidation**, as it happens — the liquidated account, the coin, the penalty fee and the realized loss. [Below](#liquidations). | Pro and above |
 | `liquidationsByUser` | `user` | Liquidations of one account. The filter is the **liquidated** side only. | Pro and above |
+| `liquidationsByUsers` | `users` | Liquidations of any account in a list of up to 1,000. Filtered on the **liquidated** side, as the singular feed is. [Below](#multi-wallet-subscriptions). | Pro and above |
 | `leverageUpdates` | — | **Accepted leverage and isolated-margin changes** — who moved their leverage, on what market, to what. [Below](#leverage-and-margin). | Pro and above |
 | `leverageUpdatesByUser` | `user` | Leverage and margin changes for one account. | Pro and above |
+| `leverageUpdatesByUsers` | `users` | Leverage and margin changes for any account in a list of up to 1,000. [Below](#multi-wallet-subscriptions). | Pro and above |
+| `candle` | `coin`, `interval`, optional `source` | **Live OHLC candles** for one market on one of 14 intervals. Trade-based by default, like Hyperliquid's own `candle`; `source: "mark"` builds the same shape from mark prices instead. [Below](#candles). | Every plan |
+| `allCandles` | `interval`, optional `source` | The same candles for **every market at once** on one subscription. [Below](#candles). | Starter and above |
+| `twapSliceFills` | — | **Every fill a TWAP order executed**, network-wide — the node's own `[wallet, fill]` pairs, filtered to fills carrying a `twapId`. [Below](#twap-slice-fills). | Starter and above |
+| `twapSliceFillsByUser` | `user` | TWAP slice fills for one account. | Every plan |
+| `twapSliceFillsByUsers` | `users` | TWAP slice fills for any account in a list of up to 1,000. [Below](#multi-wallet-subscriptions). | Starter and above |
+| `twapOrders` | — | **TWAP placements, refusals and cancellations** — the order's terms, and the refusals that leave no other trace. [Below](#twap-orders). | Pro and above |
+| `twapOrdersByUser` | `user` | TWAP order lifecycle for one account. | Pro and above |
+| `twapOrdersByUsers` | `users` | TWAP order lifecycle for any account in a list of up to 1,000. [Below](#multi-wallet-subscriptions). | Pro and above |
 | `l4Book` | `coin` | **The full L4 order book** of one market — every resting order with its wallet, plus untriggered stop and take-profit orders — as one snapshot followed by a diff message per block. Its own page: [Order book (L4)](/websocket/order-book). | Pro and above |
 
 ```json
 {"method":"subscribe","subscription":{"type":"trades"}}
 {"method":"subscribe","subscription":{"type":"tradesByCoin","coin":"xyz:GOLD"}}
 {"method":"subscribe","subscription":{"type":"tradesByUser","user":"0xf3f4…8a2c"}}
+{"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19"]}}
 {"method":"subscribe","subscription":{"type":"liquidations"}}
 {"method":"subscribe","subscription":{"type":"liquidationsByUser","user":"0xf3f4…8a2c"}}
+{"method":"subscribe","subscription":{"type":"twapSliceFillsByUsers","users":["0x9bad…1f07","0x28f0…4c19"]}}
+{"method":"subscribe","subscription":{"type":"allCandles","interval":"1m"}}
+{"method":"subscribe","subscription":{"type":"twapSliceFills"}}
+{"method":"subscribe","subscription":{"type":"twapOrders"}}
 {"method":"subscribe","subscription":{"type":"leverageUpdates"}}
 {"method":"subscribe","subscription":{"type":"leverageUpdatesByUser","user":"0xf3f4…8a2c"}}
+{"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1m","source":"trade"}}
 {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}
 ```
 
-The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive on the fill, liquidation and leverage feeds. `l4Book`'s `coin` is the exception: it is **case-sensitive** and must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing). Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel. `sequence` and `snapshot` are the exception: they are recognised control data and steer the subscribe without changing its id — see [reconnecting](/websocket/protocol#reconnecting).
+The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive almost everywhere — including `candle`'s `coin`, which folds like any other market name. Two arguments are the exception, and both are hashed exactly as sent:
+
+- **`l4Book`'s `coin`** must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing).
+- **`candle`'s and `allCandles`' `interval`** bites hardest: `1m` is **one minute** and `1M` is **30 days**. Both are valid, so upper-casing it does not produce an error — it produces a working subscription delivering candles 43,200× wider than you asked for. `2m` is not an interval at all and answers `invalid argument interval`.
+
+A candle's `coin` is *not* in that list. It folds — `btc` and `BTC` are one subscription and one feed group — and the frame answers both with `"s":"BTC"`, so `s` is always a market name that exists.
+
+Send only the arguments a type declares: an unrecognised extra field is **refused**, not ignored and not folded into the subscription id, so `{"type":"trades","note":"x"}` answers `{"channel":"error","data":"unknown argument note"}` and subscribes nothing — no stream starts and no slot is spent. `sequence` and `snapshot` are the exception: they are recognised control data and steer the subscribe without changing its id, and `candle`'s optional `source` is a declared argument that is filled in with its default **before** the id is hashed, so omitting it changes nothing — see [reconnecting](/websocket/protocol#reconnecting).
 
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser`, `liquidationsByUser` and `leverageUpdatesByUser` accept any address. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here you are bounded only by your plan's subscription count. The firehose answers `feed not in tier` on Free, and the liquidation, leverage and `l4Book` feeds answer it below Pro — check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser` and `twapOrdersByUser` accept any address, and so do their `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills` and `twapSliceFillsByUsers` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames
 
-This is the frame shape on the three fill feeds. The liquidation and leverage feeds carry the same envelope with their own object in `data` — [below](#liquidations). `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot).
+This is the frame shape on the seven fill feeds — `trades`, `tradesByCoin`, `tradesByUser`, `tradesByUsers`, `twapSliceFills`, `twapSliceFillsByUser` and `twapSliceFillsByUsers`. The liquidation and leverage feeds carry the same envelope with their own object in `data` — [below](#liquidations). `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot). `candle` frames also carry `data` as a single **object**, not an array: a client that reaches straight for `data.forEach` or `data[0]` breaks on them — [below](#candles).
 
 `channel` is the subscription type that produced the frame. `data` is an array of `[wallet, fill]` pairs — one entry per fill, with the address that made it in the first position. A single frame can carry many fills; both sides of a trade are separate fills, so most frames carry at least two pairs. The only top-level keys are `channel`, `seq` and `data` — **there is no subscription id on a data frame**, which matters as soon as you hold two subscriptions on one channel; see [sequence numbers](/websocket/protocol#sequence-numbers).
 
@@ -99,7 +123,7 @@ The fill is passed through as Hyperliquid's node produced it — nothing is adde
 
 ## Liquidations
 
-`liquidations` and `liquidationsByUser` are filtered out of the same fill stream, so they sequence on the source block height exactly as the trade feeds do. `data` is an array of **liquidation objects** — not `[wallet, fill]` pairs — one per liquidated side of a trade.
+`liquidations`, `liquidationsByUser` and `liquidationsByUsers` are filtered out of the same fill stream, so they sequence on the source block height exactly as the trade feeds do. `data` is an array of **liquidation objects** — not `[wallet, fill]` pairs — one per liquidated side of a trade.
 
 ```json
 {
@@ -141,11 +165,11 @@ The fill is passed through as Hyperliquid's node produced it — nothing is adde
 | `penaltyFee` | string | sometimes | The liquidation penalty, taken from the liquidated account. |
 | `closedPnl` | string | sometimes | Realized PnL on the closed portion — negative on a liquidation. |
 
-Numeric values keep the JSON type and precision the node sent. The filter on `liquidationsByUser` is **the liquidated account only** — a liquidator watching its own activity sees its side of the trade through `tradesByUser`.
+Numeric values keep the JSON type and precision the node sent. The filter on `liquidationsByUser` and `liquidationsByUsers` is **the liquidated account only** — a liquidator watching its own activity sees its side of the trade through `tradesByUser`.
 
 ## Leverage and margin
 
-`leverageUpdates` and `leverageUpdatesByUser` carry **accepted** leverage and isolated-margin state changes, read from the node's replica-command stream rather than from fills. Three action types share the feed; `update_type` selects the variant.
+`leverageUpdates`, `leverageUpdatesByUser` and `leverageUpdatesByUsers` carry **accepted** leverage and isolated-margin state changes, read from the node's replica-command stream rather than from fills. Three action types share the feed; `update_type` selects the variant.
 
 <Warning>
   This feed does **not** sequence on block height. Its `seq` is the replica block's Unix timestamp in **nanoseconds**, because the replica stream does not expose its height outside the JSON payload. The number still only increases, and it is still your reconnect cursor — but never compare a `leverageUpdates` `seq` against one from a fill or book feed. See [sequence numbers](/websocket/protocol#sequence-numbers).
@@ -184,7 +208,176 @@ Numeric values keep the JSON type and precision the node sent. The filter on `li
 
 **`asset` is a number, not a coin name.** The feed does not guess a ticker without a matching metadata snapshot, so resolve it yourself against [Markets & symbols](/concepts/markets) if you need a symbol.
 
-**Rejected actions never appear.** Requests are paired with the block's `resps.Full` by bundle hash and action index, and `user` is taken from the *accepted response* rather than from the broadcaster — which matters because the broadcaster can be an agent wallet acting for the account. A missing, malformed, hash-mismatched or cardinality-mismatched response fails closed for that whole block rather than reporting a request as an applied change.
+**Rejected actions never appear.** Requests are paired with the block's `resps.Full` by bundle hash and action index, and `user` is taken from the *accepted response* rather than from the broadcaster — which is also what `leverageUpdatesByUsers` matches its list against — which matters because the broadcaster can be an agent wallet acting for the account. A missing, malformed, hash-mismatched or cardinality-mismatched response fails closed for that whole block rather than reporting a request as an applied change.
+
+## Candles
+
+`candle` streams live OHLC candles for one market on one interval. It is on **every plan**, and it takes three arguments: `coin`, `interval`, and an optional `source`.
+
+```json
+{"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1m","source":"trade"}}
+```
+
+`source` defaults to `trade`, so omitting it resolves to exactly the subscription above — same stream, same `id`. The ack echoes your own bytes back, which means an omitted `source` stays omitted in the echo even though the subscription it created is the explicit one:
+
+```json
+← {"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1m"},"id":"<16 hex>"}}
+```
+
+A `source` that is neither `trade` nor `mark` answers `{"channel":"error","data":"invalid argument source"}`.
+
+### Trade candles — `source: "trade"` (the default)
+
+Built from fills, the way Hyperliquid's own `candle` channel is: `o`/`h`/`l`/`c` are traded prices, `v` is traded base volume and `n` is the number of trades. `seq` is the **source block height**, the same number the fill and book feeds carry.
+
+```json
+{"channel":"candle","seq":11338421,"data":{"t":1773878700000,"T":1773878759999,"s":"BTC","i":"1m","o":"70250.1","c":"70250.1","h":"70250.1","l":"70250.1","v":"0.5","n":1}}
+```
+
+That frame is one 0.5 BTC trade. Both sides of a trade arrive as separate fills carrying the same `tid`, and the counterparty fill is in that same block — `v` is `"0.5"` and `n` is `1` because volume is counted **once per `tid`**, not once per fill. A client summing `sz` over the raw fill feed itself would read `1.0` there and be exactly double Hyperliquid.
+
+### Mark candles — `source: "mark"`
+
+Built from the mark prices in the node's replica-command stream rather than from fills. The frame shape is identical, but two fields do not mean what they mean above.
+
+<Warning>
+  **On `source: "mark"`, `v` is always the string `"0"` and `n` is not a trade count.** A mark-price update carries no traded size, so there is no volume to report, and `n` counts mark-price **observations** in the bucket. Nothing errors: Hyperliquid client code ported onto a mark candle compiles, runs, and quietly produces zeros in volume and a wrong VWAP. If you want volume, use the default `trade` source.
+</Warning>
+
+```json
+{"channel":"candle","seq":1773878735123456789,"data":{"t":1773878700000,"T":1773878759999,"s":"BTC","i":"1m","o":"70250.1","c":"70250.1","h":"70250.1","l":"70250.1","v":"0","n":1}}
+```
+
+<Warning>
+  Mark candles do **not** sequence on block height. Their `seq` is the replica block's Unix timestamp in **nanoseconds**, exactly as on [`leverageUpdates`](#leverage-and-margin) — a trade candle on the same coin and interval carries a block height instead. Never compare the two, and never hold one "last seq" across both. See [sequence numbers](/websocket/protocol#sequence-numbers).
+</Warning>
+
+### The candle object
+
+| Field | Type | Meaning |
+|---|---|---|
+| `t` | number | Open time of the bucket, milliseconds since the Unix epoch. |
+| `T` | number | Close time of the bucket, inclusive — one millisecond before the next bucket's `t`. |
+| `s` | string | The market, as the **data** spells it — not as you subscribed. A subscribe to `btc` is answered with `"s":"BTC"`. |
+| `i` | string | The interval, as you subscribed to it. |
+| `closed` | boolean | Present and `true` only on a **sealed** candle — the bucket's final republish once its interval closed. Absent on every open candle, so a client that ignores it sees what it always did. Hyperliquid's own channel has no such flag; this is an addition. |
+| `o` | string | Open — the first price in the bucket, as a decimal string at the node's own precision. |
+| `c` | string | Close — the most recent price in the bucket. Updates as the bucket fills. |
+| `h` | string | High. |
+| `l` | string | Low. |
+| `v` | string | Traded base volume, counted once per `tid`. Always `"0"` on `source: "mark"`. |
+| `n` | number | Trade count on `source: "trade"`; mark-price observation count on `source: "mark"`. |
+
+Prices and volume stay **decimal strings** at the precision the node sent, never JSON numbers — the same rule as the fill object.
+
+### Intervals
+
+Fourteen, case-sensitive, and `interval` is mandatory:
+
+`1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `12h`, `1d`, `3d`, `1w`, `1M`
+
+Anything else answers `invalid argument interval`. Note `1m` (one minute) against `1M` (30 days).
+
+### Live only
+
+There is no historical snapshot: a subscription starts delivering the bucket that is open when it starts, so the first candle you receive is **partial** — it carries only what happened after you subscribed, not the whole interval. The same is true across a processor restart. Treat the first frame you receive as incomplete rather than as a closed candle; for candles that already closed, the REST API's `/pulse/market/candles/recent/{symbol}` is the passthrough to use.
+
+## Multi-wallet subscriptions
+
+Every by-user feed has a **list variant** that follows a set of wallets on one subscription. It carries exactly what its singular feed carries — the same `[wallet, fill]` pairs, liquidation objects or replica updates, under the same `seq` — filtered to any wallet in the list. A copy-trading bot, a whale-alert channel or a builder front-end streaming fills for all of its users holds **one** subscription rather than one per wallet. The singular feeds are unchanged.
+
+| Singular feed | List variant | Plans |
+|---|---|---|
+| `tradesByUser` | `tradesByUsers` | Starter and above |
+| `twapSliceFillsByUser` | `twapSliceFillsByUsers` | Starter and above |
+| `liquidationsByUser` | `liquidationsByUsers` | Pro and above |
+| `leverageUpdatesByUser` | `leverageUpdatesByUsers` | Pro and above |
+| `twapOrdersByUser` | `twapOrdersByUsers` | Pro and above |
+
+The list is the required `users` argument, sent as a **JSON array of strings** — not a comma-separated string — and matched case-insensitively like every other wallet argument. A bare string is accepted too and becomes a one-item list.
+
+```json
+→ {"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19","0x103c…77a5"]}}
+
+← {"channel":"tradesByUsers","seq":928110001,"data":[["0x28f0…4c19",{"coin":"BTC","px":"70000.5","sz":"0.01","side":"B","time":1788324615827,"startPosition":"0.0","dir":"Open Long","closedPnl":"0.0","hash":"0xcdade62a…07bc50","oid":533649007948,"crossed":true,"fee":"0.0245","tid":905724619509577,"feeToken":"USDC","twapId":null}],["0x9bad…1f07",{"coin":"BTC","px":"70000.5","sz":"0.01","side":"A","time":1788324615827,"startPosition":"1.4","dir":"Close Long","closedPnl":"12.4","hash":"0xcdade62a…07bc50","oid":533649007949,"crossed":false,"fee":"0.0070","tid":905724619509578,"feeToken":"USDC","twapId":null}]]}
+```
+
+### The list is a set
+
+The subscription id is hashed from the **sorted, case-folded, deduplicated** list, so `["0xb","0xa"]`, `["0xA","0xb"]` and `["0xa","0xb","0xa"]` are one subscription. Re-sending the list in another order acks the same `id`, holds no second slot against your cap and never duplicates a frame. The ack echoes the list **as you sent it**, not as the server normalised it — match on the `id`, not on the echo.
+
+An unsubscribe with the same set in any order releases it. To change the set, unsubscribe the old list and subscribe the new one: a list that differs by one wallet is a different subscription.
+
+Every matched event appears **once**, in block order, however many listed wallets it involves. When two listed wallets are counterparties on one trade, the `data` array carries that trade's two fills — one per wallet, as the node reports them — each exactly once.
+
+### Telling two lists apart
+
+You cannot. A data frame carries `channel`, `seq` and `data` and **no subscription id**, and the wallet in the first entry changes from frame to frame — so the [per-stream keying recipe](/websocket/protocol#sequence-numbers) the singular feeds use has nothing stable to key on here, and two `tradesByUsers` lists on one connection are indistinguishable. Hold **at most one subscription of a given list feed per connection**; put a second list of the same type on a second connection, within your [connection cap](/websocket/limits). With one list per channel, the channel is the stream key and `seq` tracking works as on every other feed.
+
+### The cap, and what it costs you
+
+A list holds at most **1,000 distinct wallets**, on every plan. Deduplication happens before the cap is checked, so repeated entries do not count against it.
+
+**One subscription of 1,000 wallets is one subscription against your per-connection cap.** That is the point of these feeds: the 1,000-wallet ceiling is the same on every tier, so a plan buys you more *lists*, not longer ones. The per-connection subscription cap is not the same on every tier — it is 2 on Free, 25 on Starter and 100 on Pro and Enterprise, and it is the number a list is charged one of; see [plan limits](/websocket/limits). Each list variant sits at or above the tier of the unfiltered firehose it filters, so a list never delivers a client more than its tier could already stream.
+
+A wallet has to be listed in the form the feed matches on — the fill's wallet for `tradesByUsers` and `twapSliceFillsByUsers`, the liquidated account for `liquidationsByUsers`, and the accepted response's `user` for `leverageUpdatesByUsers` and `twapOrdersByUsers` — exactly as on the singular feeds. Nothing validates that an entry is an address; an entry matching no wallet simply never matches.
+
+### When a list is refused
+
+Nothing is subscribed when any of these fires, and each arrives as `{"channel":"error","data":"<string>"}` on the open socket:
+
+| `data` | Cause |
+|---|---|
+| `too many values for argument users` | More than 1,000 **distinct** wallets after deduplication. |
+| `missing argument users` | The `users` key is absent — **or present as an empty array**. |
+| `empty argument users` | Any entry in the list is an empty string. The check is per item. |
+| `bad request` | `users` is neither a string nor an array of strings — a number, an object, a nested array. |
+| `feed not in tier` | The list variant is above your plan. See the table above. |
+
+See the [wire protocol](/websocket/protocol#errors-on-an-open-socket) for the rest.
+
+## TWAP slice fills
+
+`twapSliceFills`, `twapSliceFillsByUser` and `twapSliceFillsByUsers` carry every fill the node attributes to a TWAP order, filtered out of the same fills stream by the fill's `twapId`. `data` is the node's own **`[wallet, fill]` pairs**, byte for byte the objects the trade feeds send — a client that already reads `trades` reads these unchanged — so [the fill object](#the-fill-object) above documents every field.
+
+```json
+{"channel":"twapSliceFills","seq":928110001,"data":[["0x9bad…",{"coin":"BTC","px":"70000.5","sz":"0.01","side":"B","time":1773878735890,"startPosition":"0.0","dir":"Open Long","closedPnl":"0.0","hash":"0xabc…","oid":344895887371,"crossed":true,"fee":"0.0245","tid":111,"feeToken":"USDC","twapId":77738308}]]}
+```
+
+One TWAP order produces many slices over its run. **Group by `twapId`** to follow one order, and sum `sz` to track its executed size. `twapSliceFillsByUser` takes a required `user`, matched case-insensitively like the trade feeds, and filters to the wallet the slice filled *for* — `twapSliceFillsByUsers` does the same over [a list of up to 1,000](#multi-wallet-subscriptions) — the counterparty of a slice is an ordinary fill with `twapId: null` and stays on the trade feeds. A fill with no `twapId` key at all is never a slice.
+
+<Note>
+This feed reports **execution only**. A TWAP that never fills a slice never appears here, and there is no placed or cancelled event — those are on [`twapOrders`](#twap-orders). `twapId` here equals `twap_id` there, so subscribing to both for one wallet and joining on it gives you an order's terms next to its executions.
+</Note>
+
+## TWAP orders
+
+`twapOrders`, `twapOrdersByUser` and `twapOrdersByUsers` carry TWAP **placements, refusals and cancellations**, read from the node's replica-command stream. `update_type` selects the variant:
+
+| `update_type` | Meaning | Carries |
+|---|---|---|
+| `placed` | The node started the TWAP | `twap_id`, plus `is_buy`, `sz`, `reduce_only`, `minutes`, `randomize` |
+| `rejected` | The node refused it | the order's terms and the node's reason in `error`; **no `twap_id`** |
+| `cancelled` | A `twapCancel` the node applied | `twap_id` |
+| `cancel_rejected` | A `twapCancel` the node refused | `twap_id` and `error` |
+
+Every variant carries `time`, `user`, `asset` and `tx_index`.
+
+```json
+{"channel":"twapOrders","seq":1789772402886963614,"data":[{"update_type":"placed","time":1789772402886,"user":"0x28f0…","asset":159,"tx_index":0,"twap_id":2230681,"is_buy":false,"sz":"12","reduce_only":false,"minutes":14,"randomize":true},{"update_type":"rejected","time":1789772402886,"user":"0x4613…","asset":130008,"tx_index":1,"is_buy":true,"sz":"20000.0","reduce_only":false,"minutes":15,"randomize":false,"error":"Trading is halted."}]}
+```
+
+**Refusals are emitted, not dropped**, because a refused TWAP leaves no other trace anywhere on the network. Filter on `update_type` if you only want orders that ran.
+
+`asset` is the node's **numeric** asset id, builder-dex encoded ids included, as on [leverage and margin](#leverage-and-margin) — no coin name is guessed. `twap_id` is the join key to [`twapSliceFills`](#twap-slice-fills), whose fills carry it as `twapId`.
+
+`twapOrdersByUser` takes a required `user` — and `twapOrdersByUsers` [a list of up to 1,000](#multi-wallet-subscriptions) — matched against the **accepted response's** account, so an agent-signed action reaches the account it applied to rather than the broadcaster.
+
+<Warning>
+  **The node answers a refused TWAP with an outer status of `ok`.** Acceptance is read from the inner `response.data.status` — `{"running":{"twapId":N}}` or `{"error":"…"}` — never from the outer status alone. A client reimplementing this against the raw node output and checking only the outer status will report TWAPs as started that never ran. An action whose outer status is `err` never reached the block and is omitted here; an inner status this server does not recognise fails the whole block closed rather than guessing.
+</Warning>
+
+This feed **cannot see a TWAP finish or be terminated by the node** — those states exist only in the node's `node_twap_statuses` output, which the gateway does not carry. Count executed size from `twapSliceFills` instead. The `twapCancel` response shapes follow Hyperliquid's exchange-endpoint documentation and have not yet been confirmed against a captured block; the `twapOrder` shapes have.
 
 ## Hyperliquid compatibility
 
@@ -197,7 +390,7 @@ The frame shapes — `subscribe` / `unsubscribe` with a `subscription` object, `
 
 ### What each socket is for
 
-Hyperliquid's websocket is built to watch **your own account and a few markets**, and it is free, unauthenticated and closer to the matching engine than anything downstream of it can be. It also carries [far more market-data channels](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions) than this one — mids, candles, BBO, asset contexts, order updates, ledger and TWAP events among them.
+Hyperliquid's websocket is built to watch **your own account and a few markets**, and it is free, unauthenticated and closer to the matching engine than anything downstream of it can be. It also carries [far more market-data channels](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/subscriptions) than this one — mids, BBO, asset contexts, order updates, ledger and TWAP events among them. (Candles are no longer one of them: `candle` here is trade-based on the same field names as theirs.)
 
 This socket is built to watch **everyone at once**. That is the whole of the difference:
 
@@ -206,8 +399,9 @@ This socket is built to watch **everyone at once**. That is the whole of the dif
 | Liquidations | inside `userEvents`, one account at a time | `liquidations` — every one, unfiltered |
 | Leverage and margin changes | none; margin state only in per-user `clearinghouseState` snapshots | `leverageUpdates` |
 | Order book | `l2Book`, aggregated to price levels | `l4Book` — every resting order with its wallet |
+| Candles | `candle` — trade-based, real volume | `candle` — trade-based and field-for-field the same by default; `source: "mark"` opts into mark-price candles, where `v` is always `"0"` |
 | Every fill, market-wide | none; `trades` is one coin, `userFills` is one account | `trades` |
-| Unique accounts you may watch | **ten per IP** | your plan's subscription count |
+| Unique accounts you may watch | **ten per IP** | Starter and above: 1,000 per [multi-wallet subscription](#multi-wallet-subscriptions), as many of those as your plan's subscription cap allows. Free has no list feed, so it watches one account per subscription — two in total |
 | Fill context | `users` on `trades`; the rest only on `userFills` | `dir`, `closedPnl`, `startPosition`, `fee` on every feed |
 
 Hyperliquid's own limits are [1,000 websocket subscriptions and ten unique users per IP](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits). The ten-user ceiling is the one that decides things: tracking wallets past that number is not slow on their socket, it is not possible.

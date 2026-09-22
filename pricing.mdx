@@ -18,10 +18,10 @@ The websocket is metered separately, on **capacity** rather than requests — st
 
 | Tier | Websocket connections (per account) | Subscriptions per connection | Feeds | Fair-use bandwidth |
 |------|---:|---:|---|---:|
-| Free       | 1 | 2   | `tradesByCoin`, `tradesByUser` | 5 GB / mo |
-| Starter    | 1 | 25  | all, including the firehose    | 50 GB / mo |
-| Pro        | 5 | 100 | all                            | 250 GB / mo |
-| Enterprise | custom | custom | all                    | 250 GB / mo |
+| Free       | 1 | 2   | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser` | 5 GB / mo |
+| Starter    | 1 | 25  | Free's feeds plus `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` | 50 GB / mo |
+| Pro        | 5 | 100 | all 19, incl. `l4Book`, liquidations, leverage and TWAP orders | 250 GB / mo |
+| Enterprise | custom | custom | all 19                 | 250 GB / mo |
 
 Details in [WebSocket plan limits](/websocket/limits).
 
@@ -32,14 +32,14 @@ Details in [WebSocket plan limits](/websocket/limits).
     - All 99 MCP tools / 110+ API endpoints (tier-gated)
     - 1 active key
     - Public-only data (no private wallet correlation)
-    - [WebSocket](/websocket/overview): 1 connection, 2 subscriptions, one-coin and one-wallet feeds
+    - [WebSocket](/websocket/overview): 1 connection, 2 subscriptions, four feeds — `tradesByCoin`, `tradesByUser`, `candle` and `twapSliceFillsByUser`
   </Accordion>
   <Accordion title="Starter — $29 / mo">
     - 4× the per-minute rate
     - 50k requests / month bucket
     - 3 active keys (rotate without disruption)
     - [Builder analytics](/api-reference/builders): leaderboard, builder profiles, per-wallet builder usage
-    - [WebSocket](/websocket/overview): 25 subscriptions per connection and the `trades` firehose
+    - [WebSocket](/websocket/overview): 25 subscriptions per connection, the `trades` firehose, and [multi-wallet feeds](/websocket/feeds#multi-wallet-subscriptions) following up to 1,000 wallets on one subscription
   </Accordion>
   <Accordion title="Pro — $199 / mo">
     - 20× Free's per-minute rate
@@ -47,7 +47,7 @@ Details in [WebSocket plan limits](/websocket/limits).
     - 10 active keys
     - Deep [builder analytics](/api-reference/builders): traders, fills, cohorts, retention, cross-builder overlap
     - Access to deeper analytics tools (entity resolution, HIP-4 perp-position context, etc.)
-    - [WebSocket](/websocket/overview): 5 concurrent connections, 100 subscriptions each, 250 GB fair-use bandwidth
+    - [WebSocket](/websocket/overview): 5 concurrent connections, 100 subscriptions each, all 19 feeds (`l4Book`, liquidations, leverage changes, TWAP orders and their multi-wallet variants), 250 GB fair-use bandwidth
   </Accordion>
   <Accordion title="Enterprise — custom">
     - Negotiated rate / volume / SLA
