@@ -102,6 +102,8 @@ What is broken is `seq` going **backwards**: the chain only moves forward, so a 
 
 Because a data frame carries no subscription id, key any per-stream tracking on what the frame itself identifies: the `channel` plus the coin or wallet of its first fill. Two `tradesByCoin` subscriptions on one connection both arrive on channel `tradesByCoin`, and because `seq` is now a shared source position they will both report the same number for the same block — so tracking on the `channel` alone sees that as a **repeat**, which is exactly the fault this page tells you to act on. Key per subscription, not per channel.
 
+That recipe works on the by-coin and by-user feeds, where every frame on one subscription carries the same coin or the same wallet. It does **not** work on the [multi-wallet feeds](/websocket/feeds#multi-wallet-subscriptions): on a `…ByUsers` subscription the wallet in the first entry changes from frame to frame, so keying on it manufactures a new stream almost every frame and never catches a rewind. Nothing in a frame distinguishes two `tradesByUsers` lists sharing a connection. So **hold at most one subscription of a given list feed per connection** — then the channel *is* the stream key for it and the ordinary rule applies. A second list of the same type belongs on a second connection, within your [connection cap](/websocket/limits).
+
 `seq` is also your **reconnect cursor** — record the last one you applied and pass it back on resubscribe; see [Reconnecting](#reconnecting).
 
 On `l4Book`, `seq` equals `height` on the snapshot and on every update, so the two agree. Gate the book on `prev` all the same: it names the exact predecessor block, which `seq` alone does not — see [seq versus prev](/websocket/order-book#seq-versus-prev).
@@ -148,7 +150,7 @@ Omitting `snapshot` defaults to sending one, unless you supplied a `sequence`.
 |---|---|
 | `bad request` | The frame did not parse as the server expects — malformed JSON, a non-string `type`, or an argument value that is neither a string nor an array of strings. A well-formed frame the server merely cannot act on gets one of the strings below. |
 | `unknown method` | `method` is not `subscribe`, `unsubscribe` or `ping`. The retired `{"method":"auth"}` frame lands here: authentication happens on the upgrade, not in a frame. |
-| `unknown subscription type` | `type` is not in the catalog. The type is case-sensitive — `tradesByCoin` works, `TRADESBYCOIN` does not — and a subscribe carrying no subscription object at all answers this too. |
+| `unknown subscription type` | `type` is not in the catalog. The type is case-sensitive — `tradesByCoin` works, `TRADESBYCOIN` does not. A subscribe carrying no `subscription` object, or a `subscription` with no `type`, never reaches this check and answers `bad request` instead. |
 | `unknown argument <arg>` | The subscription carried an argument this feed does not declare, naming it. |
 | `missing argument <arg>` | A required argument was absent or empty, naming it: `missing argument coin`, `missing argument user`. An **empty `users` array** lands here, not on `empty argument users`. |
 | `empty argument <arg>` | The argument was present but its value — or one item of its list — is the empty string. The check is per item. |

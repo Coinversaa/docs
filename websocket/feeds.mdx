@@ -51,7 +51,7 @@ The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answer
 
 A candle's `coin` is *not* in that list. It folds — `btc` and `BTC` are one subscription and one feed group — and the frame answers both with `"s":"BTC"`, so `s` is always a market name that exists.
 
-Send only the argument a type takes: an unrecognised extra field is hashed into the subscription id rather than ignored, so `{"type":"trades","note":"x"}` is a second, separate subscription that spends another slot and delivers a duplicate copy of the same feed on the same channel. `sequence` and `snapshot` are the exception: they are recognised control data and steer the subscribe without changing its id, and `candle`'s optional `source` is a declared argument that is filled in with its default **before** the id is hashed, so omitting it changes nothing — see [reconnecting](/websocket/protocol#reconnecting).
+Send only the arguments a type declares: an unrecognised extra field is **refused**, not ignored and not folded into the subscription id, so `{"type":"trades","note":"x"}` answers `{"channel":"error","data":"unknown argument note"}` and subscribes nothing — no stream starts and no slot is spent. `sequence` and `snapshot` are the exception: they are recognised control data and steer the subscribe without changing its id, and `candle`'s optional `source` is a declared argument that is filled in with its default **before** the id is hashed, so omitting it changes nothing — see [reconnecting](/websocket/protocol#reconnecting).
 
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
@@ -61,7 +61,7 @@ Re-subscribing to something you already hold is idempotent for an **identical** 
 
 ## Data frames
 
-This is the frame shape on the four fill feeds. The liquidation and leverage feeds carry the same envelope with their own object in `data` — [below](#liquidations). `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot). `candle` frames also carry `data` as a single **object**, not an array: a client that reaches straight for `data.forEach` or `data[0]` breaks on them — [below](#candles).
+This is the frame shape on the seven fill feeds — `trades`, `tradesByCoin`, `tradesByUser`, `tradesByUsers`, `twapSliceFills`, `twapSliceFillsByUser` and `twapSliceFillsByUsers`. The liquidation and leverage feeds carry the same envelope with their own object in `data` — [below](#liquidations). `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot). `candle` frames also carry `data` as a single **object**, not an array: a client that reaches straight for `data.forEach` or `data[0]` breaks on them — [below](#candles).
 
 `channel` is the subscription type that produced the frame. `data` is an array of `[wallet, fill]` pairs — one entry per fill, with the address that made it in the first position. A single frame can carry many fills; both sides of a trade are separate fills, so most frames carry at least two pairs. The only top-level keys are `channel`, `seq` and `data` — **there is no subscription id on a data frame**, which matters as soon as you hold two subscriptions on one channel; see [sequence numbers](/websocket/protocol#sequence-numbers).
 
@@ -299,7 +299,7 @@ The list is the required `users` argument, sent as a **JSON array of strings** �
 ```json
 → {"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19","0x103c…77a5"]}}
 
-← {"channel":"tradesByUsers","seq":928110001,"data":[["0x28f0…4c19",{"coin":"BTC","px":"70000.5","sz":"0.01","side":"B","…":"…"}],["0x9bad…1f07",{"coin":"BTC","px":"70000.5","sz":"0.01","side":"A","…":"…"}]]}
+← {"channel":"tradesByUsers","seq":928110001,"data":[["0x28f0…4c19",{"coin":"BTC","px":"70000.5","sz":"0.01","side":"B","time":1788324615827,"startPosition":"0.0","dir":"Open Long","closedPnl":"0.0","hash":"0xcdade62a…07bc50","oid":533649007948,"crossed":true,"fee":"0.0245","tid":905724619509577,"feeToken":"USDC","twapId":null}],["0x9bad…1f07",{"coin":"BTC","px":"70000.5","sz":"0.01","side":"A","time":1788324615827,"startPosition":"1.4","dir":"Close Long","closedPnl":"12.4","hash":"0xcdade62a…07bc50","oid":533649007949,"crossed":false,"fee":"0.0070","tid":905724619509578,"feeToken":"USDC","twapId":null}]]}
 ```
 
 ### The list is a set
@@ -310,11 +310,15 @@ An unsubscribe with the same set in any order releases it. To change the set, un
 
 Every matched event appears **once**, in block order, however many listed wallets it involves. When two listed wallets are counterparties on one trade, the `data` array carries that trade's two fills — one per wallet, as the node reports them — each exactly once.
 
+### Telling two lists apart
+
+You cannot. A data frame carries `channel`, `seq` and `data` and **no subscription id**, and the wallet in the first entry changes from frame to frame — so the [per-stream keying recipe](/websocket/protocol#sequence-numbers) the singular feeds use has nothing stable to key on here, and two `tradesByUsers` lists on one connection are indistinguishable. Hold **at most one subscription of a given list feed per connection**; put a second list of the same type on a second connection, within your [connection cap](/websocket/limits). With one list per channel, the channel is the stream key and `seq` tracking works as on every other feed.
+
 ### The cap, and what it costs you
 
 A list holds at most **1,000 distinct wallets**, on every plan. Deduplication happens before the cap is checked, so repeated entries do not count against it.
 
-**One subscription of 1,000 wallets is one subscription against your per-connection cap.** That is the point of these feeds: the cap is the same on every tier, and each list variant sits at or above the tier of the unfiltered firehose it filters, so a list never delivers a client more than its tier could already stream.
+**One subscription of 1,000 wallets is one subscription against your per-connection cap.** That is the point of these feeds: the 1,000-wallet ceiling is the same on every tier, so a plan buys you more *lists*, not longer ones. The per-connection subscription cap is not the same on every tier — it is 2 on Free, 25 on Starter and 100 on Pro and Enterprise, and it is the number a list is charged one of; see [plan limits](/websocket/limits). Each list variant sits at or above the tier of the unfiltered firehose it filters, so a list never delivers a client more than its tier could already stream.
 
 A wallet has to be listed in the form the feed matches on — the fill's wallet for `tradesByUsers` and `twapSliceFillsByUsers`, the liquidated account for `liquidationsByUsers`, and the accepted response's `user` for `leverageUpdatesByUsers` and `twapOrdersByUsers` — exactly as on the singular feeds. Nothing validates that an entry is an address; an entry matching no wallet simply never matches.
 
@@ -397,7 +401,7 @@ This socket is built to watch **everyone at once**. That is the whole of the dif
 | Order book | `l2Book`, aggregated to price levels | `l4Book` — every resting order with its wallet |
 | Candles | `candle` — trade-based, real volume | `candle` — trade-based and field-for-field the same by default; `source: "mark"` opts into mark-price candles, where `v` is always `"0"` |
 | Every fill, market-wide | none; `trades` is one coin, `userFills` is one account | `trades` |
-| Unique accounts you may watch | **ten per IP** | 1,000 per [multi-wallet subscription](#multi-wallet-subscriptions), as many subscriptions as your plan allows |
+| Unique accounts you may watch | **ten per IP** | Starter and above: 1,000 per [multi-wallet subscription](#multi-wallet-subscriptions), as many of those as your plan's subscription cap allows. Free has no list feed, so it watches one account per subscription — two in total |
 | Fill context | `users` on `trades`; the rest only on `userFills` | `dir`, `closedPnl`, `startPosition`, `fee` on every feed |
 
 Hyperliquid's own limits are [1,000 websocket subscriptions and ten unique users per IP](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits). The ten-user ceiling is the one that decides things: tracking wallets past that number is not slow on their socket, it is not possible.

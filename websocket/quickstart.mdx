@@ -586,9 +586,29 @@ func main() {
 
 - **Authenticates on the upgrade.** Node, Python and Go send `Authorization: Bearer`; the Browser client offers `['bearer', key]` as the subprotocol. Neither ever puts the key in the URL.
 - **Subscribes after `open`**, one frame per subscription, and re-sends them on every reconnect.
-- **Checks that `seq` increases.** `seq` is the source block height, so a forward jump is a block that matched nothing, not a lost frame. A value at or below the last one means frames were replayed or reordered — the only real fault. A data frame carries no subscription id, so per-stream tracking keys on the channel plus the coin or wallet of the frame's first fill.
+- **Checks that `seq` increases.** On the feeds these clients subscribe to, `seq` is the source block height, so a forward jump is a block that matched nothing, not a lost frame. A value at or below the last one means frames were replayed or reordered — the only real fault. A data frame carries no subscription id, so per-stream tracking keys on the channel plus the coin or wallet of the frame's first fill.
 - **Reconnects with backoff** — 1 s doubling to 30 s, with jitter so a fleet does not reconnect in lockstep — and resets once live. An invalid key is never retried, and the process exits non-zero on it so a supervisor sees a failure.
 - **Sends a heartbeat** every 30 seconds, which keeps an idle connection warm and doubles as a liveness check.
+
+<Warning>
+  Two lines in the generated code are true of the feeds it subscribes to and **not of the catalog as a whole**. Adjust both before you point a client at another feed.
+
+  - The comment reading `seq is the SOURCE BLOCK HEIGHT, the same on every feed` holds for `tradesByCoin` and `l4Book`. It does not hold for `leverageUpdates`, `twapOrders`, their by-user and list variants, or `candle`/`allCandles` on `source: "mark"`: there `seq` is the replica block's Unix timestamp in **nanoseconds**, about six orders of magnitude larger. Never hold one cursor across both kinds — see [sequence numbers](/websocket/protocol#sequence-numbers).
+  - `streamKey` branches on `tradesByCoin` and `tradesByUser` and falls through to `msg.channel` for everything else, which is exactly the keying the protocol page warns against when two subscriptions share a channel. Add a branch for whatever you subscribe to.
+</Warning>
+
+## Following a list of wallets
+
+The generated clients subscribe to two coins, but the change to follow a set of wallets is one frame. The [five `…ByUsers` feeds](/websocket/feeds#multi-wallet-subscriptions) take a `users` **JSON array of strings** — never a comma-separated string — of up to 1,000 distinct wallets, and the whole list counts as **one** subscription against your cap. `tradesByUsers` and `twapSliceFillsByUsers` are Starter and above; the liquidation, leverage and TWAP-order lists are Pro.
+
+```json
+{"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19"]}}
+```
+
+Swap that in for the two `tradesByCoin` frames a client sends on `open`. Two things then differ from the samples as generated:
+
+- **`streamKey` needs a branch for it**, and it cannot be the wallet: the wallet in the first entry changes from frame to frame. Hold at most one list subscription of a given type per connection and key it on `msg.channel` alone — [why](/websocket/feeds#telling-two-lists-apart).
+- **Reconnect resubscribes the same set.** The list is hashed as a set, so re-sending it in any order rejoins the same subscription and the `sequence` cursor you recorded still applies.
 
 ## Order book
 
