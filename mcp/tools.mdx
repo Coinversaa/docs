@@ -1,11 +1,11 @@
 ---
 title: "Tool catalog"
-description: "All 107 MCP tools by category, with descriptions and required tiers."
+description: "All 106 MCP tools by category, with descriptions and required tiers."
 ---
 
 Every MCP tool is a thin wrapper around a public API endpoint. Tier requirements match the underlying endpoint — discovery and market data are Free, single-trader and HIP-4 analytics are Starter, and the deep lifecycle / execution-quality / archetype tools are Pro.
 
-For the canonical schema (inputs, outputs, examples), see the [API reference](/api-reference) — every tool maps 1:1 to an endpoint. As of connector **v0.12.0** that includes the [L4 order book](#l4-order-book-v0-12-0): four `book_*` tools answering a question each, rather than handing you a raw book to parse. v0.11.0 added [builder analytics](/api-reference/builders): eight `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, and the inverse per-wallet view.
+Every tool reads from a public API endpoint, so the [API reference](/api-reference) is where the response fields live. The **inputs are not always the endpoint's**: as of connector **v0.13.0** five tools accept shaping parameters the route itself does not take — see [Connector-side parameters](#connector-side-parameters). As of **v0.12.0** the catalog includes the [L4 order book](#l4-order-book-v0-12-0): four `book_*` tools answering a question each, rather than handing you a raw book to parse. v0.11.0 added [builder analytics](/api-reference/builders): eleven `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, user lifecycle, journey economics and order intent, plus the inverse per-wallet view.
 
 ## Builder analytics (v0.11.0)
 
@@ -18,6 +18,9 @@ For the canonical schema (inputs, outputs, examples), see the [API reference](/a
 | `builder_cohorts` | Pro | A builder's user base split by behavioral tier |
 | `builder_retention` | Pro | Monthly new-user retention triangle (orders plane, 12 months) |
 | `builder_overlap` | Pro | The other builders a builder's users also trade through |
+| `builder_lifecycle` | Pro | Where a builder's lifetime users stand today: active / cooling / switched / dormant / movedOn |
+| `builder_journey` | Pro | How fast and how unevenly a builder monetizes a new wallet — days to peak, 50% and 75% of lifetime revenue |
+| `builder_orders` | Pro | Placement-plane intent: action and time-in-force mix, reduce-only share, stop/TP breakdown, fill conversion |
 | `trader_builders` | Starter | Every builder one wallet trades through, by fees paid |
 
 All eight carry the attribution caveat in their responses (`dataNotes`): trigger-order (stop/TP) fills attribute at ledger level only until the parser upgrade completes, so attributed detail slightly undercounts exact ledger revenue.
@@ -37,7 +40,6 @@ All eight carry the attribution caveat in their responses (`dataNotes`): trigger
 | Tool | Description |
 |------|-------------|
 | `pulse_global_stats`               | Total traders, trades, volume, PnL, data coverage. |
-| `pulse_market_overview`            | Global stats + per-market breakdown. |
 | `pulse_leaderboard`                | Top traders ranked by PnL with tier labels. |
 | `pulse_hidden_gems`                | Underrated wallets matching profile filters. |
 | `pulse_most_traded_coins`          | Coins ranked by recent volume. |
@@ -223,6 +225,24 @@ Bounds: `book_stop_map` takes `within_pct` 1–10 (default 10), `book_whales` ta
 </Note>
 
 For the live order-by-order stream rather than a rollup, see the [`l4Book` websocket feed](/websocket/order-book).
+
+## Connector-side parameters
+
+Five tools return payloads too large to hand an agent whole, so **v0.13.0** added shaping parameters to them. These are applied by the connector **after** it fetches the endpoint — the routes themselves take none of them, and you will not find them in the [API reference](/api-reference) or the OpenAPI spec. Calling the endpoint directly returns the full payload.
+
+| Tool | Endpoint | Connector-side | Sent upstream |
+|---|---|---|---|
+| `live_risk_overview` | `/live/risk/overview` | `include`, `limit` (10, max 500), `offset` | — |
+| `live_coin_risk_snapshot` | `/live/risk/coins/{coin}` | `include`, `limit` (10, max 200), `offset` | `coin` (path) |
+| `list_assets` | `/assets` | `search`, `detail`, `limit` (25, max 500), `offset` | `crossMarketOnly` |
+| `hip4_questions` | `/hip4/questions` | `status`, `search`, `limit` (25, max 200), `offset` | — |
+| `pulse_trader_daily_stats` | `/pulse/trader/{address}/daily` | `startDate`, `endDate`, `limit` (90, max 1000), `offset` | `address` (path) |
+
+Parenthesised numbers are the default and the maximum. Every capped response carries `totalCount`, `truncated` and a `note` naming the next `offset`, so an agent can page without guessing.
+
+<Warning>
+The one parameter that crosses the boundary is `list_assets`'s `crossMarketOnly`, which is a real query parameter on `/assets`. The rest are not. A route silently ignores a parameter it does not declare — `GET /assets?limit=3` returns all 415 assets, not 3 — so do not reach for these names when calling the REST API directly.
+</Warning>
 
 <Note>
 Every tool accepts a `useToonFormat` flag (default `true`) that returns data in compact [TOON format](https://toon-format.dev) — about 50% fewer tokens than JSON for tabular data. Agents typically want this on; set to `false` if you need standard JSON.
