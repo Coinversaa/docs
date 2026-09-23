@@ -49,7 +49,7 @@ An application-level heartbeat, independent of the protocol-level ping frames yo
 
 ## Data frames
 
-`channel` is the subscription type, `seq` is a monotonic source position — the block height on every feed but the `leverageUpdates` and `twapOrders` families and mark-source `candle` — and `data` is an array of `[wallet, fill]` pairs on the fill feeds. The liquidation, leverage and TWAP-order feeds put their own objects in `data`, `candle` puts a single OHLC object there, and `allCandles` an array of them; see [feeds and the fill object](/websocket/feeds#data-frames) for every shape. There is no subscription id on a data frame.
+`channel` is the subscription type, `seq` is a monotonic source position — the block height on every feed but the `leverageUpdates` and `twapOrders` families and mark-source `candle` — and `data` is an array of `[wallet, fill]` pairs on the fill feeds. The liquidation, leverage, TWAP-order and TWAP-status feeds put their own objects in `data`, `candle` puts a single OHLC object there, and `allCandles` an array of them; see [feeds and the fill object](/websocket/feeds#data-frames) for every shape. There is no subscription id on a data frame.
 
 ## Order book frames
 
@@ -73,6 +73,28 @@ An application-level heartbeat, independent of the protocol-level ping frames yo
 ← {"channel":"error","data":"unknown coin"}
 ```
 
+## TWAP status frames
+
+`twapStatuses` and `twapStatusesByUser` speak two frames. The full contract — the event shape, the `status` union and the client rule for keeping the set — is on [TWAP statuses](/websocket/feeds#twap-statuses).
+
+**Snapshot** — at most one, first, carrying `"snapshot": true` and `data` as an **object**. `seq` is the block height the gateway built it at, and `channel` is the type you subscribed to, so a by-user snapshot says `twapStatusesByUser`:
+
+```json
+← {"channel":"twapStatuses","snapshot":true,"seq":1156436426,"data":{"complete":false,"coverage_from_ms":1789940000000,"twaps":[{"time":"2026-09-22T02:00:02.321152806","twap_id":2241180,"state":{…},"status":"activated"}]}}
+```
+
+Each element of `twaps` is the last status event for one live `twap_id`, identical in shape to an element of a live frame's `data`. `complete` says whether the gateway's coverage reaches back far enough to hold every activated TWAP; `coverage_from_ms` is the oldest block time it has applied. A `false` here is not an error — see [the snapshot on subscribe](/websocket/feeds#the-snapshot-on-subscribe).
+
+**Live** — one per block that carried a matching event, with `data` as an **array** of status events:
+
+```json
+← {"channel":"twapStatuses","seq":1156436431,"data":[{"time":"2026-09-22T02:04:11.887431002","twap_id":2241180,"state":{…},"status":"finished"}]}
+```
+
+The subscribe ack is sent **before** the snapshot, and these feeds have no buffer warm-up, so the snapshot follows the ack immediately. Frames buffered above the snapshot's `seq` are released after it, leaving no gap.
+
+If the snapshot fails, the subscription is **removed** after its ack and one `{"channel":"error","data":"<reason>"}` follows; resubscribe. The reasons are [below](#errors-on-an-open-socket).
+
 ## Sequence numbers
 
 `seq` is a **monotonic source position** — the place in the source stream the frame was produced from. It does not restart on reconnect, it is not per subscription, and it does not start at 1.
@@ -81,8 +103,12 @@ What the number *is* depends on the feed:
 
 | Feeds | `seq` is |
 |---|---|
-| `trades`, `tradesByCoin`, `tradesByUser`, `tradesByUsers`, `liquidations`, `liquidationsByUser`, `liquidationsByUsers`, `twapSliceFills`, `twapSliceFillsByUser`, `twapSliceFillsByUsers`, `l4Book`, `candle` and `allCandles` on `source: "trade"` | The **source block height** — the height of the block the frame was produced from. The same number across all of them. |
+| `trades`, `tradesByCoin`, `tradesByUser`, `tradesByUsers`, `liquidations`, `liquidationsByUser`, `liquidationsByUsers`, `twapSliceFills`, `twapSliceFillsByUser`, `twapSliceFillsByUsers`, `twapStatuses`, `twapStatusesByUser`, `l4Book`, `candle` and `allCandles` on `source: "trade"` | The **source block height** — the height of the block the frame was produced from. The same number across all of them. |
 | `leverageUpdates`, `leverageUpdatesByUser`, `leverageUpdatesByUsers`, `twapOrders`, `twapOrdersByUser`, `twapOrdersByUsers`, `candle` and `allCandles` on `source: "mark"` | The replica block's **Unix timestamp in nanoseconds**, because the replica-command stream does not expose its height outside the JSON payload. |
+
+<Warning>
+  **The two halves of the TWAP product are on different scales.** `twapStatuses` and `twapStatusesByUser` carry the **source block height**, taken from the gateway's own block number — while `twapOrders` and its variants carry a **nanosecond** replica timestamp. They describe the same TWAPs and join on `twap_id`, but their `seq` values are six orders of magnitude apart and belong to different streams. Never hold one cursor across the pair, and never compare their numbers. This is the easiest fact on this page to get backwards.
+</Warning>
 
 `candle` and `allCandles` appear in both rows: they are the only feeds whose `seq` depends on an argument. Its default `source: "trade"` is built from fills and carries a block height; `source: "mark"` is built from the replica-command stream and carries a nanosecond timestamp. Two candle subscriptions on one connection can therefore be sequencing on different kinds of number **on the same `candle` channel**, and data frames carry no subscription id to tell them apart — see [candles](/websocket/feeds#candles).
 
@@ -138,9 +164,9 @@ To begin at live updates and skip initial state, pass `"snapshot": false`:
 → {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC","snapshot":false}}
 ```
 
-Messages that arrive while you are joining are held until your subscribe ack is queued, then released with no snapshot ahead of them. On `l4Book` this gives you raw diffs, which **do not constitute a book** unless you already hold compatible state for that coin.
+Messages that arrive while you are joining are held until your subscribe ack is queued, then released with no snapshot ahead of them. On `l4Book` this gives you raw diffs, which **do not constitute a book** unless you already hold compatible state for that coin. On `twapStatuses` and `twapStatusesByUser` it gives you state changes with no live set under them, so you learn about a TWAP only when it next changes state.
 
-Omitting `snapshot` defaults to sending one, unless you supplied a `sequence`.
+Omitting `snapshot` defaults to sending one, unless you supplied a `sequence`. Three feeds have state to send — `l4Book`, `twapStatuses` and `twapStatusesByUser`; on every other feed a subscribe starts at the next matching block either way.
 
 ## Errors on an open socket
 
@@ -161,6 +187,21 @@ Omitting `snapshot` defaults to sending one, unless you supplied a `sequence`.
 | `feed not in tier` | That subscription type is not included in your tier — the firehose and the Starter list feeds on Free, `l4Book` and the Pro list feeds below Pro. Check `connected.data.limits.feeds`. |
 | `snapshot buffer did not fill` | The server could not collect enough consecutive blocks to join a snapshot onto before giving up. The source has stalled; subscribe again. |
 | `invalid sequence` / `invalid snapshot` | `sequence` was not a number, or `snapshot` was not a boolean. |
+
+A `twapStatuses` or `twapStatusesByUser` subscription whose **snapshot** fails is dropped the same way, after its ack, with one of these on the `error` channel. The frame names no feed, so a connection holding both TWAP-status subscriptions cannot tell which one ended from the frame alone:
+
+| `data` | What it means |
+|---|---|
+| `twap gateway not configured` | This deployment has no TWAP gateway connection. Not retryable on your side. |
+| `subscription not active` | The subscription had not reached the publisher within a second of the request. Subscribe again. |
+| `snapshot timed out` | The gateway did not answer within the snapshot deadline. |
+| `gateway busy` | The gateway refused the request under load. Back off and subscribe again. |
+| `gateway unavailable` | The gateway could not be reached. |
+| `cancelled` | The request was cancelled before it completed — usually the connection going away. |
+| `snapshot failed: <Code>` / `snapshot failed` | Any other gateway failure, with the gRPC status code when there is one. |
+| `snapshot is older than retained history` | The snapshot landed behind the oldest frame still buffered, so the two could not be joined without a hole. Subscribe again. |
+
+In every case **the subscription no longer exists** — nothing is retried for you and no live frames follow. Subscribe again rather than waiting.
 
 A book subscription that starts and then fails — an unknown coin, a snapshot that could not be fetched, a buffer that never filled — is **dropped** and reported here, on the ordinary `error` channel, as `{"channel":"error","data":"<reason>"}`. The frame does not name the coin, so a connection holding several books cannot tell which one ended from the frame alone. The reasons are listed under [when a book subscription is dropped](/websocket/order-book#when-a-book-subscription-is-dropped).
 

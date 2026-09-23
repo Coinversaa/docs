@@ -38,8 +38,8 @@ These are **REST** limits. The [WebSocket](/websocket/overview) is metered on ca
 |------|---:|---:|---|---:|
 | Free       | 1 | 2   | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser` | 5 GB |
 | Starter    | 1 | 25  | Free's feeds plus `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` | 50 GB |
-| Pro        | 5 | 100 | all 19, incl. `l4Book`, liquidations, leverage changes, TWAP orders and their [multi-wallet variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
-| Enterprise | custom overrides | custom overrides | all 19 | 250 GB |
+| Pro        | 5 | 100 | all 21, incl. `l4Book`, liquidations, leverage changes, [TWAP orders and statuses](/websocket/feeds#twap-statuses) and the [multi-wallet variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
+| Enterprise | custom overrides | custom overrides | all 21 | 250 GB |
 
 Enterprise websocket numbers are per-account overrides reported in the `connected` frame — see [WebSocket plan limits](/websocket/limits).
 
