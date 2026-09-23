@@ -23,7 +23,7 @@ description: "The l4Book websocket feed — Hyperliquid's full L4 order book for
 
 ## Subscribing
 
-One argument, `coin`, and it is **case-sensitive** — the one exception to the argument rule on the other feeds. It must be the market exactly as the node spells it, builder-dex prefix and case included, because that is the only name the node's book export answers to:
+One argument, `coin`, and it is **case-sensitive** — one of only [two argument values on this socket that are](/websocket/feeds#subscribing), the other being a candle's `interval`. It must be the market exactly as the node spells it, builder-dex prefix and case included, because that is the only name the node's book export answers to:
 
 ```json
 {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}

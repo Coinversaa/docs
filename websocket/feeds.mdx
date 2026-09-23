@@ -397,7 +397,7 @@ This feed **cannot see a TWAP finish or be terminated by the node** — it repor
 → {"method":"subscribe","subscription":{"type":"twapStatusesByUser","user":"0x6365…2441"}}
 ```
 
-`user` is required on `twapStatusesByUser` and matched **case-insensitively**, like every wallet argument outside `l4Book`'s `coin`. It is matched against the event's own `state.user`.
+`user` is required on `twapStatusesByUser` and matched **case-insensitively**, like every wallet argument on this socket. It is matched against the event's own `state.user`.
 
 ### The three views of one TWAP
 
@@ -504,12 +504,12 @@ A fresh subscribe answers with a **snapshot of the live TWAP set** before any li
 
 | Field | Type | Meaning |
 |---|---|---|
-| `complete` | boolean | Whether the upstream gateway's coverage reaches back far enough to hold **every** TWAP that activated inside the longest window a running TWAP can span. |
+| `complete` | boolean | The gateway's own verdict on whether its coverage reaches back far enough to hold every TWAP that activated inside the longest window a running TWAP can span. This server forwards the flag verbatim and computes nothing — the rule behind it is the gateway's, so treat `coverage_from_ms` as the fact and `complete` as its summary. |
 | `coverage_from_ms` | number | The oldest block time the gateway has applied, in milliseconds. This is the honest bound in both cases — read it rather than `complete` alone. |
-| `twaps` | array | One entry per live TWAP: the **last status event** for that `twap_id`, byte-identical in shape to an element of a live frame's `data`. One applier handles both. |
+| `twaps` | array | The gateway's live TWAP set, one entry per `twap_id`, each entry a status event byte-identical in shape to an element of a live frame's `data` — so one applier handles both. This server copies each entry through untouched and only checks that it is valid JSON; it does not deduplicate by `twap_id` or verify the set itself. |
 
 <Warning>
-  **`complete` is routinely `false` in production, and a client that ignores it will silently under-count long TWAPs.** When it is false, the gateway's coverage is shorter than the window it would need, so **a TWAP that activated before `coverage_from_ms` may be missing from the set**. Keep the snapshot and apply the stream on top of it, but do not treat it as the whole live population.
+  **Handle `complete: false` — do not assume the snapshot is the whole live population.** When it is false the gateway is telling you its coverage is shorter than the window it would need, so **a TWAP that activated before `coverage_from_ms` may be missing from the set**. Keep the snapshot and apply the stream on top of it. How often it is false depends on how long the gateway has been running, so code for both values rather than for the one you happen to observe.
 
   This holds even when `complete` is true: a `waitingForTrigger` TWAP placed before `coverage_from_ms` and not yet activated is invisible to the snapshot until it activates or ends, because a waiting TWAP has no duration bound to age out of. So **a `twap_id` the stream later names that is not in your set is expected, not an error** — insert it rather than discarding the event.
 </Warning>
@@ -530,7 +530,7 @@ If the snapshot cannot be produced, **the subscription is removed** after its ac
   **`twapStatuses` sequences on the source block height — not on nanoseconds.** Its sibling `twapOrders` carries the replica block's Unix timestamp in nanoseconds instead, so the two halves of the TWAP product sequence on **different scales**: never hold one cursor across them and never compare their `seq`. A height is around 1.1 × 10⁹ and a nanosecond stamp around 1.79 × 10¹⁸, so a capture tells them apart at a glance. See [sequence numbers](/websocket/protocol#sequence-numbers).
 </Warning>
 
-A frame is sent only for a block that carried a matching event, so `seq` increases strictly but skips heights — on `twapStatusesByUser` it will skip a great many. Blocks at or below the last one applied are dropped outright, so after a gateway restart or a pruned resume position the stream continues strictly increasing rather than replaying.
+A frame is sent only for a block that carried a matching event, so `seq` increases strictly but skips heights — on `twapStatusesByUser` it will skip a great many. Across a reconnect the server drops any block at or below the last height it published, so a gateway that resumes behind the cursor replays nothing. That guard is deliberately released in one case: when the gateway reports the resume position as **pruned**, the server clears its last-applied height and rejoins live, and monotonicity then rests on the gateway resuming ahead of where it left off rather than on the guard.
 
 ## Hyperliquid compatibility
 
@@ -553,6 +553,7 @@ This socket is built to watch **everyone at once**. That is the whole of the dif
 | Leverage and margin changes | none; margin state only in per-user `clearinghouseState` snapshots | `leverageUpdates` |
 | Order book | `l2Book`, aggregated to price levels | `l4Book` — every resting order with its wallet |
 | Candles | `candle` — trade-based, real volume | `candle` — trade-based and field-for-field the same by default; `source: "mark"` opts into mark-price candles, where `v` is always `"0"` |
+| TWAP placement, execution and state | per-account TWAP channels only | `twapOrders`, `twapSliceFills` and `twapStatuses` — three views of one TWAP, each available unfiltered as well as per account |
 | Every fill, market-wide | none; `trades` is one coin, `userFills` is one account | `trades` |
 | Unique accounts you may watch | **ten per IP** | Starter and above: 1,000 per [multi-wallet subscription](#multi-wallet-subscriptions), as many of those as your plan's subscription cap allows. Free has no list feed, so it watches one account per subscription — two in total |
 | Fill context | `users` on `trades`; the rest only on `userFills` | `dir`, `closedPnl`, `startPosition`, `fee` on every feed |

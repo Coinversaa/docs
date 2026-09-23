@@ -591,10 +591,11 @@ func main() {
 - **Sends a heartbeat** every 30 seconds, which keeps an idle connection warm and doubles as a liveness check.
 
 <Warning>
-  Two lines in the generated code are true of the feeds it subscribes to and **not of the catalog as a whole**. Adjust both before you point a client at another feed.
+  Three things in the generated code are true of the feeds it subscribes to and **not of the catalog as a whole**. Adjust all three before you point a client at another feed.
 
-  - The comment reading `seq is the SOURCE BLOCK HEIGHT, the same on every feed` holds for `tradesByCoin` and `l4Book`. It does not hold for `leverageUpdates`, `twapOrders`, their by-user and list variants, or `candle`/`allCandles` on `source: "mark"`: there `seq` is the replica block's Unix timestamp in **nanoseconds**, about six orders of magnitude larger. Never hold one cursor across both kinds — see [sequence numbers](/websocket/protocol#sequence-numbers).
+  - The comment reading `seq is the SOURCE BLOCK HEIGHT, the same on every feed` holds for `tradesByCoin` and `l4Book`. It does not hold for `leverageUpdates`, `twapOrders`, their by-user and list variants, or `candle`/`allCandles` on `source: "mark"`: there `seq` is the replica block's Unix timestamp in **nanoseconds** — around 1.79 × 10¹⁸ against a height's 1.1 × 10⁹, about nine orders of magnitude larger. Never hold one cursor across both kinds — see [sequence numbers](/websocket/protocol#sequence-numbers).
   - `streamKey` branches on `tradesByCoin` and `tradesByUser` and falls through to `msg.channel` for everything else, which is exactly the keying the protocol page warns against when two subscriptions share a channel. Add a branch for whatever you subscribe to.
+  - **The fill loop assumes `data` is an array of `[wallet, fill]` pairs** — `for (const [wallet, fill] of msg.data)` and its Python and Go equivalents. That shape is the fill feeds' alone. On [`candle`](/websocket/feeds#candles) and on a [`twapStatuses` snapshot](/websocket/feeds#the-snapshot-on-subscribe) `data` is an **object**, and a live [`twapStatuses`](/websocket/feeds#twap-statuses) frame is an array of bare status events rather than of pairs — so the loop throws or mis-destructures on the very first frame. Read the feed's own `data` shape before reusing the handler.
 </Warning>
 
 ## Following a list of wallets
