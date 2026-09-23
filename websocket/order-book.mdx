@@ -18,12 +18,12 @@ description: "The l4Book websocket feed — Hyperliquid's full L4 order book for
 `l4Book` is included on **Pro and above**. Below that, a subscribe answers `feed not in tier` on the `error` channel. The [`connected` frame](/websocket/overview#the-first-frame) lists `l4Book` in `limits.feeds` when your account may subscribe — read that rather than assuming from the plan table, since enterprise limits are resolved per account.
 
 ```json
-← {"channel":"connected","data":{"tier":"pro","limits":{"connections":5,"subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser","tradesByUsers","liquidations","liquidationsByUser","liquidationsByUsers","leverageUpdates","leverageUpdatesByUser","leverageUpdatesByUsers","candle","allCandles","l4Book","twapSliceFills","twapSliceFillsByUser","twapSliceFillsByUsers","twapOrders","twapOrdersByUser","twapOrdersByUsers"]}}}
+← {"channel":"connected","data":{"tier":"pro","limits":{"connections":5,"subscriptions":100,"feeds":["trades","tradesByCoin","tradesByUser","tradesByUsers","liquidations","liquidationsByUser","liquidationsByUsers","leverageUpdates","leverageUpdatesByUser","leverageUpdatesByUsers","candle","allCandles","l4Book","twapSliceFills","twapSliceFillsByUser","twapSliceFillsByUsers","twapOrders","twapOrdersByUser","twapOrdersByUsers","twapStatuses","twapStatusesByUser"]}}}
 ```
 
 ## Subscribing
 
-One argument, `coin`, and it is **case-sensitive** — the one exception to the argument rule on the other feeds. It must be the market exactly as the node spells it, builder-dex prefix and case included, because that is the only name the node's book export answers to:
+One argument, `coin`, and it is **case-sensitive** — one of only [two argument values on this socket that are](/websocket/feeds#subscribing), the other being a candle's `interval`. It must be the market exactly as the node spells it, builder-dex prefix and case included, because that is the only name the node's book export answers to:
 
 ```json
 {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}

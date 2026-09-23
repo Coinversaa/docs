@@ -5,6 +5,49 @@ description: "Product updates and releases for Coinversa Pulse."
 
 <Update label="September 22, 2026" tags={["WebSocket"]}>
 
+## TWAP statuses: the node's own state machine, with a live-set snapshot
+
+Two new Pro feeds close the last gap in the TWAP product. **`twapStatuses`** and
+**`twapStatusesByUser`** carry the node's own TWAP state machine — activated,
+waiting on a trigger, finished, terminated, stopped, or refused mid-run — and a
+subscription **opens with a snapshot of the TWAPs running right now**. The
+catalog is **twenty-one feeds**, up from nineteen.
+
+```json
+{"method":"subscribe","subscription":{"type":"twapStatuses"}}
+{"method":"subscribe","subscription":{"type":"twapStatusesByUser","user":"0x6365…2441"}}
+```
+
+That makes three views of one TWAP, joined on `twap_id`:
+
+| Feed | What it sees |
+|---|---|
+| `twapOrders` | **Placement and refusal** — the terms asked for, and the node's answer |
+| `twapSliceFills` | **Execution** — every slice, with real `px`, `sz` and `fee` |
+| **`twapStatuses`** | **State** — activation, triggers, endings, and running `executedSz` |
+
+Two things to know before building on it. The snapshot reports its own coverage:
+`complete` says whether the upstream reaches back far enough to hold every
+activated TWAP, and `coverage_from_ms` is the oldest block time it has applied —
+**when `complete` is false, a TWAP that activated before that bound may be
+missing from the set**, so apply the stream on top of the snapshot and insert a
+`twap_id` you had not seen rather than discarding the event. And `twapStatuses`
+sequences on the **source block height**, while its sibling `twapOrders`
+sequences on a **nanosecond** replica timestamp: the two views join on
+`twap_id`, never on `seq`, and one cursor cannot span them.
+
+There is deliberately **no `twapStatusesByUsers`** — this is the one
+wallet-scoped family with no multi-wallet list variant. Follow a set of accounts
+by filtering the unfiltered feed on `state.user`.
+
+Full contract in [TWAP statuses](/websocket/feeds#twap-statuses); the snapshot
+and error frames are on the [wire protocol](/websocket/protocol#twap-status-frames)
+page.
+
+</Update>
+
+<Update label="September 22, 2026" tags={["WebSocket"]}>
+
 ## Multi-wallet feeds: 1,000 addresses on one subscription
 
 Every by-user websocket feed now has a **list variant** that follows a set of

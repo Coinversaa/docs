@@ -1,9 +1,9 @@
 ---
 title: "Feeds and the fill object"
-description: "The nineteen websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, a list of up to 1,000 wallets, liquidations, leverage and margin changes, OHLC candles per coin or across every market, TWAP slice fills and TWAP order lifecycle, and the L4 order book — which plans include each, and every field on a streamed fill."
+description: "The twenty-one websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, a list of up to 1,000 wallets, liquidations, leverage and margin changes, OHLC candles per coin or across every market, TWAP slice fills, TWAP order lifecycle, TWAP status with a live-set snapshot, and the L4 order book — which plans include each, and every field on a streamed fill."
 ---
 
-Nineteen raw feeds today: four stream fills, three stream liquidations, three stream leverage and isolated-margin changes, two stream OHLC candles, three stream the fills a TWAP order executed, three stream the TWAP orders themselves, and the last streams a coin's full order book. Five of them are **multi-wallet** list feeds that follow up to 1,000 addresses on one subscription — [below](#multi-wallet-subscriptions). Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
+Twenty-one raw feeds today: four stream fills, three stream liquidations, three stream leverage and isolated-margin changes, two stream OHLC candles, three stream the fills a TWAP order executed, three stream the TWAP orders themselves, two stream the node's own TWAP state machine, and one streams a coin's full order book. Five of them are **multi-wallet** list feeds that follow up to 1,000 addresses on one subscription — [below](#multi-wallet-subscriptions). Three deliver **state on subscribe** before the live stream starts: `l4Book`, `twapStatuses` and `twapStatusesByUser`. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
 
 | Feed | Argument | What arrives | Plans |
 |---|---|---|---|
@@ -25,6 +25,8 @@ Nineteen raw feeds today: four stream fills, three stream liquidations, three st
 | `twapOrders` | — | **TWAP placements, refusals and cancellations** — the order's terms, and the refusals that leave no other trace. [Below](#twap-orders). | Pro and above |
 | `twapOrdersByUser` | `user` | TWAP order lifecycle for one account. | Pro and above |
 | `twapOrdersByUsers` | `users` | TWAP order lifecycle for any account in a list of up to 1,000. [Below](#multi-wallet-subscriptions). | Pro and above |
+| `twapStatuses` | — | **The node's own TWAP state machine** — activated, finished, terminated, stopped, waiting on a trigger, or refused — network-wide, opening with a **snapshot of the TWAPs live right now**. [Below](#twap-statuses). | Pro and above |
+| `twapStatusesByUser` | `user` | TWAP status events for one account, with a snapshot of that account's live TWAPs. There is **no `twapStatusesByUsers`** — [below](#multi-wallet-subscriptions). | Pro and above |
 | `l4Book` | `coin` | **The full L4 order book** of one market — every resting order with its wallet, plus untriggered stop and take-profit orders — as one snapshot followed by a diff message per block. Its own page: [Order book (L4)](/websocket/order-book). | Pro and above |
 
 ```json
@@ -38,6 +40,8 @@ Nineteen raw feeds today: four stream fills, three stream liquidations, three st
 {"method":"subscribe","subscription":{"type":"allCandles","interval":"1m"}}
 {"method":"subscribe","subscription":{"type":"twapSliceFills"}}
 {"method":"subscribe","subscription":{"type":"twapOrders"}}
+{"method":"subscribe","subscription":{"type":"twapStatuses"}}
+{"method":"subscribe","subscription":{"type":"twapStatusesByUser","user":"0xf3f4…8a2c"}}
 {"method":"subscribe","subscription":{"type":"leverageUpdates"}}
 {"method":"subscribe","subscription":{"type":"leverageUpdatesByUser","user":"0xf3f4…8a2c"}}
 {"method":"subscribe","subscription":{"type":"candle","coin":"BTC","interval":"1m","source":"trade"}}
@@ -56,12 +60,12 @@ Send only the arguments a type declares: an unrecognised extra field is **refuse
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser` and `twapOrdersByUser` accept any address, and so do their `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills` and `twapSliceFillsByUsers` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser`, `twapOrdersByUser` and `twapStatusesByUser` accept any address, and so do the five `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills` and `twapSliceFillsByUsers` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order, TWAP-status and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames
 
-This is the frame shape on the seven fill feeds — `trades`, `tradesByCoin`, `tradesByUser`, `tradesByUsers`, `twapSliceFills`, `twapSliceFillsByUser` and `twapSliceFillsByUsers`. The liquidation and leverage feeds carry the same envelope with their own object in `data` — [below](#liquidations). `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot). `candle` frames also carry `data` as a single **object**, not an array: a client that reaches straight for `data.forEach` or `data[0]` breaks on them — [below](#candles).
+This is the frame shape on the seven fill feeds — `trades`, `tradesByCoin`, `tradesByUser`, `tradesByUsers`, `twapSliceFills`, `twapSliceFillsByUser` and `twapSliceFillsByUsers`. The liquidation, leverage, TWAP-order and TWAP-status feeds carry the same envelope with their own object in `data` — [below](#liquidations). `l4Book` frames carry `data` as an **object** — a snapshot or a block of diffs — and are described on [their own page](/websocket/order-book#the-snapshot). A `twapStatuses` **snapshot** frame also carries `data` as an object and adds `"snapshot": true` — [below](#the-snapshot-on-subscribe); its live frames are ordinary arrays. `candle` frames also carry `data` as a single **object**, not an array: a client that reaches straight for `data.forEach` or `data[0]` breaks on them — [below](#candles).
 
 `channel` is the subscription type that produced the frame. `data` is an array of `[wallet, fill]` pairs — one entry per fill, with the address that made it in the first position. A single frame can carry many fills; both sides of a trade are separate fills, so most frames carry at least two pairs. The only top-level keys are `channel`, `seq` and `data` — **there is no subscription id on a data frame**, which matters as soon as you hold two subscriptions on one channel; see [sequence numbers](/websocket/protocol#sequence-numbers).
 
@@ -284,7 +288,7 @@ There is no historical snapshot: a subscription starts delivering the bucket tha
 
 ## Multi-wallet subscriptions
 
-Every by-user feed has a **list variant** that follows a set of wallets on one subscription. It carries exactly what its singular feed carries — the same `[wallet, fill]` pairs, liquidation objects or replica updates, under the same `seq` — filtered to any wallet in the list. A copy-trading bot, a whale-alert channel or a builder front-end streaming fills for all of its users holds **one** subscription rather than one per wallet. The singular feeds are unchanged.
+Five of the six by-user feeds have a **list variant** that follows a set of wallets on one subscription. It carries exactly what its singular feed carries — the same `[wallet, fill]` pairs, liquidation objects or replica updates, under the same `seq` — filtered to any wallet in the list. A copy-trading bot, a whale-alert channel or a builder front-end streaming fills for all of its users holds **one** subscription rather than one per wallet. The singular feeds are unchanged.
 
 | Singular feed | List variant | Plans |
 |---|---|---|
@@ -293,6 +297,11 @@ Every by-user feed has a **list variant** that follows a set of wallets on one s
 | `liquidationsByUser` | `liquidationsByUsers` | Pro and above |
 | `leverageUpdatesByUser` | `leverageUpdatesByUsers` | Pro and above |
 | `twapOrdersByUser` | `twapOrdersByUsers` | Pro and above |
+| `twapStatusesByUser` | **none — there is no `twapStatusesByUsers`** | — |
+
+<Warning>
+**`twapStatuses` is the one wallet-scoped family with no list variant.** Five families have one; this sixth does not, and `{"type":"twapStatusesByUsers","users":[…]}` answers `unknown subscription type` — it is not a type the server knows, so nothing is subscribed and no slot is spent. To follow a set of wallets' TWAP state today, either hold one `twapStatusesByUser` subscription per wallet against your [subscription cap](/websocket/limits), or subscribe to the unfiltered `twapStatuses` and filter on `state.user` yourself. The unfiltered feed is the same Pro tier, so the second option reaches nothing the first could not.
+</Warning>
 
 The list is the required `users` argument, sent as a **JSON array of strings** — not a comma-separated string — and matched case-insensitively like every other wallet argument. A bare string is accepted too and becomes a one-item list.
 
@@ -347,7 +356,7 @@ See the [wire protocol](/websocket/protocol#errors-on-an-open-socket) for the re
 One TWAP order produces many slices over its run. **Group by `twapId`** to follow one order, and sum `sz` to track its executed size. `twapSliceFillsByUser` takes a required `user`, matched case-insensitively like the trade feeds, and filters to the wallet the slice filled *for* — `twapSliceFillsByUsers` does the same over [a list of up to 1,000](#multi-wallet-subscriptions) — the counterparty of a slice is an ordinary fill with `twapId: null` and stays on the trade feeds. A fill with no `twapId` key at all is never a slice.
 
 <Note>
-This feed reports **execution only**. A TWAP that never fills a slice never appears here, and there is no placed or cancelled event — those are on [`twapOrders`](#twap-orders). `twapId` here equals `twap_id` there, so subscribing to both for one wallet and joining on it gives you an order's terms next to its executions.
+This feed reports **execution only**. A TWAP that never fills a slice never appears here, and there is no placed or cancelled event — those are on [`twapOrders`](#twap-orders), and the order's own lifecycle is on [`twapStatuses`](#twap-statuses). `twapId` here equals `twap_id` on both of those, so subscribing and joining on it gives you an order's terms, its state and its executions side by side.
 </Note>
 
 ## TWAP orders
@@ -377,7 +386,151 @@ Every variant carries `time`, `user`, `asset` and `tx_index`.
   **The node answers a refused TWAP with an outer status of `ok`.** Acceptance is read from the inner `response.data.status` — `{"running":{"twapId":N}}` or `{"error":"…"}` — never from the outer status alone. A client reimplementing this against the raw node output and checking only the outer status will report TWAPs as started that never ran. An action whose outer status is `err` never reached the block and is omitted here; an inner status this server does not recognise fails the whole block closed rather than guessing.
 </Warning>
 
-This feed **cannot see a TWAP finish or be terminated by the node** — those states exist only in the node's `node_twap_statuses` output, which the gateway does not carry. Count executed size from `twapSliceFills` instead. The `twapCancel` response shapes follow Hyperliquid's exchange-endpoint documentation and have not yet been confirmed against a captured block; the `twapOrder` shapes have.
+This feed **cannot see a TWAP finish or be terminated by the node** — it reports what an account asked for and whether the node took it, and nothing after that. Those states are on [`twapStatuses`](#twap-statuses), which carries the node's own state machine and joins here on `twap_id`; executed size is on [`twapSliceFills`](#twap-slice-fills). The `twapCancel` response shapes follow Hyperliquid's exchange-endpoint documentation and have not yet been confirmed against a captured block; the `twapOrder` shapes have.
+
+## TWAP statuses
+
+`twapStatuses` and `twapStatusesByUser` carry the **node's own TWAP state machine** — the third and last view of one TWAP. A subscription opens with a **snapshot of the TWAPs that are live right now** and then streams every status change as its block lands.
+
+```json
+→ {"method":"subscribe","subscription":{"type":"twapStatuses"}}
+→ {"method":"subscribe","subscription":{"type":"twapStatusesByUser","user":"0x6365…2441"}}
+```
+
+`user` is required on `twapStatusesByUser` and matched **case-insensitively**, like every wallet argument on this socket. It is matched against the event's own `state.user`.
+
+### The three views of one TWAP
+
+| Feed | What it sees | What it cannot see |
+|---|---|---|
+| [`twapOrders`](#twap-orders) | **Placement and refusal** — the terms an account asked for, the node's acceptance or its reason for refusing, and cancellations it applied. | Anything after the order started. It never reports a finish, a termination or executed size. |
+| [`twapSliceFills`](#twap-slice-fills) | **Execution** — every slice the TWAP actually filled, with real `px`, `sz` and `fee`. | A TWAP that fills nothing. It has no placement, no end and no reason for either. |
+| `twapStatuses` | **State** — activation, waiting on a trigger, finishing, termination, a stop firing, and mid-run node errors, with running `executedSz` and `executedNtl`. | The slices themselves: it reports cumulative execution on the order, not individual fills, and no `px` or `fee`. |
+
+All three join on the **same node id**, and only the spelling differs: it is `twap_id` on `twapStatuses` and on `twapOrders`, and `twapId` inside the fill object on `twapSliceFills` (`data[i][1].twapId`). Treat it as an opaque number — this server never re-encodes it on any of the three.
+
+One join does not exist: a `twapOrders` event with `update_type: "rejected"` carries **no `twap_id` at all**, because a refused order never got one. A refusal is visible only on `twapOrders` and can be joined to nothing.
+
+### The live frame
+
+`channel` is the subscribed type, `seq` is the source block height, and `data` is an array of status events — one frame per block that carried at least one matching event. Events are forwarded as the node wrote them; the only field this server reads is `state.user`, for the by-user filter.
+
+```json
+{
+  "channel": "twapStatuses",
+  "seq": 1156436426,
+  "data": [
+    {
+      "time": "2026-09-22T02:00:02.321152806",
+      "twap_id": 2241180,
+      "state": {
+        "coin": "TAO",
+        "user": "0x636573f05d5b582a357e0250e5624b1832b92441",
+        "side": "B",
+        "sz": "6.424",
+        "executedSz": "0.0",
+        "executedNtl": "0.0",
+        "minutes": 58,
+        "reduceOnly": true,
+        "randomize": true,
+        "timestamp": 1790042402321,
+        "trigger": null,
+        "stopPx": null
+      },
+      "status": "activated"
+    }
+  ]
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `time` | **string** | The node's nanosecond wall-clock stamp for the event — `2026-09-22T02:00:02.321152806`, not a number. |
+| `twap_id` | number | The TWAP this event is about. The join key to `twapOrders` and `twapSliceFills`. |
+| `state` | object | The TWAP's terms and its running execution, below. |
+| `status` | string **or object** | What happened. A string on an ordinary transition, an object on a refusal — see [status is a union](#status-is-a-union). |
+
+The `state` object:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `coin` | string | The market, in **the node's own spelling** — a ticker for a perp (`TAO`, `ZEC`) and `@<index>` for a spot pair (`@142`). It is *not* the numeric `asset` id `twapOrders` carries, and nothing may assume a ticker. |
+| `user` | string | The account the TWAP belongs to. This is what `twapStatusesByUser` filters on. |
+| `side` | string | `B` for buy, `A` for sell. |
+| `sz` | string | Total size the TWAP was placed for, as a decimal string. |
+| `executedSz` | string | Base size executed so far, as a decimal string. |
+| `executedNtl` | string | Notional executed so far, as a decimal string. It can carry the node's own float artefact — `"1471151.6673000001"` — and is forwarded exactly as written. |
+| `minutes` | number | The TWAP's duration in minutes. **Not bounded by a day**: 10,080 (seven days) has been observed, so a client-side sanity cap below that drops real TWAPs. |
+| `reduceOnly` | boolean | Whether the order may only reduce a position. |
+| `randomize` | boolean | Whether slice timing is randomised. |
+| `timestamp` | number | Placement time, milliseconds since the Unix epoch. See the warning below — it is not an activation time on a triggered TWAP. |
+| `trigger` | null or object | `null`, or `{"px":"84168.0","above":<bool>}` on a TWAP waiting for a price. |
+| `stopPx` | null or string | `null`, or the stop price as a decimal string. |
+
+Sizes are **decimal strings** and `minutes` is a **number**, always — the same rule as the fill object.
+
+<Warning>
+  **`state.timestamp` is placement, not activation.** On a triggered TWAP it can be days stale: a captured `terminated` record carried a `timestamp` about 71 hours before the event with `minutes` of 30. Never derive an end time from `timestamp + minutes` for a triggered TWAP — only the node's own terminal event says when a waiting TWAP ended.
+</Warning>
+
+### Status is a union
+
+`status` is a string on an ordinary transition and an **object** on a refusal:
+
+| `status` | Live or terminal | Meaning |
+|---|---|---|
+| `"waitingForTrigger"` | live | Placed, waiting on its trigger price. Its clock has not started. |
+| `"activated"` | live | Running. Slices execute from here. |
+| `"finished"` | terminal | Ran to completion — `executedSz` equals `sz`. |
+| `"terminated"` | terminal | Ended by the node before completion. |
+| `"stopped"` | terminal | `stopPx` fired. |
+| `{"error":"<node reason>"}` | terminal | The node refused to continue. Observed reasons: `Insufficient margin to place order.`, `Reduce only order would increase position.`, `Insufficient spot balance`. |
+
+<Warning>
+  **Code that types `status` as a string breaks on refusals.** An error status is a JSON **object**, not a string, and it can arrive mid-run on an already-activated TWAP that has partial `executedSz`. Check the JSON type before you compare. The server validates nothing here — it reads only `state.user` — so the vocabulary is the node's to extend, and a status this page does not list is forwarded unchanged rather than dropping the block.
+</Warning>
+
+### The snapshot on subscribe
+
+A fresh subscribe answers with a **snapshot of the live TWAP set** before any live frame. It carries `"snapshot": true`, and `data` is an **object** rather than an array:
+
+```json
+← {"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"type":"twapStatuses"},"id":"<16 hex>"}}
+← {"channel":"twapStatuses","snapshot":true,"seq":1156436426,"data":{"complete":false,"coverage_from_ms":1789940000000,"twaps":[{"time":"2026-09-22T02:00:02.321152806","twap_id":2241180,"state":{…},"status":"activated"}]}}
+← {"channel":"twapStatuses","seq":1156436431,"data":[{…}]}
+```
+
+`channel` is the type you subscribed to, so a `twapStatusesByUser` snapshot says `twapStatusesByUser` and its `twaps` are that account's alone.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `complete` | boolean | The gateway's own verdict on whether its coverage reaches back far enough to hold every TWAP that activated inside the longest window a running TWAP can span. This server forwards the flag verbatim and computes nothing — the rule behind it is the gateway's, so treat `coverage_from_ms` as the fact and `complete` as its summary. |
+| `coverage_from_ms` | number | The oldest block time the gateway has applied, in milliseconds. This is the honest bound in both cases — read it rather than `complete` alone. |
+| `twaps` | array | The gateway's live TWAP set, one entry per `twap_id`, each entry a status event byte-identical in shape to an element of a live frame's `data` — so one applier handles both. This server copies each entry through untouched and only checks that it is valid JSON; it does not deduplicate by `twap_id` or verify the set itself. |
+
+<Warning>
+  **Handle `complete: false` — do not assume the snapshot is the whole live population.** When it is false the gateway is telling you its coverage is shorter than the window it would need, so **a TWAP that activated before `coverage_from_ms` may be missing from the set**. Keep the snapshot and apply the stream on top of it. How often it is false depends on how long the gateway has been running, so code for both values rather than for the one you happen to observe.
+
+  This holds even when `complete` is true: a `waitingForTrigger` TWAP placed before `coverage_from_ms` and not yet activated is invisible to the snapshot until it activates or ends, because a waiting TWAP has no duration bound to age out of. So **a `twap_id` the stream later names that is not in your set is expected, not an error** — insert it rather than discarding the event.
+</Warning>
+
+The maintenance rule is one line: apply each stream event onto the entry with the same `twap_id`, inserting one you have not seen, and drop the entry when its status is terminal.
+
+`snapshot` and `sequence` steer the subscribe exactly as they do elsewhere — omitting both sends a snapshot, `"snapshot": false` skips it, a `sequence` cursor implies no snapshot, and the two together are refused. See [reconnecting](/websocket/protocol#reconnecting).
+
+<Note>
+Unlike `l4Book`, these feeds have **no buffer warm-up**: the subscribe ack is sent first and the snapshot follows essentially immediately, rather than after the server has collected a span of blocks. Frames buffered above the snapshot's `seq` are released after it, so there is no hole between the two.
+</Note>
+
+If the snapshot cannot be produced, **the subscription is removed** after its ack and a plain `{"channel":"error","data":"<reason>"}` follows — subscribe again rather than waiting. The reasons are listed with [the other error strings](/websocket/protocol#errors-on-an-open-socket).
+
+### Sequence
+
+<Warning>
+  **`twapStatuses` sequences on the source block height — not on nanoseconds.** Its sibling `twapOrders` carries the replica block's Unix timestamp in nanoseconds instead, so the two halves of the TWAP product sequence on **different scales**: never hold one cursor across them and never compare their `seq`. A height is around 1.1 × 10⁹ and a nanosecond stamp around 1.79 × 10¹⁸, so a capture tells them apart at a glance. See [sequence numbers](/websocket/protocol#sequence-numbers).
+</Warning>
+
+A frame is sent only for a block that carried a matching event, so `seq` increases strictly but skips heights — on `twapStatusesByUser` it will skip a great many. Across a reconnect the server drops any block at or below the last height it published, so a gateway that resumes behind the cursor replays nothing. That guard is deliberately released in one case: when the gateway reports the resume position as **pruned**, the server clears its last-applied height and rejoins live, and monotonicity then rests on the gateway resuming ahead of where it left off rather than on the guard.
 
 ## Hyperliquid compatibility
 
@@ -400,6 +553,7 @@ This socket is built to watch **everyone at once**. That is the whole of the dif
 | Leverage and margin changes | none; margin state only in per-user `clearinghouseState` snapshots | `leverageUpdates` |
 | Order book | `l2Book`, aggregated to price levels | `l4Book` — every resting order with its wallet |
 | Candles | `candle` — trade-based, real volume | `candle` — trade-based and field-for-field the same by default; `source: "mark"` opts into mark-price candles, where `v` is always `"0"` |
+| TWAP placement, execution and state | per-account TWAP channels only | `twapOrders`, `twapSliceFills` and `twapStatuses` — three views of one TWAP, each available unfiltered as well as per account |
 | Every fill, market-wide | none; `trades` is one coin, `userFills` is one account | `trades` |
 | Unique accounts you may watch | **ten per IP** | Starter and above: 1,000 per [multi-wallet subscription](#multi-wallet-subscriptions), as many of those as your plan's subscription cap allows. Free has no list feed, so it watches one account per subscription — two in total |
 | Fill context | `users` on `trades`; the rest only on `userFills` | `dir`, `closedPnl`, `startPosition`, `fee` on every feed |
