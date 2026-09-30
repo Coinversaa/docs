@@ -398,7 +398,9 @@ Each frame replaces the **entire** map, and one is sent whenever any mid moves.
 
 These three share one book per coin, and a fresh subscription can arrive before that book is ready.
 
-**The server retries for you, invisibly.** The connection manager re-requests the snapshot every 250 ms while it waits, and sends you nothing in the meantime — no ack, no error. A cold subscribe simply sits there. It gives up at a bound:
+**Your subscribe is acknowledged at once.** The ack is queued on the control channel, which jumps ahead of data, before the server starts building anything — so a quote subscribe is accepted in milliseconds like any other.
+
+**What waits is the first data frame.** The server re-requests the snapshot every 250 ms behind that ack and sends you nothing in the meantime, so the gap is between the ack and the `snapshot:true` frame. It gives up at a bound:
 
 | Feed | The server keeps trying for |
 |---|---:|
@@ -407,7 +409,7 @@ These three share one book per coin, and a fresh subscription can arrive before 
 
 `allMids` gets longer because it initializes the whole native perp universe rather than one coin's book.
 
-Only when that deadline passes do you receive:
+Only when that deadline passes, instead of a snapshot, do you receive:
 
 ```json
 ← {"channel":"error","data":"quote book warming up"}
@@ -416,7 +418,7 @@ Only when that deadline passes do you receive:
 **By then the server has already retried for two or five minutes**, so an immediate client-side retry is unlikely to fare better — wait before trying again. The error is not fatal and says nothing about your key, your coin spelling or your plan.
 
 <Warning>
-Do not set a client-side subscribe timeout shorter than these bounds for the quote feeds. A client that gives up after ten seconds of silence will abandon a subscription the server is still working on, and will do it every time on a cold book.
+**Do not time out waiting for the first frame sooner than the bound.** A client that waits for the *ack* gets it immediately and is fine; a client that gives up after ten seconds of no *data* abandons a subscription the server is still working on, and will do it every time on a cold book. The two timeouts are different, and only the second one matters here.
 </Warning>
 
 A broken chain or a partial block suspends derived updates until the book is rebuilt. Existing subscribers are not dropped: the next frame they receive carries `snapshot:true` again and replaces their state.

@@ -28,11 +28,11 @@ covers native perpetual markets only, with no spot, no builder dexes and no
 fall back to the last trade when a book side is empty. A coin missing either
 side is omitted from the map, so absence means one-sided, not zero.
 
-All three share one book per coin. A cold subscribe is held **silently** while
-that book is built — the server re-requests every 250 ms and sends nothing —
-and only fails with `quote book warming up` after **2 minutes** (`bbo`,
-`l2Book`) or **5 minutes** (`allMids`). Do not set a client-side subscribe
-timeout shorter than that. `seq` is the source book
+All three share one book per coin. The subscribe is **acked at once**; what
+waits is the first data frame, while the server re-requests the snapshot every
+250 ms behind that ack. If the book is not ready in **2 minutes** (`bbo`,
+`l2Book`) or **5 minutes** (`allMids`), `quote book warming up` arrives instead
+of the snapshot. Do not time out waiting for the first frame sooner than that. `seq` is the source book
 height and skips blocks that changed nothing visible.
 
 </Update>
