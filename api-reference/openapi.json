@@ -31913,13 +31913,13 @@
         "operationId": "get-api-public-v1-pulse-trader-by-address",
         "parameters": [
           {
-            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed Hyperliquid trading history returns 404 with a detail explaining why.",
             "example": "0x0000000000000000000000000000000000000000",
             "in": "path",
             "name": "address",
             "required": true,
             "schema": {
-              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed Hyperliquid trading history returns 404 with a detail explaining why.",
               "type": "string"
             }
           }
@@ -32399,12 +32399,12 @@
         "operationId": "get-api-public-v1-pulse-trader-by-address-closed-positions-stats",
         "parameters": [
           {
-            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed history returns an empty result, not 404.",
             "in": "path",
             "name": "address",
             "required": true,
             "schema": {
-              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed history returns an empty result, not 404.",
               "type": "string"
             }
           }
@@ -32624,12 +32624,12 @@
         "operationId": "list-api-public-v1-pulse-trader-by-address-daily",
         "parameters": [
           {
-            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed history returns an empty result, not 404.",
             "in": "path",
             "name": "address",
             "required": true,
             "schema": {
-              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed history returns an empty result, not 404.",
               "type": "string"
             }
           }
@@ -33556,12 +33556,12 @@
         "operationId": "get-api-public-v1-pulse-trader-by-address-performance",
         "parameters": [
           {
-            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed Hyperliquid trading history returns 404 with a detail explaining why.",
             "in": "path",
             "name": "address",
             "required": true,
             "schema": {
-              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed Hyperliquid trading history returns 404 with a detail explaining why.",
               "type": "string"
             }
           }
@@ -33778,12 +33778,12 @@
         "operationId": "list-api-public-v1-pulse-trader-by-address-tokens",
         "parameters": [
           {
-            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+            "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed history returns an empty result, not 404.",
             "in": "path",
             "name": "address",
             "required": true,
             "schema": {
-              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters). An unindexed address returns 404.",
+              "description": "Wallet address to inspect (0x followed by 40 hexadecimal characters; case-insensitive). An address with no indexed history returns an empty result, not 404.",
               "type": "string"
             }
           }
