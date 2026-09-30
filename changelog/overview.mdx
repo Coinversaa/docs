@@ -3,6 +3,37 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 30, 2026" tags={["WebSocket"]}>
+
+## Derived quotes: `bbo`, `l2Book` and `allMids`
+
+Three feeds now publish a **derived view** of the same resting book `l4Book` is
+built from, instead of the raw orders. Two of them are on **every plan**.
+
+| Feed | Tier | Argument | What it carries |
+|---|---|---|---|
+| `bbo` | Free | `coin` | Best bid and ask, with resting size and order count at each |
+| `allMids` | Free | none | Every native perp mid, as one map |
+| `l2Book` | Starter | `coin` | Up to 20 aggregated price levels a side |
+
+The catalog is **twenty-four feeds**, up from twenty-one.
+
+`bbo` sends a message only when the top of book changes. `l2Book` and `allMids`
+each **replace** their whole view on every frame — the top-20 depth and the
+entire mids map respectively — so neither is a diff stream, and applying them
+as diffs corrupts the result.
+
+`allMids` is an initial version and is **narrower than Hyperliquid's own**: it
+covers native perpetual markets only, with no spot, no builder dexes and no
+fall back to the last trade when a book side is empty. A coin missing either
+side is omitted from the map, so absence means one-sided, not zero.
+
+All three share one book per coin and can refuse a cold subscribe with
+`quote book warming up`, which is **retryable**. `seq` is the source book
+height and skips blocks that changed nothing visible.
+
+</Update>
+
 <Update label="September 22, 2026" tags={["WebSocket"]}>
 
 ## TWAP statuses: the node's own state machine, with a live-set snapshot
