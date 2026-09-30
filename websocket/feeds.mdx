@@ -396,13 +396,28 @@ Each frame replaces the **entire** map, and one is sent whenever any mid moves.
 
 ### Warming up
 
-These three share one book per coin, and a fresh subscription can arrive before that book is ready. When it is not, the subscribe is refused with:
+These three share one book per coin, and a fresh subscription can arrive before that book is ready.
+
+**The server retries for you, invisibly.** The connection manager re-requests the snapshot every 250 ms while it waits, and sends you nothing in the meantime — no ack, no error. A cold subscribe simply sits there. It gives up at a bound:
+
+| Feed | The server keeps trying for |
+|---|---:|
+| `bbo`, `l2Book` | 2 minutes |
+| `allMids` | 5 minutes |
+
+`allMids` gets longer because it initializes the whole native perp universe rather than one coin's book.
+
+Only when that deadline passes do you receive:
 
 ```json
 ← {"channel":"error","data":"quote book warming up"}
 ```
 
-**This is retryable, not fatal** — retry with backoff rather than treating it as a bad subscription. `allMids` waits for every native book to reach the same source block, so it is the slowest of the three to become available after a restart.
+**By then the server has already retried for two or five minutes**, so an immediate client-side retry is unlikely to fare better — wait before trying again. The error is not fatal and says nothing about your key, your coin spelling or your plan.
+
+<Warning>
+Do not set a client-side subscribe timeout shorter than these bounds for the quote feeds. A client that gives up after ten seconds of silence will abandon a subscription the server is still working on, and will do it every time on a cold book.
+</Warning>
 
 A broken chain or a partial block suspends derived updates until the book is rebuilt. Existing subscribers are not dropped: the next frame they receive carries `snapshot:true` again and replaces their state.
 
