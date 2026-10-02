@@ -121,7 +121,7 @@ Two things to know:
 
 ## How tier resolution works
 
-Each API key carries its own tier independently. If you have multiple keys on the same account at different tiers, each key is rate-limited and entitlement-checked on its own — a Free key calling with a Pro key sitting unused in the same account still only gets Free limits.
+Each API key has an effective tier. Endpoint access and daily/monthly caps are checked using that tier, but REST usage is shared across the account’s keys — creating another key does not create another request allocation. A Free key calling alongside an unused Pro key still has Free endpoint access and daily/monthly caps.
 
 The websocket resolves differently: a connection gets the **highest entitled tier across the account's keys**, and its connection cap is shared by all of them. See [WebSocket plan limits](/websocket/limits#resolved-limits-not-the-table).
 

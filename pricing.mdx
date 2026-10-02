@@ -75,9 +75,9 @@ Details in [WebSocket plan limits](/websocket/limits).
     That's Enterprise — limits are negotiated independently. Email [chat@coinversa.ai](mailto:chat@coinversa.ai).
   </Accordion>
   <Accordion title="Are rate limits per key or per account?">
-    Per key for RPM and daily/monthly caps. Tiers are per key too — each key serves its own tier (capped by your account's entitlement), so a Free key doesn't inherit a paid sibling's limits.
+    REST RPM and daily/monthly usage are shared across keys on the same account. Additional keys do not create separate allocations. Access is still evaluated using the presented key's effective tier, capped by your account's entitlement — a Free key does not inherit a paid sibling's access.
 
-    The **websocket connection cap is the exception: it is per account**, shared across every key you own — five Pro connections are five in total, however many keys hold them. See [WebSocket plan limits](/websocket/limits).
+    The **websocket connection cap is also per account**, shared across every key you own — five Pro connections are five in total, however many keys hold them. See [WebSocket plan limits](/websocket/limits).
   </Accordion>
   <Accordion title="Do MCP and direct API calls share the same limit?">
     Yes. The MCP server forwards your key to the API, so both paths consume the same quota.
