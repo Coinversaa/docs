@@ -18,10 +18,10 @@ The websocket is metered separately, on **capacity** rather than requests — st
 
 | Tier | Websocket connections (per account) | Subscriptions per connection | Feeds | Fair-use bandwidth |
 |------|---:|---:|---|---:|
-| Free       | 1 | 2   | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser` | 5 GB / mo |
-| Starter    | 1 | 25  | Free's feeds plus `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` | 50 GB / mo |
-| Pro        | 5 | 100 | all 21, incl. `l4Book`, liquidations, leverage, TWAP orders and TWAP statuses | 250 GB / mo |
-| Enterprise | custom | custom | all 21                 | 250 GB / mo |
+| Free       | 1 | 2   | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser`, `bbo`, `allMids` | 5 GB / mo |
+| Starter    | 1 | 25  | Free's feeds plus `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers`, `l2Book` | 50 GB / mo |
+| Pro        | 5 | 100 | all 24, incl. `l4Book`, `bbo`, `l2Book`, `allMids`, liquidations, leverage, TWAP orders and TWAP statuses | 250 GB / mo |
+| Enterprise | custom | custom | all 24                 | 250 GB / mo |
 
 Details in [WebSocket plan limits](/websocket/limits).
 
@@ -47,7 +47,7 @@ Details in [WebSocket plan limits](/websocket/limits).
     - 10 active keys
     - Deep [builder analytics](/api-reference/builders): traders, fills, cohorts, retention, cross-builder overlap
     - Access to deeper analytics tools (entity resolution, HIP-4 perp-position context, etc.)
-    - [WebSocket](/websocket/overview): 5 concurrent connections, 100 subscriptions each, all 21 feeds (`l4Book`, liquidations, leverage changes, TWAP orders, TWAP statuses and the multi-wallet variants), 250 GB fair-use bandwidth
+    - [WebSocket](/websocket/overview): 5 concurrent connections, 100 subscriptions each, all 24 feeds (`l4Book`, `bbo`, `l2Book`, `allMids`, liquidations, leverage changes, TWAP orders, TWAP statuses and the multi-wallet variants), 250 GB fair-use bandwidth
   </Accordion>
   <Accordion title="Enterprise — custom">
     - Negotiated rate / volume / SLA
