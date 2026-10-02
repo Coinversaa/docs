@@ -2029,11 +2029,19 @@
             "type": "integer"
           },
           "leverage": {
+            "description": "null: leverage is not recorded per reconstructed lifecycle.",
             "format": "double",
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "leverageType": {
-            "type": "string"
+            "description": "null: leverage type is not recorded per reconstructed lifecycle.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "notional": {
             "format": "double",
@@ -2262,6 +2270,7 @@
             "type": "number"
           },
           "netBias": {
+            "description": "Notional-weighted bias percent: 100 * (longNotional - shortNotional) / (longNotional + shortNotional), from -100 to +100; zero when no notional.",
             "format": "double",
             "type": "number"
           },
@@ -5613,7 +5622,7 @@
             "type": "number"
           },
           "cumulativeShortNotional": {
-            "description": "Cumulative short notional from the bucket above current price upward, USD; zero at or below current-price bucket.",
+            "description": "Cumulative short notional from the current-price bucket upward, USD; zero below current-price bucket.",
             "format": "double",
             "type": "number"
           },
@@ -23344,7 +23353,7 @@
     },
     "/api/public/v1/pulse/closed-positions/recent": {
       "get": {
-        "description": "DEPRECATED — superseded by GET /pulse/lifecycles/recent, which returns the same rows with a richer shape (MAE/MFE, liquidation flag, builder fee, optional spot). Both routes read the position_lifecycles_full table with identical filters, so ids, realizedPnl, fees, size (= peakSize) and notional (= peakSize x entryVwap) agree between them. Fields that only exist on the legacy shape are fixed: unrealizedPnl is 0 (the lifecycle is closed), leverage is 0 and leverageType is empty (not tracked per lifecycle). Perp-only.",
+        "description": "DEPRECATED — superseded by GET /pulse/lifecycles/recent, which returns the same rows with a richer shape (MAE/MFE, liquidation flag, builder fee, optional spot). Both routes read the position_lifecycles_full table with identical filters, so ids, realizedPnl, fees, size (= peakSize) and notional (= peakSize x entryVwap) agree between them. Fields that only exist on the legacy shape are fixed: unrealizedPnl is 0 (the lifecycle is closed), leverage and leverageType are null (not tracked per lifecycle). Perp-only.",
         "operationId": "list-api-public-v1-pulse-closed-positions-recent",
         "parameters": [
           {
@@ -27815,7 +27824,7 @@
     },
     "/api/public/v1/pulse/leaderboard": {
       "get": {
-        "description": "Ranked traders. period=allTime reads the all-time traders table. day/week/month aggregate trader_daily_stats over UTC calendar days (a fill at 23:59 counts for its whole day) and require at least 10 trades in the window. totalFees, largestWin, largestLoss, firstTradeAt and lastTradeAt are all-time facts the period aggregate does not compute, so period rows carry null for them. total is the number of rows returned. Spot pairs are not excluded, so a spot market maker can top the pnl and volume sorts.",
+        "description": "Ranked traders. period=allTime reads the all-time traders table. day/week/month aggregate trader_daily_stats over UTC calendar days (a fill at 23:59 counts for its whole day). minTrades (default 10) applies before ranking in every supported sort. score and risk-adjusted are unsupported and return 400. winRate is the percentage of all fills with positive closed PnL, not a position win rate. PnL is gross of fees. totalFees, largestWin, largestLoss, firstTradeAt and lastTradeAt are all-time facts the period aggregate does not compute, so period rows carry null for them. total is the number of rows returned. Spot pairs are not excluded, so a spot market maker can top the pnl and volume sorts.",
         "operationId": "get-api-public-v1-pulse-leaderboard",
         "parameters": [
           {
@@ -27857,6 +27866,19 @@
             "schema": {
               "default": 20,
               "format": "int32",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "minTrades",
+            "schema": {
+              "default": 10,
+              "format": "int64",
+              "minimum": 0,
               "type": "integer"
             }
           }
@@ -32141,6 +32163,7 @@
     },
     "/api/public/v1/pulse/trader/{address}/closed-positions": {
       "get": {
+        "description": "Complete, closed perp lifecycles in the rolling lifecycle retention window. Same source and completeness filters as closed-positions/stats (stats is capped at the latest 10,000 rows). realizedPnl and fees come directly from the lifecycle; PnL is gross of fees. size is peak size. unrealizedPnl is 0 on closed positions. leverage and leverageType are null (not tracked per lifecycle).",
         "operationId": "list-api-public-v1-pulse-trader-by-address-closed-positions",
         "parameters": [
           {
@@ -32388,7 +32411,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List API public v1 pulse trader by address closed positions",
+        "summary": "Trader closed positions",
         "x-coinversa-min-tier": "free",
         "x-coinversa-quota-scope": "account"
       }
