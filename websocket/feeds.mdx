@@ -1,9 +1,9 @@
 ---
 title: "Feeds and the fill object"
-description: "The twenty-one websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, a list of up to 1,000 wallets, liquidations, leverage and margin changes, OHLC candles per coin or across every market, TWAP slice fills, TWAP order lifecycle, TWAP status with a live-set snapshot, and the L4 order book — which plans include each, and every field on a streamed fill."
+description: "The twenty-four websocket feeds — the Hyperliquid fill firehose, one coin, one wallet, a list of up to 1,000 wallets, liquidations, leverage and margin changes, OHLC candles per coin or across every market, TWAP slice fills, TWAP order lifecycle, TWAP status with a live-set snapshot, the L4 order book, and the derived quote feeds — best bid/offer, aggregated depth and every native perp mid — which plans include each, and every field on a streamed fill."
 ---
 
-Twenty-one raw feeds today: four stream fills, three stream liquidations, three stream leverage and isolated-margin changes, two stream OHLC candles, three stream the fills a TWAP order executed, three stream the TWAP orders themselves, two stream the node's own TWAP state machine, and one streams a coin's full order book. Five of them are **multi-wallet** list feeds that follow up to 1,000 addresses on one subscription — [below](#multi-wallet-subscriptions). Three deliver **state on subscribe** before the live stream starts: `l4Book`, `twapStatuses` and `twapStatusesByUser`. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
+Twenty-four raw feeds today: four stream fills, three stream liquidations, three stream leverage and isolated-margin changes, two stream OHLC candles, three stream the fills a TWAP order executed, three stream the TWAP orders themselves, two stream the node's own TWAP state machine, one streams a coin's full order book, and three stream **derived quotes** off that book — [`bbo`, `l2Book` and `allMids`](#derived-order-book-quotes). Five are **multi-wallet** list feeds that follow up to 1,000 addresses on one subscription — [below](#multi-wallet-subscriptions). Six deliver **state on subscribe** before the live stream starts: `l4Book`, `bbo`, `allMids`, `l2Book`, `twapStatuses` and `twapStatusesByUser`. Each is a separate subscription, and you can hold as many as your plan's per-connection cap allows on one socket. Every frame carries a monotonic `seq` — see [sequence numbers](/websocket/protocol#sequence-numbers) for what the number means on each feed.
 
 | Feed | Argument | What arrives | Plans |
 |---|---|---|---|
@@ -48,9 +48,9 @@ Twenty-one raw feeds today: four stream fills, three stream liquidations, three 
 {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}
 ```
 
-The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive almost everywhere — including `candle`'s `coin`, which folds like any other market name. Two arguments are the exception, and both are hashed exactly as sent:
+The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive almost everywhere — including `candle`'s `coin`, which folds like any other market name. Two kinds of argument are the exception, and both are hashed exactly as sent:
 
-- **`l4Book`'s `coin`** must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing).
+- **The `coin` on `l4Book`, `bbo` and `l2Book`** must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there. All three key into the same book export, so the rule is the same for each; see [subscribing to the book](/websocket/order-book#subscribing) and [derived quotes](#derived-order-book-quotes).
 - **`candle`'s and `allCandles`' `interval`** bites hardest: `1m` is **one minute** and `1M` is **30 days**. Both are valid, so upper-casing it does not produce an error — it produces a working subscription delivering candles 43,200× wider than you asked for. `2m` is not an interval at all and answers `invalid argument interval`.
 
 A candle's `coin` is *not* in that list. It folds — `btc` and `BTC` are one subscription and one feed group — and the frame answers both with `"s":"BTC"`, so `s` is always a market name that exists.
@@ -60,7 +60,7 @@ Send only the arguments a type declares: an unrecognised extra field is **refuse
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser`, `twapOrdersByUser` and `twapStatusesByUser` accept any address, and so do the five `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills` and `twapSliceFillsByUsers` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order, TWAP-status and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser`, `twapOrdersByUser` and `twapStatusesByUser` accept any address, and so do the five `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order, TWAP-status and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames
@@ -344,6 +344,86 @@ Nothing is subscribed when any of these fires, and each arrives as `{"channel":"
 | `feed not in tier` | The list variant is above your plan. See the table above. |
 
 See the [wire protocol](/websocket/protocol#errors-on-an-open-socket) for the rest.
+
+## Derived order-book quotes
+
+Three feeds read the same in-memory resting book the [`l4Book`](/websocket/order-book) feed is built from, and publish a **derived view** of it rather than the raw orders. Two of them — `bbo` and `allMids` — are on **every plan**, including Free.
+
+| Feed | Tier | Argument | What it carries |
+|---|---|---|---|
+| `bbo` | Free | `coin` | Best bid and ask only, with total resting size and order count at each price |
+| `allMids` | Free | none | Every native perp mid, as one map |
+| `l2Book` | Starter | `coin` | Up to 20 aggregated price levels per side |
+
+`bbo` and `l2Book` take the coin in the **node's own spelling, case-sensitively** — `BTC`, `xyz:GOLD`, `#28200` — the same rule as `l4Book`, because they key into the same book export.
+
+### `bbo` — top of book
+
+```json
+→ {"method":"subscribe","subscription":{"type":"bbo","coin":"BTC"}}
+← {"channel":"bbo","seq":123,"snapshot":true,"data":{"coin":"BTC","time":1780000000000,"bbo":[{"px":"70000","sz":"1.2","n":3},{"px":"70001","sz":"0.8","n":2}]}}
+```
+
+`bbo` is a two-element array — **bid first, then ask**. An empty side is `null`, so check for it before reading `px`. `sz` is the total resting size at that price and `n` is how many orders make it up. After the first frame, a message is sent **only when the top of book changes** — a quiet market is a quiet subscription.
+
+There is no mid in the frame. Average the two prices yourself when both sides exist.
+
+### `l2Book` — aggregated depth
+
+```json
+→ {"method":"subscribe","subscription":{"type":"l2Book","coin":"BTC"}}
+← {"channel":"l2Book","seq":123,"snapshot":true,"data":{"coin":"BTC","time":1780000000000,"levels":[[{"px":"70000","sz":"1.2","n":3}],[{"px":"70001","sz":"0.8","n":2}]]}}
+```
+
+`levels` is `[bids, asks]`, best first, up to **20 levels a side**.
+
+<Warning>
+Every `l2Book` frame **replaces** the whole top-20 for that coin. These are not incremental diffs, and applying them as diffs — the way `l4Book` updates are applied — corrupts the book. If a price you were tracking is absent from the newest frame, it has left the top 20.
+</Warning>
+
+### `allMids` — every native perp mid
+
+```json
+→ {"method":"subscribe","subscription":{"type":"allMids"}}
+← {"channel":"allMids","seq":123,"snapshot":true,"data":{"time":1780000000000,"mids":{"BTC":"70000.5","ETH":"3000"}}}
+```
+
+Each frame replaces the **entire** map, and one is sent whenever any mid moves.
+
+<Note>
+**This is an initial version, and it is narrower than Hyperliquid's own `allMids`.** It covers **native perpetual markets only** — no spot, no builder dexes, and no builder-dex selector. There is no fall back to the last trade when a book side is empty: a coin missing either a bid or an ask is **omitted from the map entirely**, so a coin's absence means one-sided or empty, not zero. Code written against Hyperliquid's `allMids` will see a smaller universe here.
+</Note>
+
+### Warming up
+
+These three share one book per coin, and a fresh subscription can arrive before that book is ready.
+
+**Your subscribe is acknowledged at once.** The ack is queued on the control channel, which jumps ahead of data, before the server starts building anything — so a quote subscribe is accepted in milliseconds like any other.
+
+**What waits is the first data frame.** The server re-requests the snapshot every 250 ms behind that ack and sends you nothing in the meantime, so the gap is between the ack and the `snapshot:true` frame. It gives up at a bound:
+
+| Feed | The server keeps trying for |
+|---|---:|
+| `bbo`, `l2Book` | 2 minutes |
+| `allMids` | 5 minutes |
+
+`allMids` gets longer because it initializes the whole native perp universe rather than one coin's book.
+
+Only when that deadline passes, instead of a snapshot, do you receive:
+
+```json
+← {"channel":"error","data":"quote book warming up"}
+```
+
+**By then the server has already retried for two or five minutes**, so an immediate client-side retry is unlikely to fare better — wait before trying again. The error is not fatal and says nothing about your key, your coin spelling or your plan.
+
+<Warning>
+**Do not time out waiting for the first frame sooner than the bound.** A client that waits for the *ack* gets it immediately and is fine; a client that gives up after ten seconds of no *data* abandons a subscription the server is still working on, and will do it every time on a cold book. The two timeouts are different, and only the second one matters here.
+</Warning>
+
+A broken chain or a partial block suspends derived updates until the book is rebuilt. Existing subscribers are not dropped: the next frame they receive carries `snapshot:true` again and replaces their state.
+
+`seq` on all three is the **source book height**, and it **skips blocks** — a block that changed nothing visible produces no frame and no `seq`. Do not treat a gap as loss.
 
 ## TWAP slice fills
 

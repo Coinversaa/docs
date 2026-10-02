@@ -36,7 +36,7 @@ Your key's tier is set by your active subscription. Free is the default; paid ti
 See [pricing](/pricing) for what each tier unlocks.
 
 <Note>
-**Each key is checked on its own.** A key serves the tier it was provisioned at, capped by your account's active entitlement — a Free key calling alongside an unused Pro key on the same account still gets Free limits. See [how tier resolution works](/api-reference/tiers#how-tier-resolution-works).
+**Access is checked per key; request usage is shared by account.** Additional keys do not multiply your REST RPM or daily/monthly allowance. A key serves the tier it was provisioned at, capped by your account's active entitlement — a Free key calling alongside an unused Pro key on the same account still has Free endpoint access and daily/monthly caps. See [how tier resolution works](/api-reference/tiers#how-tier-resolution-works).
 </Note>
 
 ## Rate-limit headers
@@ -46,8 +46,8 @@ Every successful response includes:
 | Header | Meaning |
 |--------|---------|
 | `X-RateLimit-Tier`      | Tier resolved for this request (`free`, `starter`, `pro`, `enterprise`) |
-| `X-RateLimit-Remaining` | Requests remaining in the current per-minute window |
-| `X-RateLimit-Next`      | Time until the window refills (a duration string, e.g. `12.4s`) |
+| `X-RateLimit-Remaining` | Minimum remaining tokens across the account minute and per-route buckets |
+| `X-RateLimit-Next`      | Time until the next token is available across the checked buckets (a duration string, e.g. `12.4s`), not a full-window refill |
 | `X-RateLimit-Route`     | Remaining allowance on the per-route limit, where one applies |
 | `X-RateLimit-Daily`     | Requests remaining today (only on tiers with a daily cap) |
 | `X-RateLimit-Monthly`   | Requests remaining this billing month (only on tiers with a monthly cap) |
@@ -134,10 +134,10 @@ All errors are JSON **problem details**: `title`, `status`, a human-readable `de
 
 ## Historical-window caps
 
-Caller-controlled history windows (`since`, `hours`/`days` params, explicit `startTime`/`endTime` ranges) are clamped to **90 days** on every tier — the cap is universal, not tier-based. The clamp is **silent**: no error is returned, the query just runs against the capped window, and the response may echo the window you asked for. Compare response timestamps against your requested range to detect truncation. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
+Caller-controlled history windows (`since`, `hours`/`days` params, explicit `startTime`/`endTime` ranges) are capped at **90 days** on every tier — the cap is universal, not tier-based. How a route enforces it differs: routes with a documented `since` **ceiling reject** an overlong window with a `400` (`since=<value> exceeds this route's <ceiling> ceiling`), while the rest run against the capped window and may echo the range you asked for. Compare response timestamps against your requested range to detect truncation, and see [data windows](/api-reference/data-windows) for the per-route ceilings. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
 
 Longer windows are available on Enterprise as custom exports and negotiated data delivery, not as an API parameter. See [Data windows](/api-reference/data-windows) for per-endpoint window semantics.
 
 ## Usage logging
 
-Every authenticated request is logged with the response time and status code so you can audit usage in **Usage** in the portal. Logs include endpoint, method, IP, and user-agent — but never the key itself (only the SHA-256 hash).
+Authenticated requests that pass the access and rate-limit checks are logged with the response time and status code so you can audit usage in **Usage** in the portal. Logs include endpoint, method, IP, and user-agent — but never the key itself (only the SHA-256 hash).

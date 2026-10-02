@@ -3,6 +3,67 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="September 30, 2026" tags={["WebSocket"]}>
+
+## Derived quotes: `bbo`, `l2Book` and `allMids`
+
+Three feeds now publish a **derived view** of the same resting book `l4Book` is
+built from, instead of the raw orders. Two of them are on **every plan**.
+
+| Feed | Tier | Argument | What it carries |
+|---|---|---|---|
+| `bbo` | Free | `coin` | Best bid and ask, with resting size and order count at each |
+| `allMids` | Free | none | Every native perp mid, as one map |
+| `l2Book` | Starter | `coin` | Up to 20 aggregated price levels a side |
+
+The catalog is **twenty-four feeds**, up from twenty-one.
+
+`bbo` sends a message only when the top of book changes. `l2Book` and `allMids`
+each **replace** their whole view on every frame — the top-20 depth and the
+entire mids map respectively — so neither is a diff stream, and applying them
+as diffs corrupts the result.
+
+`allMids` is an initial version and is **narrower than Hyperliquid's own**: it
+covers native perpetual markets only, with no spot, no builder dexes and no
+fall back to the last trade when a book side is empty. A coin missing either
+side is omitted from the map, so absence means one-sided, not zero.
+
+All three share one book per coin. The subscribe is **acked at once**; what
+waits is the first data frame, while the server re-requests the snapshot every
+250 ms behind that ack. If the book is not ready in **2 minutes** (`bbo`,
+`l2Book`) or **5 minutes** (`allMids`), `quote book warming up` arrives instead
+of the snapshot. Do not time out waiting for the first frame sooner than that. `seq` is the source book
+height and skips blocks that changed nothing visible.
+
+</Update>
+
+<Update label="September 23, 2026" tags={["MCP"]}>
+
+## Connector v0.13.0: payload controls on the five heaviest tools
+
+`live_risk_overview`, `live_coin_risk_snapshot`, `list_assets`, `hip4_questions`
+and `pulse_trader_daily_stats` returned payloads with no way to trim them. All
+five now take shaping parameters — `include`, `search`, `detail`, `status`,
+`startDate`/`endDate`, and `limit`/`offset` as each one warrants — and every
+capped response carries `totalCount`, `truncated` and a `note` naming the next
+`offset`.
+
+These are applied **by the connector**, after it fetches the endpoint. The API
+routes take none of them: `/live/risk/overview` and `/hip4/questions` accept no
+query parameters at all, `/live/risk/coins/{coin}` and
+`/pulse/trader/{address}/daily` accept only their path parameter, and `/assets`
+accepts only `crossMarketOnly`. A route ignores a parameter it does not
+declare, so `GET /assets?limit=3` still returns all 415 assets. See
+[Connector-side parameters](/mcp/tools#connector-side-parameters).
+
+The catalog page also now lists `builder_lifecycle`, `builder_journey` and
+`builder_orders` (shipped in 0.11.1 but never added) and drops
+`pulse_market_overview`, removed in 0.12.0. `builder_heatmap` is registered but
+withheld while its hourly rollup backfills, so the connector advertises **106**
+of its 107 tools.
+
+</Update>
+
 <Update label="September 22, 2026" tags={["WebSocket"]}>
 
 ## TWAP statuses: the node's own state machine, with a live-set snapshot

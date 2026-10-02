@@ -1,22 +1,22 @@
 ---
 title: "WebSocket plan limits"
-description: "Websocket capacity by plan — concurrent connections per account, subscriptions per connection, which of the twenty-one feeds each tier includes, multi-wallet lists against the subscription cap, fair-use bandwidth — and how the connection cap is shared across your API keys."
+description: "Websocket capacity by plan — concurrent connections per account, subscriptions per connection, which of the twenty-four feeds each tier includes, multi-wallet lists against the subscription cap, fair-use bandwidth — and how the connection cap is shared across your API keys."
 ---
 
-Websocket access is **capacity-based**: you are limited by how many connections and concurrent subscriptions your plan allows and by a fair-use bandwidth allowance, never by how many messages you receive. Streaming does not draw down your REST request quota, and REST rate limits say nothing about it — the two are separate meters on the same key.
+Websocket access is **capacity-based**: you are limited by how many connections and concurrent subscriptions your plan allows and by a fair-use bandwidth allowance, never by how many messages you receive. Streaming does not draw down your REST request quota, and REST rate limits say nothing about it — REST requests and streaming capacity are measured separately.
 
 ## By plan
 
 | Plan | Connections per account | Subscriptions per connection | Feeds | Fair-use bandwidth per month |
 |---|---:|---:|---|---:|
-| Free | 1 | 2 | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser` | 5 GB |
-| Starter | 1 | 25 | Free's feeds plus `trades` (the firehose), `tradesByUsers`, `allCandles`, `twapSliceFills` and `twapSliceFillsByUsers` | 50 GB |
-| Pro | 5 | 100 | all 21, including the `l4Book` [order book](/websocket/order-book), [liquidations](/websocket/feeds#liquidations), [leverage changes](/websocket/feeds#leverage-and-margin), [TWAP orders](/websocket/feeds#twap-orders), [TWAP statuses](/websocket/feeds#twap-statuses) and the [multi-wallet variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
-| Enterprise | custom | custom | all 21 | 250 GB |
+| Free | 1 | 2 | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser`, `bbo`, `allMids` | 5 GB |
+| Starter | 1 | 25 | Free's feeds plus `trades` (the firehose), `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` | 50 GB |
+| Pro | 5 | 100 | all 24, including the `l4Book` [order book](/websocket/order-book), [liquidations](/websocket/feeds#liquidations), [leverage changes](/websocket/feeds#leverage-and-margin), [TWAP orders](/websocket/feeds#twap-orders), [TWAP statuses](/websocket/feeds#twap-statuses), the [derived quote feeds](/websocket/feeds#derived-order-book-quotes) and the [multi-wallet variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
+| Enterprise | custom | custom | all 24 | 250 GB |
 
-Two of these differ from REST limits in a way that bites:
+Keep these capacity scopes distinct:
 
-- **The connection cap is per account, shared across every key.** Five Pro connections are five in total, however many keys you spread them over. An indexer on one key, a staging box on another and a tab left open on a third are three of them. REST rate limits, by contrast, are [per key](/pricing#faq).
+- **The connection cap is per account, shared across every key.** Five Pro connections are five in total, however many keys you spread them over. An indexer on one key, a staging box on another and a tab left open on a third are three of them. REST request quotas are also [shared across account keys](/pricing#faq), but are separate from WebSocket capacity.
 - **The subscription cap is per connection.** Each socket may hold that many distinct subscriptions; opening another connection (within the cap) gets you another set.
 - **A multi-wallet list is one subscription.** A [`…ByUsers` subscription](/websocket/feeds#multi-wallet-subscriptions) carrying 1,000 wallets spends **one** slot, not 1,000. The 1,000-wallet ceiling is the same on every plan; what differs between plans is how many such lists you may hold at once.
 
@@ -43,7 +43,7 @@ An order-book snapshot is a data frame written to your connection, so **its byte
 | Connection cap | The upgrade is refused: `HTTP 429` for header clients, close code `4429` for browser clients. No `Retry-After`; a connection that died silently frees its slot within about 40 seconds. |
 | Subscription cap | `{"channel":"error","data":"too many subscriptions"}` on the open socket. Unsubscribe one and the slot frees immediately. |
 | Order-book cap | None of its own: `l4Book` subscriptions spend slots from the general per-connection cap. |
-| Feed not in plan | `{"channel":"error","data":"feed not in tier"}` on the open socket — `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills` and `twapSliceFillsByUsers` below Starter, and `l4Book`, `liquidations`, `liquidationsByUser`, `liquidationsByUsers`, `leverageUpdates`, `leverageUpdatesByUser`, `leverageUpdatesByUsers`, `twapOrders`, `twapOrdersByUser`, `twapOrdersByUsers`, `twapStatuses` and `twapStatusesByUser` below Pro. |
+| Feed not in plan | `{"channel":"error","data":"feed not in tier"}` on the open socket — `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` below Starter, and `l4Book`, `liquidations`, `liquidationsByUser`, `liquidationsByUsers`, `leverageUpdates`, `leverageUpdatesByUser`, `leverageUpdatesByUsers`, `twapOrders`, `twapOrdersByUser`, `twapOrdersByUsers`, `twapStatuses` and `twapStatusesByUser` below Pro. |
 | Wallets in one list | `{"channel":"error","data":"too many values for argument users"}` — over 1,000 distinct wallets on one `…ByUsers` subscription. Nothing is subscribed. Duplicates are removed before the count. |
 | Fair-use bandwidth | Nothing on the wire. The Usage page shows consumption against the allowance. |
 
