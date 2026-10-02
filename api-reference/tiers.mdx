@@ -47,7 +47,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
 
 <AccordionGroup>
   <Accordion title="Free (with API key)">
-    Global and per-trader basics. All `/live/*` endpoints are available at this tier with no further gating; most `/market/*` endpoints are too — see the table below for the exact list.
+    Global and per-trader basics. **Only three `/live/*` endpoints are Free** — the long/short trio; the risk, open-interest and cohort-bias routes are Pro. Most `/market/*` endpoints are Free, but not all. See the table below for the exact list.
 
     | Group | Endpoints |
     |-------|-----------|
@@ -58,9 +58,11 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Trader profile | `/pulse/trader/{address}`, `/pulse/trader/{address}/trades`, `/daily`, `/performance`, `/tokens`, `/demo`, `/closed-positions`, `/closed-positions/stats` |
     | Coin views | `/pulse/token-leaderboard/{coin}`, `/pulse/trades/recent` |
     | Lifecycle (single) | `/pulse/lifecycle/{id}`, `/pulse/closed-positions/recent` |
-    | Live state | All `/live/*` |
-    | Market | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/historical-oi`, `/market/book/coverage` |
+    | Live state | `/live/long-short`, `/live/coins/{coin}/long-short`, `/live/long-short/history` — **only these three**; everything else under `/live/*` is Pro |
+    | Market | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/book/coverage` |
     | Exchange aggregates | `/exchange/volume`, `/exchange/oi`, `/exchange/active-traders`, `/exchange/positions` |
+    | Assets | `/assets`, `/assets/{canonical}`, `/assets/{canonical}/cross-market` |
+    | Other | `/pulse/lifecycles/recent`, `/verify` |
     | HIP-4 | `/hip4/outcomes`, `/hip4/outcomes/{outcome_id}`, `/hip4/outcomes/{outcome_id}/recent-trades`, `/hip4/questions`, `/hip4/settlements/recent`, `/hip4/daily-volume`, `/hip4/most-active` |
     | Utility | `/plan`, `/census/stamp` |
   </Accordion>
@@ -82,11 +84,14 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Group | Endpoints |
     |-------|-----------|
     | Discovery (deep) | `/pulse/persistent-winners`, `/pulse/one-month-wonders`, `/pulse/survivors`, `/pulse/anti-survivors`, `/pulse/capital-titans`, `/pulse/newcomer-whales` |
-    | Risk & market | `/pulse/lethal-coins`, `/pulse/backstop-events`, `/pulse/market-concentration`, `/market/candles/recent/{symbol}` |
+    | Risk & market | `/pulse/lethal-coins`, `/pulse/backstop-events`, `/pulse/market-concentration`, `/pulse/market/candles/recent/{symbol}`, `/market/historical-oi` |
+    | Live risk | `/live/risk/overview`, `/live/risk/coins/{coin}`, `/live/risk/coins/{coin}/history`, `/live/risk/coins/{coin}/mark-dislocations`, `/live/risk/liquidations/recent`, `/live/risk/liquidations/summary`, `/live/liquidation-heatmap/{coin}` |
+    | Live OI & cohort bias | `/live/oi-history`, `/live/oi-history/{coin}`, `/live/official-oi`, `/live/official-oi/{coin}`, `/live/cohort-bias/{coin}`, `/live/cohort-bias-history/{coin}` |
+    | Deep archetypes | `/pulse/max-pain-events`, `/pulse/perfect-exits`, `/pulse/wallet-drawdown-curve/{address}` |
     | Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/positions`, `/trades`, `/history` |
     | Cohort drilldowns (rolling 30d) | `/pulse/cohorts-recent/{tierType}/{tier}/positions`, `/trades`, `/lifecycle-stats`, `/top-positions`, `/alpha-concentration` |
     | Cohort timeseries | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` |
-    | Builder analytics (deep) | `/builders/{builder}/traders`, `/builders/{builder}/fills`, `/builders/{builder}/cohorts`, `/builders/{builder}/retention`, `/builders/{builder}/overlap` — see [Builder endpoints](/api-reference/builders) |
+    | Builder analytics (deep) | `/builders/{builder}/traders`, `/builders/{builder}/fills`, `/builders/{builder}/cohorts`, `/builders/{builder}/retention`, `/builders/{builder}/overlap`, `/builders/{builder}/orders`, `/builders/{builder}/heatmap`, `/builders/{builder}/lifecycle`, `/builders/{builder}/journey` — see [Builder endpoints](/api-reference/builders) |
     | L4 order book | `/market/book/summary/{coin}`, `/market/book/stops/{coin}`, `/market/book/whales/{coin}`, `/market/book/levels/{coin}` — order-level, with the wallet on every order. `/market/book/coverage` is Free. |
     | Entity resolution | `/entity/{address}`, `/entities/leaderboard` |
     | HIP-4 (deep) | `/hip4/cross-product/overlap`, `/hip4/outcomes/{outcome_id}/perp-position-context` |

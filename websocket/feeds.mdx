@@ -48,9 +48,9 @@ Twenty-four raw feeds today: four stream fills, three stream liquidations, three
 {"method":"subscribe","subscription":{"type":"l4Book","coin":"BTC"}}
 ```
 
-The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive almost everywhere — including `candle`'s `coin`, which folds like any other market name. Two arguments are the exception, and both are hashed exactly as sent:
+The `type` is **case-sensitive** — `tradesByCoin` works, `TRADESBYCOIN` answers `unknown subscription type`. Argument **values** are case-insensitive almost everywhere — including `candle`'s `coin`, which folds like any other market name. Two kinds of argument are the exception, and both are hashed exactly as sent:
 
-- **`l4Book`'s `coin`** must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there; see [subscribing to the book](/websocket/order-book#subscribing).
+- **The `coin` on `l4Book`, `bbo` and `l2Book`** must be the node's own spelling of the market — `BTC`, `xyz:GOLD`, `#28200` — because `btc` names no market there. All three key into the same book export, so the rule is the same for each; see [subscribing to the book](/websocket/order-book#subscribing) and [derived quotes](#derived-order-book-quotes).
 - **`candle`'s and `allCandles`' `interval`** bites hardest: `1m` is **one minute** and `1M` is **30 days**. Both are valid, so upper-casing it does not produce an error — it produces a working subscription delivering candles 43,200× wider than you asked for. `2m` is not an interval at all and answers `invalid argument interval`.
 
 A candle's `coin` is *not* in that list. It folds — `btc` and `BTC` are one subscription and one feed group — and the frame answers both with `"s":"BTC"`, so `s` is always a market name that exists.
@@ -60,7 +60,7 @@ Send only the arguments a type declares: an unrecognised extra field is **refuse
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser`, `twapOrdersByUser` and `twapStatusesByUser` accept any address, and so do the five `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills` and `twapSliceFillsByUsers` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order, TWAP-status and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser`, `twapOrdersByUser` and `twapStatusesByUser` accept any address, and so do the five `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order, TWAP-status and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames

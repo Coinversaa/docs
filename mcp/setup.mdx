@@ -5,7 +5,7 @@ description: "Connect Coinversa Pulse to Claude, Cursor, Perplexity, or any MCP-
 
 The Coinversa MCP server exposes the Pulse tools to AI agents over the Model Context Protocol. You install it once in your client, and the agent gets first-class access to Hyperliquid trader analytics, HIP-4 outcomes, live risk, and the cross-market asset registry.
 
-The MCP is the **agent interface** — a curated set of tools wrapping the REST API. If you need direct programmatic access to the full endpoint surface (including endpoints not yet exposed as tools, like [builder analytics](/api-reference/builders)) or [x402 pay-per-call](/api-reference/tiers#x402-pay-per-call), use the [REST API](/api-reference) directly. Both use the same API key.
+The MCP is the **agent interface** — a curated set of tools wrapping the REST API. If you need direct programmatic access to the full endpoint surface (including endpoints not yet exposed as tools) or [x402 pay-per-call](/api-reference/tiers#x402-pay-per-call), use the [REST API](/api-reference) directly. Both use the same API key.
 
 **Hosted MCP endpoint:** `https://mcp.coinversa.ai/mcp`
 **Source:** [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server)
@@ -13,7 +13,7 @@ The MCP is the **agent interface** — a curated set of tools wrapping the REST 
 The hosted endpoint uses **OAuth**: paste the URL into your client and it opens a Coinversa authorization page in your browser. Sign in — or create an account right there — and connect a key in one click: existing accounts **pick any of their keys from a list** (no need to have the value saved), new accounts get a key created automatically. **New accounts get 14 days of Pro, no credit card.** No headers, no config beyond the URL.
 
 <Note>
-Prefer pasting? The authorization page also accepts a saved `cvsa_` key directly. Either way, your key never travels through the client: connecting hands over a single-use, 2-minute code, and the MCP server stores only an opaque reference — never the key itself. Keys stay revocable any time from the [developer portal](https://developers.coinversa.ai/keys) — revoking a key instantly disconnects every agent that authorized with it.
+Prefer pasting? The authorization page also accepts a saved `cvsa_` key directly. The two paths differ in what the server holds: connecting with a code hands over a single-use, 2-minute reference and the server stores **only that reference, never the key**, while a pasted `cvsa_` key is held by the server for the life of the grant. Keys stay revocable any time from the [developer portal](https://developers.coinversa.ai/keys) — revoking a key instantly disconnects every agent that authorized with it.
 </Note>
 
 ## Claude.ai (web)

@@ -134,7 +134,7 @@ All errors are JSON **problem details**: `title`, `status`, a human-readable `de
 
 ## Historical-window caps
 
-Caller-controlled history windows (`since`, `hours`/`days` params, explicit `startTime`/`endTime` ranges) are clamped to **90 days** on every tier — the cap is universal, not tier-based. The clamp is **silent**: no error is returned, the query just runs against the capped window, and the response may echo the window you asked for. Compare response timestamps against your requested range to detect truncation. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
+Caller-controlled history windows (`since`, `hours`/`days` params, explicit `startTime`/`endTime` ranges) are capped at **90 days** on every tier — the cap is universal, not tier-based. How a route enforces it differs: routes with a documented `since` **ceiling reject** an overlong window with a `400` (`since=<value> exceeds this route's <ceiling> ceiling`), while the rest run against the capped window and may echo the range you asked for. Compare response timestamps against your requested range to detect truncation, and see [data windows](/api-reference/data-windows) for the per-route ceilings. Risk endpoints (`/live/risk/liquidations/*`, etc.) are additionally clamped to data starting `2026-01-01` (the day we began collecting L1 liquidation events).
 
 Longer windows are available on Enterprise as custom exports and negotiated data delivery, not as an API parameter. See [Data windows](/api-reference/data-windows) for per-endpoint window semantics.
 

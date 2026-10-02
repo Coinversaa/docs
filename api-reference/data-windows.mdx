@@ -36,14 +36,14 @@ Window is whatever the caller passes. Defaults vary; see the per-endpoint refere
 
 | Endpoint | Default `since` |
 |----------|----------------|
-| `/pulse/trades/recent` | `10m` |
+| `/pulse/trades/recent` | `1h` |
 | `/pulse/trader/{address}/trades` | `1h` |
 | `/pulse/cohorts/{tierType}/{tier}/trades`, `/pulse/cohorts-recent/{tierType}/{tier}/trades` | `1h` |
 | `/pulse/closed-positions/recent` | `1h` |
 | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` | varies |
 | `/market/historical-oi` | varies |
 
-The `since` parameter accepts a number + unit (`m`, `h`, `d` — weeks are not a unit; `2w` is rejected with a `400 invalid since format`). Values beyond 90 days are silently clamped to 90 days; within that, the effective maximum is bounded by the underlying data freshness for each endpoint, not by your tier.
+The `since` parameter accepts a number + unit (`m`, `h`, `d` — weeks are not a unit; `2w` is rejected with a `400 invalid since format`). Routes with a ceiling **reject** an overlong window rather than clamping it: `since=<value> exceeds this route's <ceiling> ceiling`, as a `400`. `/pulse/trades/recent` is the one to watch — **30 days with `?coin=`, but only 6 hours without it**. Within a route's ceiling the effective maximum is bounded by the underlying data freshness, not by your tier.
 
 ## Builder analytics windows
 
@@ -86,6 +86,6 @@ Current snapshot only. No historical concept. Each call returns the latest state
     - **Live endpoints**: current state of the indexer, 1–10s behind L1 depending on the metric.
   </Accordion>
   <Accordion title="What happens if I request a window larger than the source allows?">
-    The query runs against the available data and returns whatever it has. No error is raised. Compare your response timestamps against your requested `since` to detect truncation.
+    Where a route has no ceiling, the query runs against the available data and returns whatever it has — compare your response timestamps against your requested `since` to detect truncation. Where a route **does** have a ceiling, an overlong `since` is a `400`, not a short answer.
   </Accordion>
 </AccordionGroup>
