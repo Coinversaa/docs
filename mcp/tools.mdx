@@ -155,6 +155,36 @@ Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) �
 | `market_recent_candles`   | Recent candles for a symbol. |
 | `market_historical_oi`    | Historical OI series. |
 
+## Draft chart updates — v0.14.0 and v0.15.0
+
+<Note>
+  **Pending release.** This section describes the chart connector changes under review. Availability depends on the deployed connector version, MCP Apps being enabled, and your client's support for interactive views.
+</Note>
+
+### v0.14.0: price charts and bounded candle history
+
+Use **`market_recent_candles`** for a price chart; use `market_price` for a quick mark/index/funding/OI lookup. Candles require **Pro**. An MCP Apps client can render candlesticks, dollar volume, moving averages, Bollinger Bands, RSI and MACD. Text-only clients retain the candle result; `indicators` selects the initial chart layers without changing those rows.
+
+| Input or result | Pending v0.14.0 behavior |
+|---|---|
+| `symbol` | Native or builder-dex ticker, such as `BTC`, `ETH` or `xyz:GOLD` |
+| `interval` | `1m` (default), `5m`, `15m`, `1h`, `4h` or `1d` |
+| `limit` | Default 240; **maximum 500**. Larger requests are clamped to 500 rather than rejected |
+| Candle order | Newest first in the tool result |
+| `volume` | **USD notional**. For hourly-source candles, estimated as base quantity × `(high + low + close) / 3` before aggregation |
+
+The limit bounds the source history too. With the current fallback aggregation, `5m` and `15m` use the latest 500 one-minute bars; `4h` and `1d` use the latest 500 hourly bars. You may therefore receive fewer than 500 aggregated candles. This is recent history, with no older-page cursor.
+
+**Market search** uses `list_markets`: `search` matches the symbol case-insensitively before pagination, and `dex` narrows the venue. For example, search for `gold`, then use the returned `xyz:GOLD` ticker. Inactive listings are hidden unless `includeInactive=true`; the connector's search and paging controls do not add parameters to the underlying API route.
+
+### v0.15.0: explore the chart locally
+
+The chart adds a searchable market picker, remembered selections, synchronized indicator panes, candle readouts, keyboard inspection, pan/zoom, and controls to return to the latest available bars. Search typing, indicator settings and range changes use loaded data. Returning to a cached market/interval reuses its candles; **Refresh** requests candles explicitly and keeps the previous chart visible if the request fails.
+
+Liquidation levels and Apex vs The Crowd positioning load on request and refresh separately from candles. They describe **current snapshots**; each layer identifies its retrieval time and any available source measurement time. Expansion and sending an analysis prompt are available only when the host supports them; otherwise the prompt remains selectable for copying.
+
+**Standard candle VWAP** uses `sum(HLC3 × base quantity) / sum(base quantity)`, where `HLC3 = (high + low + close) / 3`. Intraday intervals reset at the UTC day; daily candles anchor to the first loaded bar. It is available only when the source supplies base quantity for the loaded candles and there is positive volume. If those weights are missing, the chart reports VWAP as unavailable instead of treating USD notional as base quantity. The volume histogram remains in dollars.
+
 ## Entity resolution — owner-level intelligence · Pro <sup>new in 0.9</sup>
 
 Hyperliquid traders run named sub-accounts that trade independently — per-wallet

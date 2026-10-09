@@ -3,6 +3,34 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="Pending release" tags={["MCP", "v0.15.0", "Draft"]}>
+
+## Connector v0.15.0: search and explore the chart
+
+**Draft — not a production release announcement.** The next chart update adds a searchable market picker, cached market/interval switching, synchronized indicator panes, candle readouts, keyboard inspection, and local pan/zoom/range controls. Refresh fetches candles explicitly and retains the previous chart on failure; liquidation and cohort snapshots refresh separately.
+
+**VWAP uses base quantity**: `sum(HLC3 × base quantity) / sum(base quantity)`, resetting at the UTC day for intraday candles and anchoring at the first loaded bar for daily candles. When the source lacks base quantity, VWAP is unavailable. Displayed volume remains USD notional.
+
+Host-supported expansion and a previewed analysis prompt connect chart exploration to the conversation. Hosts without text messaging keep the prompt available for copying. Interactive availability depends on MCP Apps being enabled and supported by the client.
+
+See [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-and-v0-15-0). Release timing remains pending.
+
+</Update>
+
+<Update label="Pending release" tags={["MCP", "v0.14.0", "Draft"]}>
+
+## Connector v0.14.0: a chart for recent candles
+
+**Draft — not a production release announcement.** `market_recent_candles` gains an interactive MCP Apps chart for Pro users, with candlesticks, dollar volume and technical indicators. Text-only clients retain the candle result. Use `market_price` for a quick price lookup and `market_recent_candles` for chart questions.
+
+The connector caps candle requests at **500**, clamping larger values rather than rejecting them. Aggregated intervals can contain fewer output bars because the same cap applies to their source history. Volume is **USD notional**; hourly-source bars estimate it from base quantity and typical price before aggregation.
+
+`list_markets` supports case-insensitive symbol search before pagination, including builder-dex symbols such as `xyz:GOLD`. Inactive listings remain hidden by default. These updates use existing tools and do not add catalog entries.
+
+See [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-and-v0-15-0). Release timing remains pending.
+
+</Update>
+
 <Update label="September 30, 2026" tags={["WebSocket"]}>
 
 ## Derived quotes: `bbo`, `l2Book` and `allMids`
