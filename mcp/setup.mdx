@@ -1,9 +1,32 @@
 ---
 title: "MCP setup"
-description: "Connect Coinversa Pulse to Claude, Cursor, Perplexity, or any MCP-compatible client."
+description: "Add Coinversa Pulse in one click from Claude's connector directory or Perplexity, or connect Claude Code, Claude Desktop, Cursor, or any MCP-compatible client."
 ---
 
 The Coinversa MCP server exposes the Pulse tools to AI agents over the Model Context Protocol. You install it once in your client, and the agent gets first-class access to Hyperliquid trader analytics, HIP-4 outcomes, live risk, and the cross-market asset registry.
+
+## Add in Claude or Perplexity
+
+The fastest path — no URL to paste. Open the listing, click add, and sign in to Coinversa when prompted.
+
+<Columns cols={2}>
+  <Card title="Add in Claude" icon="arrow-up-right-from-square" href="https://claude.ai/directory/connectors/coinversa-pulse">
+    **Verified in Claude's connector directory** as Coinversa Pulse. Interactive views — positioning, liquidation maps and wallet profiles — render inside Claude.
+  </Card>
+  <Card title="Add in Perplexity" icon="arrow-up-right-from-square" href="https://www.perplexity.ai/computer/connectors?connector=coinversa">
+    Available in Perplexity's connectors. Add it and authorize with your Coinversa account.
+  </Card>
+</Columns>
+
+**Claude Code** — one command, then run `/mcp` inside Claude Code to authorize:
+
+```bash
+claude mcp add --transport http coinversa-pulse https://mcp.coinversa.ai/mcp
+```
+
+Every other client connects to the same URL, `https://mcp.coinversa.ai/mcp` — per-client steps follow below.
+
+## How the connection works
 
 The MCP is the **agent interface** — a curated set of tools wrapping the REST API. If you need direct programmatic access to the full endpoint surface (including endpoints not yet exposed as tools) or [x402 pay-per-call](/api-reference/tiers#x402-pay-per-call), use the [REST API](/api-reference) directly. Both use the same API key.
 
@@ -16,9 +39,9 @@ The hosted endpoint uses **OAuth**: paste the URL into your client and it opens 
 Prefer pasting? The authorization page also accepts a saved `cvsa_` key directly. The two paths differ in what the server holds: connecting with a code hands over a single-use, 2-minute reference and the server stores **only that reference, never the key**, while a pasted `cvsa_` key is held by the server for the life of the grant. Keys stay revocable any time from the [developer portal](https://developers.coinversa.ai/keys) — revoking a key instantly disconnects every agent that authorized with it.
 </Note>
 
-## Claude.ai (web)
+## Claude.ai (custom connector)
 
-Use the Custom Connectors UI — no local install.
+Prefer to add the URL yourself instead of using the [directory listing](https://claude.ai/directory/connectors/coinversa-pulse)? Use the Custom Connectors UI — no local install.
 
 <Steps>
   <Step title="Open the connector modal">
@@ -90,9 +113,9 @@ Cursor supports HTTP MCP servers natively. Add to your `~/.cursor/mcp.json`:
 
 Restart Cursor, approve the authorization prompt in your browser, and the Coinversa tools appear in the agent's tool palette. (The one-click **Install in Cursor** deeplink at [developers.coinversa.ai/connect](https://developers.coinversa.ai/connect) works too.)
 
-## Perplexity
+## Perplexity (custom connector)
 
-Use Perplexity's Custom Connectors.
+The [Coinversa listing](https://www.perplexity.ai/computer/connectors?connector=coinversa) is the quickest path. To add the URL yourself, use Perplexity's Custom Connectors.
 
 <Steps>
   <Step title="Open connectors">
