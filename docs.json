@@ -53,6 +53,7 @@
               "authentication",
               "api-reference/tiers",
               "api-reference/data-windows",
+              "api-reference/chart-layers",
               "api-reference/builders"
             ]
           },

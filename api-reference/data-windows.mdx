@@ -42,8 +42,9 @@ Window is whatever the caller passes. Defaults vary; see the per-endpoint refere
 | `/pulse/closed-positions/recent` | `1h` |
 | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` | varies |
 | `/market/historical-oi` | varies |
+| `/live/whale-trades/{coin}` | `6h` — **24h ceiling** (`400` above it) |
 
-The `since` parameter accepts a number + unit (`m`, `h`, `d` — weeks are not a unit; `2w` is rejected with a `400 invalid since format`). Routes with a ceiling **reject** an overlong window rather than clamping it: `since=<value> exceeds this route's <ceiling> ceiling`, as a `400`. `/pulse/trades/recent` is the one to watch — **30 days with `?coin=`, but only 6 hours without it**. Within a route's ceiling the effective maximum is bounded by the underlying data freshness, not by your tier.
+The `since` parameter accepts a number + unit (`m`, `h`, `d` — weeks are not a unit; `2w` is rejected with a `400 invalid since format`). Routes with a ceiling **reject** an overlong window rather than clamping it: `since=<value> exceeds this route's <ceiling> ceiling`, as a `400`. `/pulse/trades/recent` is the one to watch — **30 days with `?coin=`, but only 6 hours without it**. `/live/whale-trades/{coin}` stops at **24 hours**. Within a route's ceiling the effective maximum is bounded by the underlying data freshness, not by your tier.
 
 ## Builder analytics windows
 
@@ -70,6 +71,10 @@ Current snapshot only. No historical concept. Each call returns the latest state
 |-------|-----------|
 | All `/live/*` | Long/short ratio, cohort bias, liquidation heatmap, OI, risk overview, mark dislocations, etc. |
 | Market state | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}` |
+
+Two `/live/*` routes are the exception, and both bound their history explicitly. `/live/cohort-bias-history/{coin}` reads **hourly snapshots** over `hours` (default 168), silently clamped to **1–2160** (90 days), as an explicit UTC window echoed in the `format=layer` body. `/live/positioning-by-entry/{coin}` is the opposite: a **current snapshot of open positions**, never history, whose rows were observed at different times (`source.medianAgeS`). See [Chart layer endpoints](/api-reference/chart-layers).
+
+`/pulse/market/candles/recent/{symbol}` returns at most **500** candles (larger `limit` values are clamped, with `X-Limit-Clamped: 500`); its rolled-up intervals (`5m`, `15m`, `4h`, `1d`) read 1-minute candles kept for **30 days**, so `1d` returns at most 30 bars.
 
 ## FAQ
 

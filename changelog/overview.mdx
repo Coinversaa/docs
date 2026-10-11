@@ -3,6 +3,27 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="Pending release" tags={["MCP", "API", "v0.17.0", "Draft"]}>
+
+## Connector v0.17.0: Coinversa layers on the chart, and two new endpoints
+
+**Draft — not a production release announcement.** The chart stops being just a price chart. Alongside candles and indicators it now draws **where open positions got in**, **who holds them** and **how Apex and The Crowd have moved** — data a standard exchange chart does not show, because it comes from every open Hyperliquid position matched to its wallet's cohort.
+
+Two new Pro endpoints, each with a matching tool:
+
+- **Positioning by entry** — `/live/positioning-by-entry/{coin}` and `live_positioning_by_entry`. Open positions bucketed by entry price, long vs short and by cohort, with each cohort's average entry, average leverage, in-profit vs underwater notional and notional near liquidation — against Hyperliquid's live mark, with the stored mark's divergence disclosed. A current snapshot, never a history.
+- **Whale trades** — `/live/whale-trades/{coin}` and `live_whale_trades`. The largest fills by USD notional over up to 24 hours (default $1M, floor $100K), with both counterparties' cohorts and what each fill did to their position. "Whale" means the trade is large, not the size tier; the aggressor is not recorded.
+
+`/live/cohort-bias-history/{coin}` takes **`tiers`** (several series in one call, e.g. `tiers=apex,crowd`), **`format=layer`** (a chart envelope with a −1..1 net bias, explicit UTC window, per-series hour counts and provenance) and **`tierType=pnl_recent`** (30-day PnL cohorts — who is winning now). History stays honest: missing hours stay missing, and because some hours are reconstructed with today's labels the envelope marks it `backtestSuitable: false`. `live_cohort_bias_history` gains the same options and reaches back **90 days**.
+
+`/pulse/market/candles/recent/{symbol}` now has an explicit contract: `limit` up to **500** (larger values are clamped, with `X-Limit-Clamped: 500`), an interval allowlist (`1m`, `5m`, `15m`, `1h`, `4h`, `1d` — anything else is `422`), `404` for a market Hyperliquid does not list, and a 15-second cache.
+
+In the chart, **Entry profile**, **Average entry lines**, **Apex vs Crowd history** and opt-in **Biggest trades** join liquidation levels under Layers, with an all-time / 30-day PnL grouping. Each layer loads once, says how fresh it is, and never polls. A new **Share** composer turns the chart or a cohort positioning card into an X- or Instagram-sized PNG, rendered on your device and never posted for you.
+
+The catalog is **109 tools**, up from 107. See [Chart layer endpoints](/api-reference/chart-layers) and [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-to-v0-17-0). Release timing remains pending.
+
+</Update>
+
 <Update label="Pending release" tags={["MCP", "v0.15.0", "Draft"]}>
 
 ## Connector v0.15.0: search and explore the chart
@@ -13,7 +34,7 @@ description: "Product updates and releases for Coinversa Pulse."
 
 Host-supported expansion and a previewed analysis prompt connect chart exploration to the conversation. Hosts without text messaging keep the prompt available for copying. Interactive availability depends on MCP Apps being enabled and supported by the client.
 
-See [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-and-v0-15-0). Release timing remains pending.
+See [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-to-v0-17-0). Release timing remains pending.
 
 </Update>
 
@@ -27,7 +48,7 @@ The connector caps candle requests at **500**, clamping larger values rather tha
 
 `list_markets` supports case-insensitive symbol search before pagination, including builder-dex symbols such as `xyz:GOLD`. Inactive listings remain hidden by default. These updates use existing tools and do not add catalog entries.
 
-See [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-and-v0-15-0). Release timing remains pending.
+See [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-to-v0-17-0). Release timing remains pending.
 
 </Update>
 

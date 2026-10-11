@@ -118,6 +118,14 @@ COINVERSAA_API_KEY=cvsa_... npx -y @coinversaa/mcp-server
 
 This runs the same tools locally over stdio, authenticated by the env key instead of OAuth.
 
+## Interactive chart (MCP Apps)
+
+<Note>
+  **Pending release** — ships with connector v0.17.0.
+</Note>
+
+In clients that support MCP Apps, asking for a chart — *"show me the ETH 1h chart with RSI"* — makes `market_recent_candles` render an interactive chart instead of only candle rows (Pro). It adds Coinversa layers — entry profile, average entries, liquidation levels, Apex vs Crowd and its hourly history, and opt-in biggest trades — and a **Share** button that exports the chart or a cohort positioning card as an image. Text-only clients keep the candle result. See [the tool catalog](/mcp/tools#chart-layers-v0-16-0).
+
 ## Verify it works
 
 Regardless of client, ask the agent:

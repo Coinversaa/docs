@@ -87,6 +87,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Risk & market | `/pulse/lethal-coins`, `/pulse/backstop-events`, `/pulse/market-concentration`, `/pulse/market/candles/recent/{symbol}`, `/market/historical-oi` |
     | Live risk | `/live/risk/overview`, `/live/risk/coins/{coin}`, `/live/risk/coins/{coin}/history`, `/live/risk/coins/{coin}/mark-dislocations`, `/live/risk/liquidations/recent`, `/live/risk/liquidations/summary`, `/live/liquidation-heatmap/{coin}` |
     | Live OI & cohort bias | `/live/oi-history`, `/live/oi-history/{coin}`, `/live/official-oi`, `/live/official-oi/{coin}`, `/live/cohort-bias/{coin}`, `/live/cohort-bias-history/{coin}` |
+    | Chart layers | `/live/positioning-by-entry/{coin}`, `/live/whale-trades/{coin}` — with `/live/cohort-bias-history/{coin}` and `/pulse/market/candles/recent/{symbol}` above, these feed the chart; see [Chart layer endpoints](/api-reference/chart-layers) |
     | Deep archetypes | `/pulse/max-pain-events`, `/pulse/perfect-exits`, `/pulse/wallet-drawdown-curve/{address}` |
     | Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/positions`, `/trades`, `/history` |
     | Cohort drilldowns (rolling 30d) | `/pulse/cohorts-recent/{tierType}/{tier}/positions`, `/trades`, `/lifecycle-stats`, `/top-positions`, `/alpha-concentration` |
