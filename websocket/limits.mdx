@@ -11,7 +11,7 @@ Websocket access is **capacity-based**: you are limited by how many connections 
 |---|---:|---:|---|---:|
 | Free | 1 | 2 | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser`, `bbo`, `allMids` | 5 GB |
 | Starter | 1 | 25 | Free's feeds plus `trades` (the firehose), `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` | 50 GB |
-| Pro | 5 | 100 | all 24, including the `l4Book` [order book](/websocket/order-book), [liquidations](/websocket/feeds#liquidations), [leverage changes](/websocket/feeds#leverage-and-margin), [TWAP orders](/websocket/feeds#twap-orders), [TWAP statuses](/websocket/feeds#twap-statuses), the [derived quote feeds](/websocket/feeds#derived-order-book-quotes) and the [multi-wallet variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
+| Pro | 5 | 100 | All 24: Starter's feeds plus `l4Book` ([order book](/websocket/order-book)), [liquidations](/websocket/feeds#liquidations), [leverage changes](/websocket/feeds#leverage-and-margin), [TWAP orders](/websocket/feeds#twap-orders) and [TWAP statuses](/websocket/feeds#twap-statuses), with their single-wallet and [list variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
 | Enterprise | custom | custom | all 24 | 250 GB |
 
 Keep these capacity scopes distinct:
@@ -27,6 +27,8 @@ And one cap is specific to the order book:
 A Pro trial account has Pro's websocket limits for the length of the trial.
 
 ## Resolved limits, not the table
+
+Limits are resolved per account: every key on the account connects with the highest plan held by any of its active, entitled keys (with enterprise overrides applied). A Free key on an account that also has an entitled Pro key connects with Pro limits. Revoked and suspended keys cannot connect and do not count toward the account's plan.
 
 The [`connected` frame](/websocket/overview#the-first-frame) reports what **your account** may do, with enterprise overrides already applied. Enterprise numbers are negotiated per account and can sit above or below the Pro row, so read the frame rather than this table when it matters. The same resolved numbers back the meters on the portal's [Usage page](https://developers.coinversa.ai/usage).
 
@@ -51,4 +53,4 @@ See the [wire protocol](/websocket/protocol#errors-on-an-open-socket) for the fu
 
 ## Watching your usage
 
-The portal's [Usage page](https://developers.coinversa.ai/usage) shows connections and subscriptions open right now against your caps — a snapshot the connection manager reports once a minute, so up to a minute old and hidden rather than guessed when no recent snapshot exists — plus bytes delivered against fair use, frames delivered, and connections opened over the period. "Connections opened" counts every successful connect, reconnects included; it is not how many are open.
+The portal's [Usage page](https://developers.coinversa.ai/usage) shows connections and subscriptions open right now against your caps — a snapshot the connection manager reports once a minute, so normally under a minute old; if no snapshot has arrived for two minutes the meters are hidden rather than guessed — plus bytes delivered against fair use, frames delivered, and connections opened over the period. "Connections opened" counts every successful connect, reconnects included; it is not how many are open.

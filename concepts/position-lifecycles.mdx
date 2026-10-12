@@ -5,7 +5,7 @@ description: "Every position reconstructed open→close from on-chain fills, wit
 
 A **position lifecycle** is one complete position — open → scale → close — reconstructed from a wallet's on-chain fills. Instead of a flat list of trades, you get the full arc of each position: entry/exit VWAP, peak size, hold duration, fees, realized PnL, and liquidation status.
 
-Pulse 0.8.0 re-derives every lifecycle from the corrected fill history and enriches each one with **MAE/MFE**, unlocking *execution-quality* analysis — not just realized PnL.
+Pulse re-derives every lifecycle from the corrected fill history and enriches each one with **MAE/MFE**, unlocking *execution-quality* analysis — not just realized PnL.
 
 ## MAE / MFE
 
@@ -20,7 +20,7 @@ These are **direction-aware**: for a long, `MAE ≤ entry ≤ MFE`; for a short,
 **Why it matters.** Two wallets can both book +$10k on the same coin — one after white-knuckling a 50% drawdown and getting bailed out, the other never going 3% underwater. Same PnL, completely different trader. MAE/MFE is the first time you can separate skill from luck — and tell which wallets are actually worth following.
 </Info>
 
-MAE/MFE is **perp-only** — spot positions have no adverse/favorable excursion by design. The very freshest closes may briefly show null MAE/MFE until the risk backfill catches up (it refreshes hourly).
+MAE/MFE is **perp-only** — spot positions have no adverse/favorable excursion by design. The very freshest closes may briefly show null MAE/MFE until the risk backfill catches up (it refreshes hourly). MAE/MFE are emitted only when non-zero, which in practice means larger positions, so filter by notional when you need rows that carry them.
 
 ## What you can ask
 
@@ -48,7 +48,7 @@ Because lifecycles capture the full arc of every position over a rolling 90-day 
 
 ## Refreshed cohorts
 
-The `pulse_cohort_recent_*` tools classify wallets by their **last-30-day** tier (`pnl_tier_recent` / `size_tier_recent`) instead of all-time — surfacing who is printing *right now* and catching regime changes the all-time [cohort](/concepts/cohorts) tools miss.
+The `pulse_cohort_recent_*` tools classify wallets by their **last-30-day** tier (`pnl_tier_recent` / `size_tier_recent`) instead of all-time — surfacing who is printing *right now* and catching regime changes the all-time [cohort](/concepts/cohorts) tools miss. Same dollar thresholds as the all-time tiers, refreshed hourly. The same labels are available as `tierType=pnl_recent` on `live_positioning_by_entry` and `live_cohort_bias_history`. See [Trader cohorts](/concepts/cohorts).
 
 ## Window & freshness
 
@@ -56,4 +56,4 @@ The `pulse_cohort_recent_*` tools classify wallets by their **last-30-day** tier
 - Precomputed lifecycle aggregates (archetypes, market structure, cohorts) refresh **hourly**.
 - Spot pairs (`@`-prefixed coins) are excluded by default.
 
-See the [MCP tool catalog](/mcp/tools) for every lifecycle tool, or the [API reference](/api-reference) for endpoint schemas.
+See the [MCP tool catalog](/mcp/tools) for every lifecycle tool, or the [API reference](/api-reference/introduction) for endpoint schemas.

@@ -3,11 +3,11 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
-<Update label="Pending release" tags={["MCP", "API", "v0.17.0", "Draft"]}>
+<Update label="October 12, 2026" tags={["MCP", "API", "v0.17.0"]}>
 
-## Connector v0.17.0: Coinversa layers on the chart, and two new endpoints
+## Connector v0.17.0: an interactive chart with Coinversa layers, and two new endpoints
 
-**Draft — not a production release announcement.** The chart stops being just a price chart. Alongside candles and indicators it now draws **where open positions got in**, **who holds them** and **how Apex and The Crowd have moved** — data a standard exchange chart does not show, because it comes from every open Hyperliquid position matched to its wallet's cohort.
+`market_recent_candles` gains an interactive MCP Apps chart for Pro users, with candlesticks, dollar volume and technical indicators. The chart is not just a price chart: alongside candles and indicators it draws **where open positions got in**, **who holds them** and **how Apex and The Crowd have moved** — data a standard exchange chart does not show, because it comes from every open Hyperliquid position matched to its wallet's cohort. Text-only clients keep the candle result. Use `market_price` for a quick price lookup and `market_recent_candles` for chart questions.
 
 Two new Pro endpoints, each with a matching tool:
 
@@ -16,39 +16,15 @@ Two new Pro endpoints, each with a matching tool:
 
 `/live/cohort-bias-history/{coin}` takes **`tiers`** (several series in one call, e.g. `tiers=apex,crowd`), **`format=layer`** (a chart envelope with a −1..1 net bias, explicit UTC window, per-series hour counts and provenance) and **`tierType=pnl_recent`** (30-day PnL cohorts — who is winning now). History stays honest: missing hours stay missing, and because some hours are reconstructed with today's labels the envelope marks it `backtestSuitable: false`. `live_cohort_bias_history` gains the same options and reaches back **90 days**.
 
-`/pulse/market/candles/recent/{symbol}` now has an explicit contract: `limit` up to **500** (larger values are clamped, with `X-Limit-Clamped: 500`), an interval allowlist (`1m`, `5m`, `15m`, `1h`, `4h`, `1d` — anything else is `422`), `404` for a market Hyperliquid does not list, and a 15-second cache.
+`/pulse/market/candles/recent/{symbol}` now has an explicit contract: `limit` up to **500** (larger values are clamped, with `X-Limit-Clamped: 500`), an interval allowlist (`1m`, `5m`, `15m`, `1h`, `4h`, `1d` — anything else is `422`), `404` for a market Hyperliquid does not list, and a 15-second cache. The connector applies the same **500** cap, clamping larger values rather than rejecting them; aggregated intervals can contain fewer output bars because the cap applies to their source history. Volume is **USD notional**; hourly-source bars estimate it from base quantity and typical price before aggregation. **VWAP uses base quantity**: `sum(HLC3 × base quantity) / sum(base quantity)`, resetting at the UTC day for intraday candles and anchoring at the first loaded bar for daily candles. When the source lacks base quantity, VWAP is unavailable.
 
-In the chart, **Entry profile**, **Average entry lines**, **Apex vs Crowd history** and opt-in **Biggest trades** join liquidation levels under Layers, with an all-time / 30-day PnL grouping. Each layer loads once, says how fresh it is, and never polls. A new **Share** composer turns the chart or a cohort positioning card into an X- or Instagram-sized PNG, rendered on your device and never posted for you.
+The chart has a searchable market picker, cached market/interval switching, synchronized indicator panes, candle readouts, keyboard inspection, and local pan/zoom/range controls. `list_markets` supports case-insensitive symbol `search` before pagination, including builder-dex symbols such as `xyz:GOLD`; inactive listings remain hidden by default. Refresh fetches candles explicitly and retains the previous chart on failure; liquidation and cohort snapshots refresh separately. Host-supported expansion and a previewed analysis prompt connect chart exploration to the conversation; hosts without text messaging keep the prompt available for copying.
 
-The catalog is **109 tools**, up from 107. See [Chart layer endpoints](/api-reference/chart-layers) and [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-to-v0-17-0). Release timing remains pending.
+A **Market read** strip explains the indicators in plain English (momentum, trend, MACD, Bollinger, and with Coinversa overlays on, positioning and the nearest liquidation cluster), with the number behind each item. It describes data, not trades. An optional Stochastic (14, 3, 3) pane and RSI zone markers are under Indicators.
 
-</Update>
+Under Layers, **Entry profile**, **Average entry lines**, **Apex vs Crowd history** and opt-in **Biggest trades** join liquidation levels, with an all-time / 30-day PnL grouping. Biggest trades shows, by default, up to 50 fills of $100K or more from the last 24 hours (window and size filters adjustable). Each layer loads once, says how fresh it is, and never polls. A new **Share** composer turns the chart or a cohort positioning card into an X landscape or Instagram portrait PNG, rendered on your device and never posted for you. Interactive availability depends on MCP Apps being enabled and supported by the client.
 
-<Update label="Pending release" tags={["MCP", "v0.15.0", "Draft"]}>
-
-## Connector v0.15.0: search and explore the chart
-
-**Draft — not a production release announcement.** The next chart update adds a searchable market picker, cached market/interval switching, synchronized indicator panes, candle readouts, keyboard inspection, and local pan/zoom/range controls. Refresh fetches candles explicitly and retains the previous chart on failure; liquidation and cohort snapshots refresh separately.
-
-**VWAP uses base quantity**: `sum(HLC3 × base quantity) / sum(base quantity)`, resetting at the UTC day for intraday candles and anchoring at the first loaded bar for daily candles. When the source lacks base quantity, VWAP is unavailable. Displayed volume remains USD notional.
-
-Host-supported expansion and a previewed analysis prompt connect chart exploration to the conversation. Hosts without text messaging keep the prompt available for copying. Interactive availability depends on MCP Apps being enabled and supported by the client.
-
-See [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-to-v0-17-0). Release timing remains pending.
-
-</Update>
-
-<Update label="Pending release" tags={["MCP", "v0.14.0", "Draft"]}>
-
-## Connector v0.14.0: a chart for recent candles
-
-**Draft — not a production release announcement.** `market_recent_candles` gains an interactive MCP Apps chart for Pro users, with candlesticks, dollar volume and technical indicators. Text-only clients retain the candle result. Use `market_price` for a quick price lookup and `market_recent_candles` for chart questions.
-
-The connector caps candle requests at **500**, clamping larger values rather than rejecting them. Aggregated intervals can contain fewer output bars because the same cap applies to their source history. Volume is **USD notional**; hourly-source bars estimate it from base quantity and typical price before aggregation.
-
-`list_markets` supports case-insensitive symbol search before pagination, including builder-dex symbols such as `xyz:GOLD`. Inactive listings remain hidden by default. These updates use existing tools and do not add catalog entries.
-
-See [the draft chart tool notes](/mcp/tools#draft-chart-updates-v0-14-0-to-v0-17-0). Release timing remains pending.
+The catalog is **109 tools**, up from 107 (adds `live_positioning_by_entry` and `live_whale_trades`). `builder_heatmap` is still withheld while its rollup backfills, so the connector advertises 108. See [Chart layer endpoints](/api-reference/chart-layers) and [the interactive chart notes](/mcp/tools#interactive-chart-v0-17-0).
 
 </Update>
 

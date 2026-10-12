@@ -5,7 +5,7 @@ description: "Connect Coinversa Pulse to Claude, Cursor, Perplexity, or any MCP-
 
 The Coinversa MCP server exposes the Pulse tools to AI agents over the Model Context Protocol. You install it once in your client, and the agent gets first-class access to Hyperliquid trader analytics, HIP-4 outcomes, live risk, and the cross-market asset registry.
 
-The MCP is the **agent interface** — a curated set of tools wrapping the REST API. If you need direct programmatic access to the full endpoint surface (including endpoints not yet exposed as tools) or [x402 pay-per-call](/api-reference/tiers#x402-pay-per-call), use the [REST API](/api-reference) directly. Both use the same API key.
+The MCP is the **agent interface** — a curated set of tools wrapping the REST API. If you need direct programmatic access to the full endpoint surface (including endpoints not yet exposed as tools) or [x402 pay-per-call](/api-reference/tiers#x402-pay-per-call), use the [REST API](/api-reference/introduction) directly. Both use the same API key.
 
 **Hosted MCP endpoint:** `https://mcp.coinversa.ai/mcp`
 **Source:** [github.com/Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server)
@@ -18,7 +18,20 @@ Prefer pasting? The authorization page also accepts a saved `cvsa_` key directly
 
 ## Claude.ai (web)
 
-Use the Custom Connectors UI — no local install.
+No local install. Coinversa is listed in Claude's connector directory; adding it by URL as a custom connector works the same way.
+
+### From the Claude connector directory
+
+<Steps>
+  <Step title="Find Coinversa">
+    Search for **Coinversa** in Claude's connectors directory and connect it.
+  </Step>
+  <Step title="Authorize">
+    Claude opens the Coinversa authorization page. Sign in and pick a key — or sign up and one is created for you — then click **Authorize**.
+  </Step>
+</Steps>
+
+### Alternative: custom connector URL
 
 <Steps>
   <Step title="Open the connector modal">
@@ -40,7 +53,11 @@ Use the Custom Connectors UI — no local install.
 
 ## Claude Desktop
 
-Claude Desktop reads MCP servers from a local JSON config.
+Use the same Coinversa connector you added in Claude (Settings → Connectors); it is available in Claude Desktop and renders interactive views.
+
+### Alternative: local config
+
+Claude Desktop can also read MCP servers from a local JSON config. This path runs the tools through `mcp-remote` and does not render interactive views.
 
 <Steps>
   <Step title="Locate your config file">
@@ -71,7 +88,7 @@ Claude Desktop reads MCP servers from a local JSON config.
 </Steps>
 
 <Note>
-**Why `mcp-remote`?** Claude Desktop only speaks stdio MCP today; `mcp-remote` is a small shim that bridges stdio ↔ HTTP and handles the OAuth dance for you.
+**Why `mcp-remote`?** Entries in `claude_desktop_config.json` are launched as local stdio processes; `mcp-remote` is a small shim that bridges stdio ↔ HTTP and handles the OAuth dance for you.
 </Note>
 
 ## Cursor
@@ -108,6 +125,8 @@ Use Perplexity's Custom Connectors.
   </Step>
 </Steps>
 
+Perplexity shows tool results as text; interactive charts and maps are a Claude feature. Every tool returns the same data, including `market_recent_candles` candle rows.
+
 ## Other clients (stdio / npx)
 
 For any stdio-based MCP client, run the published server directly with your API key from the [developer portal](https://developers.coinversa.ai/keys):
@@ -116,23 +135,30 @@ For any stdio-based MCP client, run the published server directly with your API 
 COINVERSAA_API_KEY=cvsa_... npx -y @coinversaa/mcp-server
 ```
 
-This runs the same tools locally over stdio, authenticated by the env key instead of OAuth.
+This runs the same tools locally over stdio, authenticated by the env key instead of OAuth. The stdio package returns text only unless you set `MCP_APPS_ENABLED=1` and your client supports MCP Apps.
 
-## Interactive chart (MCP Apps)
+## Interactive views (MCP Apps)
 
-<Note>
-  **Pending release** — ships with connector v0.17.0.
-</Note>
+In clients that support MCP Apps, four tools can render an interactive view instead of only text:
 
-In clients that support MCP Apps, asking for a chart — *"show me the ETH 1h chart with RSI"* — makes `market_recent_candles` render an interactive chart instead of only candle rows (Pro). It adds Coinversa layers — entry profile, average entries, liquidation levels, Apex vs Crowd and its hourly history, and opt-in biggest trades — and a **Share** button that exports the chart or a cohort positioning card as an image. Text-only clients keep the candle result. See [the tool catalog](/mcp/tools#chart-layers-v0-16-0).
+| View | Tool | Tier |
+|------|------|------|
+| Chart | `market_recent_candles` | Pro |
+| Liquidation map | `live_liquidation_heatmap` | Pro |
+| Long vs short by cohort | `live_cohort_bias` | Pro |
+| Wallet profile card | `pulse_trader_profile`, `pulse_trader_performance`, `pulse_trader_demo` | Starter (`pulse_trader_demo`: Free) |
+
+Asking for a chart — *"show me the ETH 1h chart with RSI"* — makes `market_recent_candles` render an interactive chart instead of only candle rows. It adds Coinversa layers — entry profile, average entries, liquidation levels, Apex vs Crowd and its hourly history, and opt-in biggest trades — and a **Share** button that exports the chart or a cohort positioning card as an image. Text-only clients get the same data as text. See [the tool catalog](/mcp/tools#interactive-chart-v0-17-0).
+
+Interactive views render in Claude on web, desktop and mobile (iOS/Android). Claude asks you to allow the view once (choose **Always allow** to skip future prompts). Add the connector on web or desktop first; it then works on mobile. Claude Desktop caches views, so fully quit and reopen it to pick up updates.
 
 ## Verify it works
 
 Regardless of client, ask the agent:
 
-> *Use Coinversa Pulse to show me the top 5 traders on Hyperliquid by total PnL this week.*
+> *What's the global trading stats from Coinversa Pulse?*
 
-You should see the agent call `pulse_leaderboard` and return ranked addresses with PnL stats. If it says "no tool available," the install didn't take — restart the client.
+You should see the agent call `pulse_global_stats` and return Pulse's coverage and trading totals — this check works on every plan, Free included. If it says "no tool available," the install didn't take — restart the client.
 
 ## Troubleshooting
 
@@ -147,6 +173,6 @@ You should see the agent call `pulse_leaderboard` and return ranked addresses wi
     You may have an aggressive prompt or you share a key with a bot. The MCP and direct-API calls share one quota — see [authentication](/authentication#rate-limit-headers). Ask the agent to call `pulse_my_plan` to see your tier and limits, and bump to Starter or Pro if you genuinely need more.
   </Accordion>
   <Accordion title="Want to run a self-hosted MCP server">
-    Clone [Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server) and run `npm run start:http`. Set `COINVERSAA_API_URL` if you also host the backend.
+    Clone [Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server) and run `bun run remote`. Set `COINVERSAA_KEK` (`openssl rand -base64 32`, keep it stable), and `COINVERSAA_SERVICE_KEY` (or `COINVERSAA_ALLOW_NO_SERVICE_KEY=1` for local development; only the paste-a-key path then works). Set `COINVERSAA_API_URL` if you also host the backend, and `MCP_APPS_ENABLED=1` for interactive views. See the [README](https://github.com/Coinversaa/mcp-server#readme) for the full environment table.
   </Accordion>
 </AccordionGroup>

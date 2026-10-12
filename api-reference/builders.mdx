@@ -3,7 +3,7 @@ title: "Builder endpoints"
 description: "The 12 builder analytics endpoints: ledger-exact revenue, attributed flow, cohort mix, retention, and cross-builder overlap — REST and x402."
 ---
 
-Eight endpoints cover the Hyperliquid builder-code economy, all under `https://api.coinversa.ai/api/public/v1` with the `X-API-Key` header. Every endpoint is **Starter** or **Pro**, and every one has an [x402 pay-per-call twin](/api-reference/tiers#x402-pay-per-call) that needs no key at all. For the data model — the exact-vs-attributed distinction, the verified stamp, `dataNotes`, and builder names — see [Builder codes & attribution](/concepts/builder-attribution).
+Twelve endpoints cover the Hyperliquid builder-code economy, all under `https://api.coinversa.ai/api/public/v1` with the `X-API-Key` header. Every endpoint is **Starter** or **Pro**, and every one has an [x402 pay-per-call twin](/api-reference/tiers#x402-pay-per-call) that needs no key at all. For the data model — the exact-vs-attributed distinction, the verified stamp, `dataNotes`, and builder names — see [Builder codes & attribution](/concepts/builder-attribution).
 
 ## Endpoint guide
 
@@ -33,11 +33,27 @@ Cohort composition of the builder's user base for the period: users, share, fees
 
 ### `/builders/{builder}/retention` · Pro
 
-Monthly retention triangle over the **last 12 calendar months**: wallets are cohorted by the month of their first builder-fee order via this builder, and `activeWallets[k]` counts how many were still active k months later (index 0 = the cohort month itself). No query parameters. Gotchas: "active" means *placed at least one builder-fee order that month* — the order need not fill, so these counts can exceed the attributed-fill user counts on `/cohorts` and `/overlap`. It's the heaviest builder query and is cached for 6 hours.
+Retention triangle over the **last 12 calendar months** (or 16 ISO weeks with `granularity=weekly`): wallets are cohorted by the period of their first builder-fee order via this builder, and `activeWallets[k]` counts how many were still active k periods later (index 0 = the cohort period itself). Parameters: `granularity=monthly|weekly` (default `monthly`) and `revenueWeighted=true`, which adds a per-cohort `activeRevenueUsd` series of attributed builder fees (fill plane). Gotchas: "active" means *placed at least one builder-fee order that month* — the order need not fill, so these counts can exceed the attributed-fill user counts on `/cohorts` and `/overlap`. It's the heaviest builder query and is cached for 6 hours.
 
 ### `/builders/{builder}/overlap` · Pro
 
 The top 10 **other** builders this builder's active users also traded through in the period, by shared users. Gotchas: `feesUsd` is what the shared users paid to the *other* builder, not to this one; `share` uses `activeUsers` (this builder's attributed users in the period) as the denominator.
+
+### `/builders/{builder}/orders` · Pro
+
+Order intent, not just what filled: `totalIntents` and counts and shares by action type (plain orders, batch modifies, stop/TP trigger orders) in `actions`, the time-in-force mix (`tifs`), `reduceOnlyShare`, a `trigger` breakdown (take-profit vs stop, market vs limit, position-TPSL vs standalone, resolved vs still-pending), and `fillConversion` — how much of that intent reached at least one attributed fill. `period=day|week|month`, default `week`. Gotcha: trigger-order history begins **2026-03-24** (earlier history is being backfilled — see `dataNotes`).
+
+### `/builders/{builder}/heatmap` · Pro
+
+When the builder's users trade: a 7×24 UTC weekday-by-hour grid of attributed volume, builder fees and fill counts over a fixed trailing **84 days** (12 weeks), zero-filled and Sunday-first. No query parameters.
+
+### `/builders/{builder}/lifecycle` · Pro
+
+Every wallet that ever traded via the builder, in mutually exclusive stages by recent activity: `active` (attributed fill within 7d), `cooling` (30d), `switched` (no fill via this builder in 30d but at least one via a different builder), `dormant` (90d) and `movedOn`. Headline ratios: `trueRetention`, `churn` and `competitiveLoss` (switched share), with `competitiveLossFeesUsd` — fees those switched wallets paid to other builders in the last 30d. Gotcha: `competitiveLossFeesUsd` is `null` (unknown, never zero) when the fee probe exceeds its budget; the stages and ratios always serve. Cached for 6 hours.
+
+### `/builders/{builder}/journey` · Pro
+
+Lifetime economics of the builder's trailing-year acquisition cohort (wallets with 3+ attributed fills): average and median revenue per wallet, concentration, median days from first fill to the peak-revenue day and to 50% and 75% of lifetime revenue, and where users peak (before day 7, days 7–30, after day 30). Gotcha: the revenue, concentration and day fields are `null` when `users` is 0; counts still serve `0`. Cached for 6 hours.
 
 ## Response envelope
 
@@ -80,11 +96,14 @@ Builder routes return **huma problem-details** errors (`title` / `status` / `det
   "status": 403,
   "detail": "Api key needed for this request",
   "code": "TIER_GATE",
+  "reason": "missing_api_key",
   "current_tier": "none",
   "required_tier": "starter",
   "upgrade_url": "https://coinversa.ai/developers#pricing"
 }
 ```
+
+`reason` is `missing_api_key` (no key), `invalid_api_key` (key present but inactive) or `insufficient_tier` (key below the required tier).
 
 Other errors: `400` with `detail: "invalid ethereum address"` for a malformed builder or wallet address, and `404` from `/profile` when the builder has no revenue in the fee ledger.
 

@@ -42,7 +42,7 @@ The MCP is a thin wrapper over the REST API — it translates tool calls into th
   <Card title="MCP setup" icon="plug" href="/mcp/setup">
     Connect Pulse to Claude, Cursor, or Perplexity.
   </Card>
-  <Card title="API reference" icon="terminal" href="/api-reference">
+  <Card title="API reference" icon="terminal" href="/api-reference/introduction">
     110+ endpoints, auto-generated from the live OpenAPI spec.
   </Card>
   <Card title="Authentication" icon="key" href="/authentication">
@@ -79,7 +79,7 @@ The MCP is a thin wrapper over the REST API — it translates tool calls into th
 ## How it's used
 
 - **AI agents** — install the [MCP server](/mcp/setup) into Claude / Cursor / Perplexity and the agent gets first-class tool access to the Pulse data surface.
-- **Trading bots & SDKs** — hit the [REST API](/api-reference) directly with `X-API-Key`. Same key, same tier, same data — and the full endpoint surface, including anything not yet exposed as an MCP tool.
+- **Trading bots & SDKs** — hit the [REST API](/api-reference/introduction) directly with `X-API-Key`. Same key, same tier, same data — and the full endpoint surface, including anything not yet exposed as an MCP tool.
 - **Dashboards** — the [Coinversa Pulse dashboard](https://coinversa.ai) and partner integrations consume the same REST endpoints.
 - **Indexers & live feeds** — subscribe over the [WebSocket](/websocket/overview) and receive every fill as it lands, instead of polling.
 

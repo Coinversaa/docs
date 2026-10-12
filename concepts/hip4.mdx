@@ -19,10 +19,10 @@ The HIP-4 wire format uses an integer `encoding` that combines outcome ID and si
 encoding = 10 * outcomeId + side
 ```
 
-Where `side` is 0 (NO) or 1 (YES) in a two-way market, or 0/1/2 in a three-way market. The side token appears in trades as:
+`side` is the side index from the outcome's metadata (`sides[].name`): side 0 is the first side, which the API treats as YES on yes/no outcomes, and side 1 is NO. A multi-way question (e.g. price buckets) is several outcomes under one question, not extra sides. The side token appears in trades as:
 
-- **Outcome side coin** — `#<encoding>` (e.g. `#90` = outcome 9, side 0)
-- **Side token** — `+<encoding>` (e.g. `+91` = outcome 9, side 1)
+- **Outcome side coin** — `#<encoding>` (e.g. `#90` = outcome 9, side 0 (YES))
+- **Side token** — `+<encoding>` (e.g. `+91` = outcome 9, side 1 (NO))
 
 You usually don't construct these manually — the API/MCP exposes `outcomeId` and `side` separately and handles the encoding internally.
 
@@ -45,18 +45,18 @@ You usually don't construct these manually — the API/MCP exposes `outcomeId` a
 | `hip4_recent_settlements`     | You want which outcomes have settled recently. |
 | `hip4_daily_volume`           | You want overall HIP-4 trading volume over time. |
 | `hip4_most_active`            | You want the most-traded outcomes right now. |
-| `hip4_top_traders`            | You want the biggest outcome traders by volume / PnL. |
-| `hip4_trader_outcomes`        | You want which outcomes a specific wallet has traded. |
-| `hip4_cross_product_overlap`  | You want to find traders active in both outcomes and perps. |
+| `hip4_top_traders`            | You want the biggest outcome traders by volume / PnL. **Starter tier.** |
+| `hip4_trader_outcomes`        | You want which outcomes a specific wallet has traded. **Starter tier.** |
+| `hip4_cross_product_overlap`  | You want to find traders active in both outcomes and perps. **Pro tier.** |
 | `hip4_perp_position_context`  | You want to know whether holders of one outcome already have open perp positions in the underlying asset. **Pro tier.** |
 
 ## Why `hip4_perp_position_context` matters
 
-This is the most interesting tool in the HIP-4 suite. It joins one outcome's current net-positive holders to currently open perp positions on the same underlying asset, then labels each holder:
+This is the most interesting tool in the HIP-4 suite. It joins one outcome's current net-positive holders to currently open perp positions on the same underlying asset, then labels each holder. Holders are wallets that traded the outcome in the last `days` (default 14, max 60) and still hold net contracts. `signal` is `aligned`, `hedge` or `prediction_native`:
 
-- **Aligned** — the perp position is in the same direction as the outcome bet (e.g. holding the YES side of "BTC > $100k" AND long BTC perps → conviction trade)
-- **Hedged** — the perp position is opposite the outcome bet (e.g. holding YES AND short BTC → hedge)
-- **Prediction-native** — no underlying perp position (e.g. pure prediction market participant)
+- **`aligned`** — the perp position is in the same direction as the outcome bet (e.g. holding the YES side of "BTC > $100k" AND long BTC perps → conviction trade)
+- **`hedge`** — the perp position is opposite the outcome bet (e.g. holding YES AND short BTC → hedge)
+- **`prediction_native`** — no underlying perp position (e.g. pure prediction market participant)
 
 It returns per-side wallet counts, long/short wallet counts, net underlying notional, and the top wallets with their signal label. Use it when a user asks:
 

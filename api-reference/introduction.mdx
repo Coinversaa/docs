@@ -15,12 +15,12 @@ The reference pages in the sidebar are auto-generated from the spec. Every endpo
 
 ## Endpoint families
 
-The spec has no tags yet, so the sidebar renders one flat list — these are the families you'll find in it:
+Only some endpoints carry tags so far, so the generated reference mixes a few tagged groups with a long untagged list. These are the endpoint families you'll find in it:
 
 - **Pulse** — historical trader and cohort analytics; the rich endpoints (`/pulse/*`), including the Daily Pulse editions (`/pulse/daily/*`).
 - **Builders** — the builder-code economy: ledger-exact revenue, attributed flow, retention, overlap (`/builders/*`, `/trader/{address}/builders`). Start from the [endpoint guide](/api-reference/builders).
-- **Live** — near-real-time market and risk (`/live/*`). For fills pushed as they land rather than polled, use the [WebSocket](/websocket/overview).
-- **Market** — direct Hyperliquid passthroughs for mark price, OI, orderbook, candles (`/market/*`).
+- **Live** — near-real-time market and risk (`/live/*`), including the Pro chart-layer endpoints: cohort positioning by entry price (`/live/positioning-by-entry/{coin}`), large fills (`/live/whale-trades/{coin}`) and cohort bias history in layer format (`/live/cohort-bias-history/{coin}?format=layer`). See [Chart layers](/api-reference/chart-layers). For fills pushed as they land rather than polled, use the [WebSocket](/websocket/overview).
+- **Market** — mark price, L2 orderbook and positions (`/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/positions/{address}`), L4 order-book rollups from Coinversa snapshots (`/market/book/*`), historical open interest (`/market/historical-oi`), and OHLCV candles at `/pulse/market/candles/recent/{symbol}` (intervals 1m, 5m, 15m, 1h, 4h, 1d; up to 500 per call).
 - **Assets** — canonical cross-market taxonomy (`/assets/*`).
 - **HIP-4** — outcome contract discovery, settlements, perp-position context (`/hip4/*`).
 - **Entities & exchange** — owner-level resolution (`/entity/*`, `/entities/*`) and exchange-wide aggregates (`/exchange/*`).
@@ -28,7 +28,7 @@ The spec has no tags yet, so the sidebar renders one flat list — these are the
 
 ## Conventions
 
-- Success responses return the resource body directly. **Errors are JSON problem details** — `title`, `status`, `detail`, and a machine-matchable `code` (plus `current_tier` / `required_tier` / `upgrade_url` on tier gates). See [error responses](/authentication#error-responses).
+- Success responses return the resource body directly. **Errors are JSON problem details** — `title`, `status`, `detail`, a machine-matchable `code` (plus `current_tier` / `required_tier` / `upgrade_url` on tier gates), and, when available, a `reason` (`missing_api_key`, `invalid_api_key`, `insufficient_tier`, `invalid_parameters`, `account_suspended`). A suspended account gets 403 with `code: "ACCOUNT_SUSPENDED"` and no tier fields: contact support rather than retrying or upgrading. See [error responses](/authentication#error-responses).
 - Timestamps are unix milliseconds unless explicitly noted as ISO strings.
 - Numeric fields are JSON numbers (be aware of float precision on large notionals — most are within JS-safe-integer range).
 - Pagination uses `limit` + `offset` or cursor-style `since` / `until` depending on the endpoint.

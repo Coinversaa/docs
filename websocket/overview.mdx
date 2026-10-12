@@ -65,7 +65,7 @@ A refused key is **fatal to the connection**: the upgrade never completes, no so
 
 | Header clients see | Browser clients see | Meaning |
 |---|---|---|
-| `HTTP 401`, body `invalid or missing bearer token` | close code `4401` | No usable key. Not retryable — fix the key. |
+| `HTTP 401`, body `invalid or missing bearer token` | close code `4401` | No usable key: missing, malformed, unknown, revoked or suspended. Not retryable; fix the key. |
 | `HTTP 429`, body `too many connections` | close code `4429` | Your account already holds every connection its plan allows. Close one you own, or retry with backoff. |
 | `HTTP 503`, body `authentication unavailable` | close code `4503` | The entitlement lookup behind the handshake could not be reached. Nothing is wrong with your key; retry with backoff. |
 

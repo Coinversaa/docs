@@ -6,7 +6,7 @@ description: "How builder-fee revenue and per-fill attribution are computed — 
 A **builder code** on Hyperliquid is an address that attaches a fee to the orders it routes — wallets approve a maximum fee per builder, and the builder earns that fee on every fill it originates. It's how front-ends, wallet apps, trading bots, and builder dexes monetize order flow. Coinversa indexes the entire builder-fee economy: exact revenue for every builder, plus fill-level attribution of who traded what through whom.
 
 <Note>
-**Builder ≠ builder dex.** The 7 [builder dexes](/concepts/markets) (`xyz`, `flx`, `vntl`, …) are one kind of builder — venues that list their own markets. But any front-end can run a builder code without being a dex (wallet apps are among the largest). This page and the [builder endpoints](/api-reference/builders) use "builder" to mean any builder-code operator.
+**Builder ≠ builder dex.** [Builder dexes](/concepts/markets), such as `xyz`, `io`, `mkts` and `para`, are one kind of builder — venues that list their own markets. But any front-end can run a builder code without being a dex (wallet apps are among the largest). This page and the [builder endpoints](/api-reference/builders) use "builder" to mean any builder-code operator.
 </Note>
 
 ## Two data planes
@@ -15,14 +15,14 @@ Every builder response mixes two data sources with different guarantees:
 
 | Plane | Source | Powers | Guarantee |
 |-------|--------|--------|-----------|
-| **Ledger** | Hyperliquid's own cumulative builder-fee ledger | `revenueUsd` everywhere | **Exact** — validated to ±0.1% against the on-chain ledger |
+| **Ledger** | Hyperliquid's own cumulative builder-fee ledger | `revenueUsd` everywhere | **Exact** for any window inside ledger history (from 2026-08-11), validated to ±0.1% against the on-chain ledger. Earlier windows serve revenue from the attributed rollup (≥97% of ledger on reconciled days) with a `dataNotes` disclosure |
 | **Attribution** | Trades joined to builder-fee orders on `(oid, address)` | Fills, volume, users, coins, PnL breakdowns | Attributed — currently ~77–95% coverage per builder (see below) |
 
 The one-line rule: **revenue is exact; detail metrics are attributed.** When a leaderboard row says a builder earned $1.2M last week, that number reconciles with the chain. When it says 4,812 users generated it, that count comes from the fill join and can slightly undercount.
 
 ## The trigger-order gap (read dataNotes)
 
-Trigger-order fills (stop-loss / take-profit) currently attribute at ledger level only — roughly **6% of fees ecosystem-wide**, which puts per-builder attribution coverage at **~77–95%**. Live capture of trigger orders began **2026-08-20**, backfilled to **2026-03-24**, with earlier history in progress.
+Trigger-order fills (stop-loss / take-profit) currently attribute at ledger level only — roughly **6% of fees ecosystem-wide**, which puts per-builder attribution coverage at **~77–95%**. Trigger-order placements (used by `/orders`) are captured live since **2026-08-20** and backfilled to **2026-03-24**. Their fills are not yet joined to builders, so attributed metrics undercount.
 
 Practical consequence: attributed fills, volume, and user counts **slightly undercount** versus ledger revenue. Every builder response says so in its `dataNotes` field:
 
@@ -61,7 +61,7 @@ The `/traders` and `/cohorts` endpoints label wallets with their exchange-wide *
 
 ## History depth
 
-Builder-fee **orders are complete and gapless from 2025-01-25** — attributed fills cover the same range. Most trackers' builder data starts around August 2025; Coinversa's extra depth is visible today through the [retention endpoint's](/api-reference/get-api-public-v1-builders-by-builder-retention) 12-month cohort triangle and the `firstSeen` / `lastSeen` timestamps on builder profiles.
+Coinversa's copy of the builder-fee **ledger begins 2026-08-11**. Windows that reach earlier serve revenue from the attributed rollup (a floor, ≥97% of ledger on reconciled days), and `dataNotes` says so. Attributed history is visible through the [retention endpoint's](/api-reference/builder-analytics/builder-retention-cohorts) 12-month cohort triangle and the `firstSeen` / `lastSeen` timestamps on builder profiles.
 
 Per-request query windows are narrower than the underlying history: `period` is `day | week | month`, and `since` parameters clamp to 90 days — see [Data windows](/api-reference/data-windows#builder-analytics-windows).
 
@@ -69,14 +69,18 @@ Per-request query windows are narrower than the underlying history: `period` is 
 
 | Endpoint | Tier | Question it answers |
 |----------|------|---------------------|
-| [`/builders/leaderboard`](/api-reference/get-api-public-v1-builders-leaderboard) | Starter | Who are the top builders by exact revenue, and how are they trending? |
-| [`/builders/{builder}/profile`](/api-reference/get-api-public-v1-builders-by-builder-profile) | Starter | One builder's revenue, daily series, top coins, and user base. |
-| [`/trader/{address}/builders`](/api-reference/get-api-public-v1-trader-by-address-builders) | Starter | Which builders does this wallet trade through? |
-| [`/builders/{builder}/traders`](/api-reference/get-api-public-v1-builders-by-builder-traders) | Pro | Who are a builder's users — with PnL, fees paid, and cohort tiers? |
-| [`/builders/{builder}/fills`](/api-reference/get-api-public-v1-builders-by-builder-fills) | Pro | The raw attributed fill stream for a builder. |
-| [`/builders/{builder}/cohorts`](/api-reference/get-api-public-v1-builders-by-builder-cohorts) | Pro | What kind of traders use this builder — sharps or exit liquidity? |
-| [`/builders/{builder}/retention`](/api-reference/get-api-public-v1-builders-by-builder-retention) | Pro | Do this builder's users stick around month over month? |
-| [`/builders/{builder}/overlap`](/api-reference/get-api-public-v1-builders-by-builder-overlap) | Pro | Which other builders do this builder's users also trade through? |
+| [`/builders/leaderboard`](/api-reference/builder-analytics/builder-revenue-leaderboard) | Starter | Who are the top builders by exact revenue, and how are they trending? |
+| [`/builders/{builder}/profile`](/api-reference/builder-analytics/builder-profile) | Starter | One builder's revenue, daily series, top coins, and user base. |
+| [`/trader/{address}/builders`](/api-reference/builder-analytics/builders-a-wallet-trades-through) | Starter | Which builders does this wallet trade through? |
+| [`/builders/{builder}/traders`](/api-reference/builder-analytics/builders-attributed-traders) | Pro | Who are a builder's users — with PnL, fees paid, and cohort tiers? |
+| [`/builders/{builder}/fills`](/api-reference/builder-analytics/builder-attributed-fills) | Pro | The raw attributed fill stream for a builder. |
+| [`/builders/{builder}/cohorts`](/api-reference/builder-analytics/builder-user-cohort-composition) | Pro | What kind of traders use this builder — Sharps or The Crowd? |
+| [`/builders/{builder}/retention`](/api-reference/builder-analytics/builder-retention-cohorts) | Pro | Do this builder's users stick around month over month? |
+| [`/builders/{builder}/overlap`](/api-reference/builder-analytics/builder-audience-overlap) | Pro | Which other builders do this builder's users also trade through? |
+| [`/builders/{builder}/orders`](/api-reference/builder-analytics/builder-order-intent) | Pro | What do this builder's users intend — action and time-in-force mix, stop/TP triggers? |
+| [`/builders/{builder}/heatmap`](/api-reference/builder-analytics/builder-activity-heatmap) | Pro | When do this builder's users trade — a 7x24 UTC weekday-by-hour grid over the trailing 12 weeks. |
+| [`/builders/{builder}/lifecycle`](/api-reference/builder-analytics/builder-user-lifecycle) | Pro | How do this builder's users split across active / cooling / switched / dormant / movedOn? |
+| [`/builders/{builder}/journey`](/api-reference/builder-analytics/builder-user-journey-economics) | Pro | Lifetime economics of the builder's trailing-year acquisition cohort. |
 
 Cross-builder overlap is only possible because Coinversa attributes fills for **all** builders, not one — a single-builder integration can't see where its users go.
 

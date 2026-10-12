@@ -17,7 +17,7 @@ Lifecycle-derived endpoints. Underlying aggregates are refreshed **hourly**. Que
 | Risk / liquidations | `/pulse/top-liquidators`, `/pulse/lethal-coins`, `/pulse/backstop-events` |
 | Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/*` |
 | Cohort drilldowns (rolling) | `/pulse/cohorts-recent/{tierType}/{tier}/*` |
-| Closed positions | `/pulse/trader/{address}/closed-positions`, `/pulse/trader/{address}/closed-positions/stats` *(90d cap landing in a forthcoming API release; until then these endpoints are technically unbounded)* |
+| Closed positions | `/pulse/trader/{address}/closed-positions`, `/pulse/trader/{address}/closed-positions/stats` (rolling lifecycle window; `/stats` aggregates the latest 10,000 rows) |
 
 ## All-time / lifetime
 
@@ -32,7 +32,7 @@ Reads the trader's full indexed history (since Coinversa began indexing the wall
 
 ## Caller-bounded via `since`
 
-Window is whatever the caller passes. Defaults vary; see the per-endpoint reference for each.
+Window is what the caller passes, silently capped at 90 days (`since` above `90d` / `2160h` / `129600m` is treated as 90 days). Routes with a lower ceiling reject an overlong window with a `400` instead.
 
 | Endpoint | Default `since` |
 |----------|----------------|
@@ -40,11 +40,14 @@ Window is whatever the caller passes. Defaults vary; see the per-endpoint refere
 | `/pulse/trader/{address}/trades` | `1h` |
 | `/pulse/cohorts/{tierType}/{tier}/trades`, `/pulse/cohorts-recent/{tierType}/{tier}/trades` | `1h` |
 | `/pulse/closed-positions/recent` | `1h` |
-| `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` | varies |
-| `/market/historical-oi` | varies |
+| `/pulse/lifecycles/recent` | `1h` |
+| `/pulse/cohorts/daily-stats` | `30d` |
+| `/pulse/cohort-bias/history` | `7d` |
+| `/market/historical-oi` | `7d` |
+| `/live/risk/liquidations/recent`, `/live/risk/liquidations/summary` | `7d` |
 | `/live/whale-trades/{coin}` | `6h` — **24h ceiling** (`400` above it) |
 
-The `since` parameter accepts a number + unit (`m`, `h`, `d` — weeks are not a unit; `2w` is rejected with a `400 invalid since format`). Routes with a ceiling **reject** an overlong window rather than clamping it: `since=<value> exceeds this route's <ceiling> ceiling`, as a `400`. `/pulse/trades/recent` is the one to watch — **30 days with `?coin=`, but only 6 hours without it**. `/live/whale-trades/{coin}` stops at **24 hours**. Within a route's ceiling the effective maximum is bounded by the underlying data freshness, not by your tier.
+The `since` parameter accepts a number + unit (weeks are not a unit — use `m`, `h` or `d`, e.g. `14d`, not `2w`; a malformed `since` is an error, not a default). Routes with a ceiling **reject** an overlong window rather than clamping it: `since=<value> exceeds this route's <ceiling> ceiling`, as a `400`. `/pulse/trades/recent` is the one to watch — **30 days with `?coin=`, but only 6 hours without it**. `/live/whale-trades/{coin}` stops at **24 hours**. Within a route's ceiling the effective maximum is bounded by the underlying data freshness, not by your tier.
 
 ## Builder analytics windows
 
@@ -57,7 +60,11 @@ The [builder endpoints](/api-reference/builders) use their own window parameters
 | `/builders/{builder}/traders`, `/cohorts`, `/overlap` | `period` | `week` | — |
 | `/builders/{builder}/fills` | `since` | `24h` | Clamped to 90d |
 | `/trader/{address}/builders` | `since` | `30d` | Clamped to 90d |
-| `/builders/{builder}/retention` | none | — | Fixed: last 12 calendar months |
+| `/builders/{builder}/orders` | `period` (`day\|week\|month`) | `week` | — |
+| `/builders/{builder}/retention` | `granularity` (`monthly\|weekly`) | `monthly` | Last 12 calendar months or 16 ISO weeks |
+| `/builders/{builder}/heatmap` | none | — | Fixed: trailing 84 days (12 weeks) |
+| `/builders/{builder}/lifecycle` | none | — | Stages by last attributed fill: 7d / 30d / 90d |
+| `/builders/{builder}/journey` | none | — | Trailing-year acquisition cohort |
 
 The `since` clamp is **silent**: the response's `window` field echoes what you requested even when the data was clamped to 90 days — same truncation-detection advice as above: compare response timestamps against your requested window.
 
@@ -65,14 +72,14 @@ The `since` clamp is **silent**: the response's `window` field echoes what you r
 
 ## Live / real-time
 
-Current snapshot only. No historical concept. Each call returns the latest state from the indexer.
+Most `/live/*` routes return current state — each call returns the latest state from the indexer.
 
 | Group | Endpoints |
 |-------|-----------|
-| All `/live/*` | Long/short ratio, cohort bias, liquidation heatmap, OI, risk overview, mark dislocations, etc. |
+| `/live/*` snapshots | Long/short ratio, cohort bias, liquidation heatmap, risk overview, positioning by entry, etc. |
 | Market state | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}` |
 
-Two `/live/*` routes are the exception, and both bound their history explicitly. `/live/cohort-bias-history/{coin}` reads **hourly snapshots** over `hours` (default 168), silently clamped to **1–2160** (90 days), as an explicit UTC window echoed in the `format=layer` body. `/live/positioning-by-entry/{coin}` is the opposite: a **current snapshot of open positions**, never history, whose rows were observed at different times (`source.medianAgeS`). See [Chart layer endpoints](/api-reference/chart-layers).
+These take an explicit window: `/live/long-short/history`, `/live/oi-history[/{coin}]`, `/live/official-oi[/{coin}]`, `/live/risk/coins/{coin}/history` and `/live/cohort-bias-history/{coin}` (`hours`, default 168, silently clamped to 1–2160); `/live/risk/coins/{coin}/mark-dislocations` (`hours`, default and maximum 168); `/live/risk/liquidations/recent` and `/live/risk/liquidations/summary` (`since`, default `7d`); `/live/whale-trades/{coin}` (`since`, default `6h`, 24h ceiling). `/live/cohort-bias-history/{coin}` reads **hourly snapshots** and echoes its explicit UTC window in the `format=layer` body. `/live/positioning-by-entry/{coin}` is a **current snapshot of open positions**, never history, whose rows were observed at different times (`source.medianAgeS`). See [Chart layer endpoints](/api-reference/chart-layers).
 
 `/pulse/market/candles/recent/{symbol}` returns at most **500** candles (larger `limit` values are clamped, with `X-Limit-Clamped: 500`); its rolled-up intervals (`5m`, `15m`, `4h`, `1d`) read 1-minute candles kept for **30 days**, so `1d` returns at most 30 bars.
 
@@ -88,7 +95,7 @@ Two `/live/*` routes are the exception, and both bound their history explicitly.
   <Accordion title="How fresh is the data within the 90-day window?">
     - **Aggregates** (lifecycles, cohort rollups, discovery endpoints): refreshed **hourly**.
     - **Trades, closed positions, raw events**: written as they're indexed, typically within seconds of the L1 fill.
-    - **Live endpoints**: current state of the indexer, 1–10s behind L1 depending on the metric.
+    - **Live endpoints**: current indexer state, but freshness differs by route — snapshot routes built from per-wallet polling (e.g. positioning by entry) carry observation times in the body; check `source.medianAgeS` / `source.asOf` / `observedThrough` rather than assuming real time.
   </Accordion>
   <Accordion title="What happens if I request a window larger than the source allows?">
     Where a route has no ceiling, the query runs against the available data and returns whatever it has — compare your response timestamps against your requested `since` to detect truncation. Where a route **does** have a ceiling, an overlong `since` is a `400`, not a short answer.

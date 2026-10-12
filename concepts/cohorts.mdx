@@ -5,42 +5,48 @@ description: "Every tracked wallet is classified by two independent tier systems
 
 Coinversa indexes every active Hyperliquid wallet and classifies it into two orthogonal tier systems:
 
-- **PnL tier** — by total profitability across the wallet's lifetime
-- **Size tier** — by total volume traded
+- **PnL tier** — by all-time realized (closed) PnL from indexed fills
+- **Size tier** — by lifetime traded notional (USD)
 
-A wallet always has exactly one PnL tier and one size tier. Together they form a 2D map of trader behavior — e.g. *"Sharps + Middleweights"* is a different cohort from *"Sharps + Featherweights"*, even though both are profitable.
+A classified wallet has exactly one PnL tier and one size tier. Wallets not yet in the traders rollup have no tier: cohort aggregates leave them out and say how many (e.g. `coverage.withoutTier`; `untracked` on builder cohorts). Together the two tiers form a 2D map of trader behavior — e.g. *"Sharps + Middleweights"* is a different cohort from *"Sharps + Featherweights"*, even though both are profitable.
 
-Each tier has a canonical slug (use this in requests) and a legacy slug. Dual-vocabulary input — accepting both slugs on path parameters, query parameters, and tool arguments — is **rolling out now**; until it reaches your endpoint (MCP connectors may also cache tool schemas that still list only the legacy slugs), fall back to the legacy slug if a new one is rejected. **Responses currently return the legacy slugs** (e.g. `pnlTier` still comes back as `money_printer`) — match on either when reading responses.
+Each tier has a canonical slug and a legacy slug. Requests accept either one on path parameters, query parameters and MCP tool arguments. Responses return the legacy slug (e.g. `pnlTier: "money_printer"`), so match on the legacy slug, or on either, when you read responses.
 
 ## PnL tiers
 
-Ordered from best to worst:
+Ordered from best to worst. Thresholds are fixed dollar buckets on realized PnL; lower bounds are inclusive.
 
-| Display name | Slug (send this) | Legacy slug (still accepted & currently returned) |
-|--------------|------------------|-----------------------------------------------------|
-| Apex         | `apex`           | `money_printer`   |
-| Sharps       | `sharps`         | `smart_money`     |
-| Grinders     | `grinders`       | `grinder`         |
-| Scrapers     | `scrapers`       | `humble_earner`   |
-| The Crowd    | `crowd`          | `exit_liquidity`  |
-| Bleeders     | `bleeders`       | `semi_rekt`       |
-| Trapped      | `trapped`        | `full_rekt`       |
-| Blown Out    | `blown_out`      | `giga_rekt`       |
+| Display name | Realized PnL          | Slug (send this) | Legacy slug (accepted & returned) |
+|--------------|-----------------------|------------------|-----------------------------------|
+| Apex         | ≥ $1M                 | `apex`           | `money_printer`   |
+| Sharps       | $100K to $1M          | `sharps`         | `smart_money`     |
+| Grinders     | $10K to $100K         | `grinders`       | `grinder`         |
+| Scrapers     | $0 to $10K            | `scrapers`       | `humble_earner`   |
+| The Crowd    | −$10K to under $0     | `crowd`          | `exit_liquidity`  |
+| Bleeders     | −$100K to −$10K       | `bleeders`       | `semi_rekt`       |
+| Trapped      | −$1M to −$100K        | `trapped`        | `full_rekt`       |
+| Blown Out    | below −$1M            | `blown_out`      | `giga_rekt`       |
 
 ## Size tiers
 
-Ordered from largest to smallest:
+Ordered from largest to smallest. Thresholds are fixed dollar buckets on traded notional; lower bounds are inclusive.
 
-| Display name   | Slug (send this)  | Legacy slug (still accepted & currently returned) |
-|----------------|-------------------|-----------------------------------------------------|
-| Heavyweights   | `heavyweights`    | `leviathan`       |
-| Cruiserweights | `cruiserweights`  | `tidal_whale`     |
-| Middleweights  | `middleweights`   | `whale`           |
-| Welterweights  | `welterweights`   | `small_whale`     |
-| Lightweights   | `lightweights`    | `apex_predator`   |
-| Featherweights | `featherweights`  | `dolphin`         |
-| Flyweights     | `flyweights`      | `fish`            |
-| Strawweights   | `strawweights`    | `shrimp`          |
+| Display name   | Traded notional   | Slug (send this)  | Legacy slug (accepted & returned) |
+|----------------|-------------------|-------------------|-----------------------------------|
+| Heavyweights   | ≥ $5M             | `heavyweights`    | `leviathan`       |
+| Cruiserweights | $1M to $5M        | `cruiserweights`  | `tidal_whale`     |
+| Middleweights  | $500K to $1M      | `middleweights`   | `whale`           |
+| Welterweights  | $100K to $500K    | `welterweights`   | `small_whale`     |
+| Lightweights   | $50K to $100K     | `lightweights`    | `apex_predator`   |
+| Featherweights | $10K to $50K      | `featherweights`  | `dolphin`         |
+| Flyweights     | $250 to $10K      | `flyweights`      | `fish`            |
+| Strawweights   | below $250        | `strawweights`    | `shrimp`          |
+
+## All-time vs 30-day tiers
+
+All-time tiers classify a wallet on its lifetime realized PnL and traded volume. 30-day tiers use the same slugs and the same dollar thresholds on the wallet's last 30 days (`pnl_tier_recent` / `size_tier_recent`), refreshed hourly. They are used by the `pulse_cohort_recent_*` tools / `/pulse/cohorts-recent/*` routes, and by `tierType=pnl_recent` on `live_positioning_by_entry` and `live_cohort_bias_history` (hourly `pnl_recent` snapshots from 2026-05-14).
+
+Layer responses echo the axis as `cohortBasis` (`all_time_pnl`, `recent_30d_pnl` or `lifetime_volume`) and `tierWindowDays` (30, or `null` for all-time axes). Labels are always the wallet's *current* tier, so one wallet can sit in different cohorts on the two axes.
 
 ## How to query cohorts
 
@@ -48,21 +54,26 @@ Use the cohort tools when you want behavior at the group level rather than per w
 
 | Tool | Use it when… |
 |------|--------------|
-| `pulse_cohort_summary`           | You want a snapshot of every cohort's medians (PnL, win rate, size). |
+| `pulse_cohort_summary`           | You want every cohort's wallet count, total and average PnL, average win rate and total/average volume (all-time tiers). |
 | `pulse_cohort_positions`         | You want to see what one cohort is currently long/short. |
 | `pulse_cohort_trades`            | You want the recent trades from one cohort. |
 | `pulse_cohort_history`           | You want how one cohort has performed over time. |
 | `pulse_cohort_bias_history`      | You want a cohort's long-short bias trajectory. |
 | `pulse_cohort_performance_daily` | You want day-by-day cohort PnL / volume. |
+| `live_cohort_bias`               | You want who is long or short one coin right now, by tier (current snapshot). |
+| `live_cohort_bias_history`       | You want hourly cohort-bias snapshots for one coin over up to 2160h (90d), with `tierType` `pnl`, `pnl_recent` or `size`, `tiers=apex,crowd` and `format=layer`. See [Cohort-bias history](/api-reference/chart-layers#cohort-bias-history). |
+| `live_positioning_by_entry`      | You want one coin's open positions bucketed by entry price per cohort (snapshot only). See [Positioning by entry](/api-reference/chart-layers#positioning-by-entry). |
+| `live_whale_trades`              | You want the largest fills by notional over up to 24h, with both counterparties' tiers. See [Whale trades](/api-reference/chart-layers#whale-trades). |
+| `pulse_cohort_recent_positions` / `_trades` / `_lifecycle_stats` / `_top_positions` / `_alpha_concentration` | You want the same questions answered on 30-day tiers. |
 
-Cohorts are addressed by `tierType` (`pnl` or `size`) and `tier` (a slug from the tables above — new slugs are canonical; legacy slugs always work, and are the safe fallback until the dual-vocabulary rollout reaches your endpoint):
+Whale trades rank fills by size; they are unrelated to the Middleweights (legacy `whale`) size tier.
+
+Cohorts are addressed by `tierType` (`pnl` or `size`) and `tier` (a slug from the tables above — either the new or the legacy slug works):
 
 ```
 GET /pulse/cohorts/pnl/sharps/positions
 GET /pulse/cohorts/size/middleweights/history
 ```
-
-If a new slug is rejected (for example, an MCP tool schema that still lists only legacy slugs), send the legacy equivalent — `smart_money` for `sharps`, `whale` for `middleweights` — from the tables above.
 
 ## When to use cohorts vs individual wallets
 

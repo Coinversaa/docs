@@ -9,15 +9,18 @@ Pulse runs an indexer against Hyperliquid L1 + builder dexes + HIP-4. This page 
 
 | Data | Source | Updated |
 |------|--------|---------|
-| All Hyperliquid wallet trades            | L1 historical clearinghouse | Continuous |
-| Live positions (longs, shorts, leverage) | L1 clearinghouse state      | Every block (~1s) |
+| All Hyperliquid wallet trades            | L1 historical clearinghouse | Continuous, from **2025-03-22** (`pulse_global_stats.dataStartDate`) |
+| Live positions (size, entry, leverage, liquidation price) | Per-wallet polling of L1 clearinghouse state | Flushed in batches every 5 s; each row is as of that wallet's last poll (see `source.newestRow` / `oldestRow` / `medianAgeS`) |
 | Market data (mark, OI, funding, candles) | HL info/stats APIs          | 5–10s cache |
 | Liquidation events                       | L1 user-action stream       | Continuous, from **2026-01-01** |
 | L1 mark price history                    | L1 mark-price stream        | Continuous, from **2026-01-01** |
 | Builder dex trades + positions           | Per-dex sub-accounts        | Continuous |
-| Builder-fee orders + attribution         | HL builder-fee ledger + order stream | Continuous, from **2025-01-25** |
+| Builder-fee orders + attribution         | HL builder-fee ledger + order stream | Continuous |
 | HIP-4 outcome trades + settlements       | L1 trades on outcome coins  | Continuous, from **2026-05-02** |
-| Cohort classification                    | Rollup over historical trades | Recomputed daily |
+| Cohort classification                    | traders rollup over indexed fills | All-time tiers update whenever a wallet's rolled-up PnL or volume changes; 30-day tiers refresh hourly |
+| L4 order book rollups (`book_*`)          | Node L4 book re-export      | Every 60 s, latest only (no history); 503 when older than 10 min |
+
+Coins outside the order-book sweep return 404 `BOOK_NOT_COVERED`, and spot pairs are not covered. Call `data_coverage` (MCP) for each dataset's live window and freshness stamp.
 
 ## Cutoffs
 
@@ -25,25 +28,44 @@ Some endpoints have **hard historical floors** because the underlying data colle
 
 - **Risk metrics** (liquidations, mark dislocations, user-action–derived signals) — clamped to **`2026-01-01`**. Earlier `since` requests are silently truncated to that floor.
 - **HIP-4 outcomes** — clamped to **`2026-05-02`** (mainnet launch). Earlier `since` requests are silently truncated.
-- **Cohort tiers** — recomputed daily. Wallets active for less than ~1 week may not yet have a tier assigned.
-- **Builder-fee attribution** — orders complete from **2025-01-25**; trigger-order (stop/TP) fill capture live since **2026-08-20**, backfilled to **2026-03-24** with earlier history in progress. Ledger revenue has no floor (cumulative on-chain data). See [Builder codes & attribution](/concepts/builder-attribution).
+- **Cohort tiers** — wallets not yet in the traders rollup have no tier (counted in `coverage.withoutTier` / `untracked`).
+- **Builder-fee attribution** — trigger-order (stop/TP) fills attribute at ledger level only, so join-attributed fills, volume and users slightly undercount (see `dataNotes`). Trigger-order placements are captured live since **2026-08-20** and backfilled to **2026-03-24**; resolving them to fills is still largely unpopulated. Coinversa's copy of the builder-fee ledger begins **2026-08-11**. Windows that reach earlier serve revenue from the attributed rollup (a floor, ≥97% of ledger on reconciled days), and `dataNotes` says so. See [Builder codes & attribution](/concepts/builder-attribution).
 
-Separately from these floors, caller-controlled windows are silently clamped to **90 days on every tier** — see [Data windows](/api-reference/data-windows) and [authentication](/authentication#historical-window-caps).
+Separately from these floors, most caller-controlled windows are silently clamped to **90 days on every tier**. Some routes are tighter: `/live/whale-trades` allows up to 24h and rejects longer windows with 400; `/pulse/cohort-bias/history` and `/pulse/cohorts/daily-stats` allow up to 30 days; HIP-4 perp-position context clamps `days` to 60. See [Data windows](/api-reference/data-windows) and [authentication](/authentication#historical-window-caps).
+
+## Snapshots vs history
+
+Current-state routes (`/live/cohort-bias`, `/live/positioning-by-entry`, cohort positions) describe open positions now and are never a history.
+
+Cohort-bias history is the hourly `cohort_bias_snapshots` table as stored: missing hours are absent, and a cohort with no open notional in an hour has no point (never 50%). Backfilled hours carry the wallet's *current* tier (lookahead), so `coverage.provenance` is `unknown_mixed` and `backtestSuitable` is `false` — do not treat it as a point-in-time backtest.
+
+Windows: `/live/cohort-bias-history` up to 2160h (90d); `/pulse/cohort-bias/history` and `/pulse/cohorts/daily-stats` up to 30d; `pnl_recent` snapshots from 2026-05-14.
 
 ## Freshness
 
-The `/live/*` endpoints are designed for near-real-time use. Typical freshness:
+Server cache refresh intervals by endpoint:
 
-| Endpoint family | Freshness |
-|-----------------|-----------|
-| `live/long-short`, `live/cohort-bias`           | 1–5s |
-| `live/liquidation-heatmap`, `live/risk/*`       | 1–5s |
-| `live/oi-history`, `live/official-oi`           | 10s cache |
-| `pulse/market-overview`, `pulse/global-stats`   | 10s cache |
-| `pulse/leaderboard`, `pulse/hidden-gems`        | 30s cache, pre-warmed |
-| `market/price`, `market/orderbook`              | Direct passthrough, no cache |
+| Endpoint | Refresh |
+|----------|---------|
+| `live/long-short`, `live/coins/{coin}/long-short`                        | 10 s |
+| `live/cohort-bias/{coin}`                                                | Computed per request over per-wallet-polled rows |
+| `live/liquidation-heatmap/{coin}`, `live/risk/overview`, `live/risk/coins/{coin}` | 10 s |
+| `live/positioning-by-entry`                                              | 30 s |
+| `live/whale-trades`                                                      | 60 s |
+| `live/cohort-bias-history`                                               | 30 s (data is hourly) |
+| `live/official-oi` (all coins)                                           | 2 min |
+| `live/official-oi/{coin}`, `live/oi-history`                             | Uncached |
+| `pulse/market-overview` (`list_markets`)                                 | 30 s |
+| `pulse/stats` (`pulse_global_stats`)                                     | 2 min |
+| `pulse/leaderboard`                                                      | 2 min |
+| `pulse/hidden-gems`                                                      | Uncached |
+| `market/price`, `market/orderbook`                                       | Direct passthrough |
 
-The `pulse_market_overview` response includes `generatedAt` timestamps so you can measure staleness server-side.
+Layer routes carry `source.asOf` and risk routes `generatedAt`, so you can measure staleness.
+
+### Live mark vs stored mark
+
+`markPx` on positioning-by-entry is Hyperliquid's live mark (`markMethod: live_mark`, per-dex 10 s cache, builder-dex symbols resolved on their own dex) when the feed answers. Otherwise it is the newest stored position mark (`newest_position`), then a notional-weighted stored mark (`weighted_fallback`). `storedMark` and `markDivergencePct` show how far the stored book lags. Stored notionals and liquidation distances use each wallet's last-poll mark, and a note flags divergence above 1%.
 
 For fills themselves, polling is the wrong tool: the [WebSocket](/websocket/overview) pushes every fill at block cadence, with a per-subscription sequence number so you can tell when you missed one.
 
@@ -61,4 +83,4 @@ Tools that take a `since` parameter accept a number plus unit:
 - `h` — hours (e.g. `24h`)
 - `d` — days (e.g. `7d`)
 
-Weeks are not a unit — `2w` is rejected with `400 invalid since format`; use days (`14d`). Or use explicit `startTime` / `endTime` (unix ms or ISO date) for exact ranges. Both are silently clamped to the universal 90-day window — see [Data windows](/api-reference/data-windows).
+Weeks are not a unit — `2w` is rejected with `400 invalid since format`; use days (`14d`). Or use explicit `startTime` / `endTime` (unix ms or ISO date) for exact ranges. Both are silently clamped to the 90-day window on most routes (some routes are tighter; see [Cutoffs](#cutoffs)) — see [Data windows](/api-reference/data-windows).
