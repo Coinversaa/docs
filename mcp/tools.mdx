@@ -3,7 +3,7 @@ title: "Tool catalog"
 description: "All 109 Coinversa Pulse MCP tools by category, with descriptions, required tiers, connector-side parameters and the interactive views."
 ---
 
-Every MCP tool is a thin wrapper around a public API endpoint, and each tool's tier is the tier of the endpoint behind it. There is no clean split by family: among the single-trader tools the lifecycle and compare tools are Starter and the drawdown curve is Pro; most HIP-4 tools are Free, with some at Starter and two at Pro; every `live_*` tool except `live_long_short_ratio` is Pro; `market_price` and `market_orderbook` are Free while `market_historical_oi` and `market_recent_candles` are Pro; the archetype tools are split between Starter and Pro. Where a tier cell below links to the matrix, check the matrix for that tool's current tier. Check [the tier matrix](/api-reference/tiers) for the endpoint a tool wraps rather than inferring from its name.
+Every MCP tool is a thin wrapper around a public API endpoint, and each tool's tier is the tier of the endpoint behind it. There is no clean split by family: among the single-trader tools the lifecycle and compare tools are Starter and the drawdown curve is Pro; most HIP-4 tools are Free, with some at Starter and two at Pro; the live snapshot tools (cohort bias, liquidation heatmap, risk overview and coin snapshot, recent liquidations and their summary) are Starter while live history and the chart-layer tools are Pro, and `live_long_short_ratio` is Free; `market_price` and `market_orderbook` are Free, `market_recent_candles` is Starter and `market_historical_oi` is Pro; `book_summary` is Starter and the other book tools are Pro; the archetype tools are split between Starter and Pro. Where a tier cell below links to the matrix, check the matrix for that tool's current tier. Check [the tier matrix](/api-reference/tiers) for the endpoint a tool wraps rather than inferring from its name.
 
 The connector registers **109 tools**; `builder_heatmap` is withheld while its hourly rollup backfills, so clients see 108.
 
@@ -136,24 +136,24 @@ Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) �
 
 ## Live — real-time market + risk
 
-All `live_*` tools are Pro except `live_long_short_ratio` (Free).
+`live_long_short_ratio` is Free. The snapshot tools (what is true right now) are Starter. History and the chart-layer tools are Pro.
 
 | Tool | Description |
 |------|-------------|
 | `live_long_short_ratio`        | Long/short ratio by wallet count and notional: exchange-wide with a per-coin breakdown, one coin (`coin`, with its top 5 longs and shorts), or an hourly history (`hours`, up to 168). |
-| `live_cohort_bias`             | Per-cohort bias for one coin. |
-| `live_cohort_bias_history`     | Hourly cohort bias for one coin, up to 90 days. `tiers` fetches several series at once (e.g. Apex and Crowd); `format: "layer"` returns the chart envelope; `tierType` takes `pnl`, `pnl_recent` or `size`. |
-| `live_positioning_by_entry`    | Open positions bucketed by entry price, long vs short and by cohort, with each cohort's average entry, leverage and in-profit vs underwater split. |
-| `live_whale_trades`            | Largest fills by USD notional in the last 24h at most, with both counterparties' cohorts. |
-| `live_oi_history`              | Open interest time series. |
-| `live_official_oi`             | OI sourced from Hyperliquid's official feed. |
-| `live_liquidation_heatmap`     | Liquidation density by price level for one coin. |
-| `live_liquidation_summary`     | Recent liquidation totals by side. |
-| `live_recent_liquidations`     | Stream of recent liquidation events. |
-| `live_coin_risk_snapshot`      | Coin-level risk metrics (now). |
-| `live_coin_risk_history`       | Coin-level risk over time. |
-| `live_risk_overview`           | Cross-coin risk dashboard. |
-| `live_mark_dislocations`       | Mark vs. oracle deviation events. |
+| `live_cohort_bias`             | Per-cohort bias for one coin. **Starter.** |
+| `live_cohort_bias_history`     | **Pro.** Hourly cohort bias for one coin, up to 90 days. `tiers` fetches several series at once (e.g. Apex and Crowd); `format: "layer"` returns the chart envelope; `tierType` takes `pnl`, `pnl_recent` or `size`. |
+| `live_positioning_by_entry`    | **Pro.** Open positions bucketed by entry price, long vs short and by cohort, with each cohort's average entry, leverage and in-profit vs underwater split. |
+| `live_whale_trades`            | **Pro.** Largest fills by USD notional in the last 24h at most, with both counterparties' cohorts. |
+| `live_oi_history`              | Open interest time series. **Pro.** |
+| `live_official_oi`             | OI sourced from Hyperliquid's official feed. **Pro.** |
+| `live_liquidation_heatmap`     | Liquidation density by price level for one coin. **Starter.** |
+| `live_liquidation_summary`     | Recent liquidation totals by side. **Starter.** |
+| `live_recent_liquidations`     | Stream of recent liquidation events. **Starter.** |
+| `live_coin_risk_snapshot`      | Coin-level risk metrics (now). **Starter.** |
+| `live_coin_risk_history`       | Coin-level risk over time. **Pro.** |
+| `live_risk_overview`           | Cross-coin risk dashboard. **Starter.** |
+| `live_mark_dislocations`       | Mark vs. oracle deviation events. **Pro.** |
 
 In MCP Apps clients, `live_cohort_bias` renders a long-vs-short-by-tier view and `live_liquidation_heatmap` renders a liquidation price ladder; the text result is unchanged.
 
@@ -164,8 +164,8 @@ In MCP Apps clients, `live_cohort_bias` renders a long-vs-short-by-tier view and
 | `market_price`            | Mark/index/funding/OI for a symbol. |
 | `market_positions`        | Open positions for an address. |
 | `market_orderbook`        | L2 orderbook for a symbol. |
-| `market_recent_candles`   | Recent candles for a symbol. |
-| `market_historical_oi`    | Historical OI series. |
+| `market_recent_candles`   | Recent candles for a symbol. **Starter.** |
+| `market_historical_oi`    | Historical OI series. **Pro.** |
 
 ## Interactive chart (v0.17.0)
 
@@ -175,7 +175,7 @@ In MCP Apps clients, `live_cohort_bias` renders a long-vs-short-by-tier view and
 
 ### v0.14.0: price charts and bounded candle history
 
-Use **`market_recent_candles`** for a price chart; use `market_price` for a quick mark/index/funding/OI lookup. Candles require **Pro**. An MCP Apps client can render candlesticks, dollar volume, moving averages (EMA 21, SMA 20/50), VWAP, Bollinger Bands, RSI, RSI zone markers, MACD and Stochastic. Text-only clients retain the candle result; `indicators` selects the initial chart layers without changing those rows.
+Use **`market_recent_candles`** for a price chart; use `market_price` for a quick mark/index/funding/OI lookup. Candles require **Starter**; the chart's Coinversa layers (entry profile, average entries, Apex vs Crowd history, biggest trades) are **Pro**, and on a Starter key the chart marks them with an upgrade link instead of failing. An MCP Apps client can render candlesticks, dollar volume, moving averages (EMA 21, SMA 20/50), VWAP, Bollinger Bands, RSI, RSI zone markers, MACD and Stochastic. Text-only clients retain the candle result; `indicators` selects the initial chart layers without changing those rows.
 
 | Input or result | Behavior |
 |---|---|
@@ -257,7 +257,31 @@ owner entity and aggregate across the whole family.
 
 | Tool | Description |
 |------|-------------|
-| `pulse_my_plan` | The caller's tier, effective rate limits, and every tier's limits with an upgrade link. Agents call this when a request is rejected for tier or rate-limit reasons. |
+| `pulse_my_plan` | The caller's tier, effective rate limits, and every tier's limits with an upgrade link. Agents call this when a request is rejected for rate-limit reasons, or when the user asks about their plan. |
+
+### When the plan does not include a tool
+
+Every gated tool's description ends with its plan (`Plan: Starter ($29/month) or higher.`). If a key's plan does not include the tool, the result is an ordinary tool result, not a tool error (`isError` is false), shaped like this:
+
+```json
+{
+  "upgradeRequired": true,
+  "tool": "live_cohort_bias",
+  "requiredPlan": { "tier": "starter", "name": "Starter", "priceUsdMonthly": 29 },
+  "currentPlan": { "tier": "free", "name": "Free" },
+  "upgradeUrl": "https://coinversa.ai/developers#pricing",
+  "message": "live_cohort_bias needs the Starter plan ($29/month) or higher. …",
+  "partialAnswer": {
+    "note": "What the Free plan can answer now. …",
+    "results": [
+      { "tool": "market_price", "why": "current price", "data": { … } },
+      { "tool": "live_long_short_ratio", "why": "long/short wallet ratio", "data": { … } }
+    ]
+  }
+}
+```
+
+`partialAnswer` is present only when the key's plan includes a tool that answers part of the question. Examples: the current price and long/short ratio for the same coin, the Starter cohort-bias snapshot for a Pro positioning layer, or `book_summary` for a Pro book tool. Agents should state the plan and price, share `upgradeUrl` once, use the partial answer (and say which tool it came from), and not retry the gated tool. Revoked or invalid keys are still reported as errors. On REST, the same denial is the `403` described in [Authentication](/authentication).
 
 ## HIP-4 — outcome contracts
 
@@ -278,11 +302,11 @@ owner entity and aggregate across the whole family.
 
 ## L4 order book (v0.12.0)
 
-Four tools over the **order-level** book — every resting order with the wallet behind it — each shaped around a question rather than returning a book to parse yourself. All four are **Pro**.
+Four tools over the **order-level** book — every resting order with the wallet behind it — each shaped around a question rather than returning a book to parse yourself. `book_summary` is **Starter**; the other three are **Pro**.
 
 | Tool | Tier | What it answers |
 |---|---|---|
-| `book_summary` | Pro | How deep and how lopsided is this book right now? Touch prices, spread in bps, and per side the size / order count / distinct-wallet count within 0.5, 1, 2, 5 and 10% of mid — plus near- and far-band imbalance and the age of orders at the touch. |
+| `book_summary` | Starter | How deep and how lopsided is this book right now? Touch prices, spread in bps, and per side the size / order count / distinct-wallet count within 0.5, 1, 2, 5 and 10% of mid — plus near- and far-band imbalance and the age of orders at the touch. |
 | `book_stop_map` | Pro | Where are the stops, and how much size fires if price gets there? Every untriggered stop and take-profit bucketed by distance from mid in 0.25% steps, with the reduce-only share and the stop/TP split per bucket. |
 | `book_whales` | Pro | Who is sitting on this book, and where? The largest resting orders with wallet, price, size, distance from mid and how long they have rested — plus the biggest wallets per side by total resting size. |
 | `book_levels` | Pro | What does the depth ladder look like, with the detail L2 throws away? Top levels per side, each with total size, order count, **distinct wallet count** and the age of its oldest order. |

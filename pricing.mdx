@@ -38,6 +38,8 @@ Details in [WebSocket plan limits](/websocket/limits).
     - 4× the per-minute rate
     - 50k requests / month bucket
     - 3 active keys (rotate without disruption)
+    - **Live positioning and risk, right now**: cohort bias (who is long or short, by trader tier), the liquidation heatmap, the cross-coin risk overview and per-coin risk snapshot, and recent liquidations with their summary
+    - The interactive **chart** (candles and indicators) and the L4 **book summary**
     - [Builder analytics](/api-reference/builders): leaderboard, builder profiles, per-wallet builder usage
     - [WebSocket](/websocket/overview): 25 subscriptions per connection, the `trades` firehose, and [multi-wallet feeds](/websocket/feeds#multi-wallet-subscriptions) following up to 1,000 wallets on one subscription
   </Accordion>
@@ -46,7 +48,8 @@ Details in [WebSocket plan limits](/websocket/limits).
     - 500k requests / month bucket
     - 10 active keys
     - Deep [builder analytics](/api-reference/builders): traders, fills, cohorts, retention, cross-builder overlap
-    - Access to deeper analytics tools (entity resolution, HIP-4 perp-position context, etc.)
+    - **History and depth** behind the Starter snapshots: cohort-bias and risk history, open-interest history, the chart's Coinversa layers (entry profile, average entries, Apex vs Crowd history, biggest trades), and the per-order book tools (whales, stop map, levels)
+    - Cohort drill-downs, archetypes and deeper analytics tools (entity resolution, HIP-4 perp-position context, etc.)
     - [WebSocket](/websocket/overview): 5 concurrent connections, 100 subscriptions each, all 24 feeds (`l4Book`, `bbo`, `l2Book`, `allMids`, liquidations, leverage changes, TWAP orders, TWAP statuses and the multi-wallet variants), 250 GB fair-use bandwidth
   </Accordion>
   <Accordion title="Enterprise — custom">

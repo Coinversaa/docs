@@ -3,6 +3,25 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="October 13, 2026" tags={["API", "MCP", "Pricing"]}>
+
+## Starter now includes live positioning, risk and the chart
+
+**Starter ($29/month)** now includes the "right now" tools that most people use:
+
+- `/live/cohort-bias/{coin}` (`live_cohort_bias`)
+- `/live/liquidation-heatmap/{coin}` (`live_liquidation_heatmap`)
+- `/live/risk/overview` and `/live/risk/coins/{coin}` (`live_risk_overview`, `live_coin_risk_snapshot`)
+- `/live/risk/liquidations/recent` and `/live/risk/liquidations/summary` (`live_recent_liquidations`, `live_liquidation_summary`)
+- `/pulse/market/candles/recent/{symbol}` (`market_recent_candles`, the interactive chart)
+- `/market/book/summary/{coin}` (`book_summary`)
+
+**Pro ($199/month)** keeps the history and depth behind those snapshots: cohort-bias, risk and open-interest history, the chart's Coinversa layers (entry profile, average entries, Apex vs Crowd history, biggest trades), cohort drill-downs, entities, and the per-order book tools. On a Starter key the chart keeps its candles, indicators and the Starter snapshots, and marks the Pro layers with an upgrade link. The full list is in the [tier matrix](/api-reference/tiers).
+
+**A plan limit is now an answer, not an error, in the connector.** When a key's plan does not include a tool, the result says which plan it needs and the price, which plan the key is on, and where to upgrade. Where the key's plan allows it, the result also includes a partial answer from tools the key can call, such as the current price and long/short ratio for the same coin. Every gated tool's description now states its plan. See [When the plan does not include a tool](/mcp/tools#when-the-plan-does-not-include-a-tool). The REST `403` is unchanged.
+
+</Update>
+
 <Update label="October 12, 2026" tags={["MCP", "API", "v0.17.0"]}>
 
 ## Connector v0.17.0: an interactive chart with Coinversa layers, and two new endpoints
