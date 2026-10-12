@@ -1,11 +1,13 @@
 ---
 title: "Tool catalog"
-description: "All 106 MCP tools by category, with descriptions and required tiers."
+description: "All 109 Coinversa Pulse MCP tools by category, with descriptions, required tiers, connector-side parameters and the interactive views."
 ---
 
-Every MCP tool is a thin wrapper around a public API endpoint, and each tool's tier is the tier of the endpoint behind it. There is no clean split by family: most single-trader and HIP-4 tools are Free, a few are Starter; most market tools are Free but `market_historical_oi` and `market_recent_candles` are Pro; the archetype tools are split between Starter and Pro. Check [the tier matrix](/api-reference/tiers) for the endpoint a tool wraps rather than inferring from its name.
+Every MCP tool is a thin wrapper around a public API endpoint, and each tool's tier is the tier of the endpoint behind it. There is no clean split by family: among the single-trader tools the lifecycle and compare tools are Starter and the drawdown curve is Pro; most HIP-4 tools are Free, with some at Starter and two at Pro; every `live_*` tool except `live_long_short_ratio` is Pro; `market_price` and `market_orderbook` are Free while `market_historical_oi` and `market_recent_candles` are Pro; the archetype tools are split between Starter and Pro. Where a tier cell below links to the matrix, check the matrix for that tool's current tier. Check [the tier matrix](/api-reference/tiers) for the endpoint a tool wraps rather than inferring from its name.
 
-Every tool reads from a public API endpoint, so the [API reference](/api-reference) is where the response fields live. The **inputs are not always the endpoint's**: as of connector **v0.13.7** eight tools accept shaping parameters the route itself does not take — see [Connector-side parameters](#connector-side-parameters). As of **v0.12.0** the catalog includes the [L4 order book](#l4-order-book-v0-12-0): four `book_*` tools answering a question each, rather than handing you a raw book to parse. v0.11.0 added [builder analytics](/api-reference/builders): eleven `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, user lifecycle, journey economics and order intent, plus the inverse per-wallet view.
+The connector registers **109 tools**; `builder_heatmap` is withheld while its hourly rollup backfills, so clients see 108.
+
+Every tool reads from a public API endpoint, so the [API reference](/api-reference/introduction) is where the response fields live. The **inputs are not always the endpoint's**: several tools accept shaping parameters the route itself does not take — see [Connector-side parameters](#connector-side-parameters). As of **v0.12.0** the catalog includes the [L4 order book](#l4-order-book-v0-12-0): four `book_*` tools answering a question each, rather than handing you a raw book to parse. v0.11.0 added [builder analytics](/api-reference/builders): eleven `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, user lifecycle, journey economics and order intent, plus the inverse per-wallet view.
 
 ## Builder analytics (v0.11.0)
 
@@ -22,29 +24,31 @@ Every tool reads from a public API endpoint, so the [API reference](/api-referen
 | `builder_journey` | Pro | How fast and how unevenly a builder monetizes a new wallet — days to peak, 50% and 75% of lifetime revenue |
 | `builder_orders` | Pro | Placement-plane intent: action and time-in-force mix, reduce-only share, stop/TP breakdown, fill conversion |
 | `trader_builders` | Starter | Every builder one wallet trades through, by fees paid |
+| `builder_heatmap` | Pro | 7×24 UTC weekday-by-hour grid of attributed volume, fees and fills over the trailing 84 days (12 weeks). Withheld by default while its hourly rollup backfills |
 
-All eight carry the attribution caveat in their responses (`dataNotes`): trigger-order (stop/TP) fills attribute at ledger level only until the parser upgrade completes, so attributed detail slightly undercounts exact ledger revenue.
+Every builder tool (all twelve, including `trader_builders`) carries the attribution caveat in its response (`dataNotes`): trigger-order (stop/TP) fills attribute at ledger level only until the parser upgrade completes, so attributed detail slightly undercounts exact ledger revenue.
 
 
 ## Discovery & taxonomy
 
 | Tool | Description |
 |------|-------------|
-| `list_markets`              | All markets with prices, OI, funding. Optional `dex` filter. |
+| `list_markets`              | Markets with mark price, 24h volume, funding and OI. Filter by `dex` or `search` (symbol substring). Inactive (delisted) markets are hidden unless `includeInactive=true`. 50 rows per page (max 500). |
 | `list_assets`               | Canonical asset directory with venue breakdown. |
 | `list_asset`                | One asset's venue breakdown (accepts synonyms). |
 | `pulse_cross_market_asset`  | Aggregated OI / positions / bias across all venues for a canonical asset. |
+| `data_coverage`             | Data window (start/end or latest row) and freshness for each dataset (trades, builder_ledger, census, hip4, liquidations, lifecycles, cohort_history, book), with the source route for each, plus the server's version, hidden tools and tool count. Call it before relying on a historical range. Free; some sources report a tier gate in their notes. |
 
 ## Pulse — trader & cohort analytics
 
 | Tool | Description |
 |------|-------------|
 | `pulse_global_stats`               | Total traders, trades, volume, PnL, data coverage. |
-| `pulse_leaderboard`                | Top traders ranked by PnL with tier labels. |
+| `pulse_leaderboard`                | Traders ranked by PnL (default), fill-level win rate, volume or biggest losers, over day/week/month/all-time, with a minimum-fill gate. PnL is gross closed PnL before fees. |
 | `pulse_hidden_gems`                | Underrated wallets matching profile filters. |
-| `pulse_most_traded_coins`          | Coins ranked by recent volume. |
-| `pulse_biggest_trades`             | Largest individual fills in a time window. |
-| `pulse_recent_trades`              | Recent global fills. |
+| `pulse_most_traded_coins`          | Coins ranked by cumulative trade count, with unique traders and total PnL. No volume figure; use `list_markets` or `pulse_exchange_volume` for volume. |
+| `pulse_biggest_trades`             | Biggest winning (`type: "wins"`) or losing (`type: "losses"`) trades by PnL across Hyperliquid, with an optional PnL `threshold`. |
+| `pulse_recent_trades`              | Largest trades by absolute PnL in the last `since` window (default 10m), optionally for one coin. |
 | `pulse_recent_closed_positions`    | Recently closed positions across all wallets. |
 | `pulse_token_leaderboard`          | Top traders on a specific coin. |
 
@@ -59,30 +63,32 @@ All eight carry the attribution caveat in their responses (`dataNotes`): trigger
 | `pulse_trader_token_stats`            | Per-token breakdown for one wallet. |
 | `pulse_trader_closed_positions`       | Closed positions for one wallet. |
 | `pulse_trader_closed_position_stats`  | Aggregate closed-position stats. |
-| `pulse_compare`                       | Side-by-side lifecycle comparison of 2–5 wallets. |
+| `pulse_compare`                       | Side-by-side lifecycle comparison of 2–5 wallets. **Starter tier.** |
+
+In clients that support MCP Apps interactive views, `pulse_trader_profile`, `pulse_trader_performance` and `pulse_trader_demo` render the Coinversa wallet card (90-day position stats, PnL curve, open positions); other clients receive the data as text.
 
 ## Pulse — cohorts
 
-| Tool | Description |
-|------|-------------|
-| `pulse_cohort_summary`            | All cohorts with size, PnL, win-rate medians. |
-| `pulse_cohort_positions`          | Current positions held by a specific cohort. |
-| `pulse_cohort_trades`             | Recent trades from one cohort. |
-| `pulse_cohort_history`            | Cohort performance over time. |
-| `pulse_cohort_bias_history`       | Cohort long/short bias over time. |
-| `pulse_cohort_performance_daily`  | Daily cohort PnL / volume. |
+| Tool | Tier | Description |
+|------|------|-------------|
+| `pulse_cohort_summary`            | [See matrix](/api-reference/tiers) | All cohorts with size, PnL, win-rate medians. |
+| `pulse_cohort_positions`          | Pro | Current positions held by a specific cohort. |
+| `pulse_cohort_trades`             | Pro | Recent trades from one cohort. |
+| `pulse_cohort_history`            | Pro | Cohort performance over time. |
+| `pulse_cohort_bias_history`       | Pro | Cohort long/short bias over time. |
+| `pulse_cohort_performance_daily`  | Pro | Daily cohort PnL / volume. |
 
 ## Pulse — position lifecycles
 
 Every position reconstructed open→close from on-chain fills, with MAE/MFE. See [Position lifecycles](/concepts/position-lifecycles).
 
-| Tool | Description |
-|------|-------------|
-| `pulse_trader_lifecycles`          | One wallet's open→close position history (90-day window). |
-| `pulse_trader_lifecycle_summary`   | Aggregate lifecycle stats for one wallet — win rate, avg hold, biggest win/loss. |
-| `pulse_lifecycle`                  | One lifecycle by ID, with every composing fill. |
-| `pulse_trader_demo`                | One-call wallet briefing: lifecycle summary + recent top wins/losses. |
-| `pulse_lifecycles_recent`          | Global feed of recently closed positions across all wallets. |
+| Tool | Tier | Description |
+|------|------|-------------|
+| `pulse_trader_lifecycles`          | Starter | One wallet's open→close position history (90-day window). |
+| `pulse_trader_lifecycle_summary`   | Starter | Aggregate lifecycle stats for one wallet — win rate, avg hold, biggest win/loss. |
+| `pulse_lifecycle`                  | Free | One lifecycle by ID, with every composing fill. |
+| `pulse_trader_demo`                | Free | One-call wallet briefing: lifecycle summary + recent top wins/losses. |
+| `pulse_lifecycles_recent`          | [See matrix](/api-reference/tiers) | Global feed of recently closed positions across all wallets. |
 
 ## Pulse — execution quality (MAE/MFE) · Pro
 
@@ -95,30 +101,30 @@ Every position reconstructed open→close from on-chain fills, with MAE/MFE. See
 
 ## Pulse — trader archetypes
 
-| Tool | Description |
-|------|-------------|
-| `pulse_survivors`            | Wallets that hit a deep trough then recovered to green. |
-| `pulse_anti_survivors`       | Wallets that blew up and never recovered. |
-| `pulse_persistent_winners`   | Profitable across multiple distinct months. |
-| `pulse_capital_titans`       | Best PnL per dollar of fees. |
-| `pulse_one_month_wonders`    | Huge in one month, then gave it back. |
-| `pulse_newcomer_whales`      | Recent first lifecycle, already moving big notional. |
-| `pulse_coin_kings`           | Top earner(s) per coin. |
-| `pulse_top_liquidators`      | Wallets that profit by liquidating others. |
-| `pulse_lethal_coins`         | Coins with the highest per-lifecycle liquidation rate. |
+| Tool | Tier | Description |
+|------|------|-------------|
+| `pulse_survivors`            | Pro | Wallets that hit a deep trough then recovered to green. |
+| `pulse_anti_survivors`       | Pro | Wallets that blew up and never recovered. |
+| `pulse_persistent_winners`   | Pro | Profitable across multiple distinct months. |
+| `pulse_capital_titans`       | Pro | Best PnL per dollar of fees. |
+| `pulse_one_month_wonders`    | Pro | Huge in one month, then gave it back. |
+| `pulse_newcomer_whales`      | Pro | Recent first lifecycle, already moving big notional. |
+| `pulse_coin_kings`           | Starter | Top earner(s) per coin. |
+| `pulse_top_liquidators`      | Starter | Wallets that execute the most liquidations: count, distinct victims and coins, and penalty collected. The PnL field is the liquidated positions' closed PnL (the victims' losses), not the liquidator's profit. |
+| `pulse_lethal_coins`         | Pro | Coins with the highest per-lifecycle liquidation rate. |
 
 ## Pulse — market structure
 
-| Tool | Description |
-|------|-------------|
-| `pulse_coin_alpha_map`         | Per-coin winner / loser / net profit pools. |
-| `pulse_hour_profitability`     | Global PnL by UTC hour of close. |
-| `pulse_market_concentration`   | Percentile profit share — how concentrated alpha is. |
-| `pulse_style_distribution`     | HFT vs swing vs holder PnL split. |
+| Tool | Tier | Description |
+|------|------|-------------|
+| `pulse_coin_alpha_map`         | Starter | Per-coin winner / loser / net profit pools. |
+| `pulse_hour_profitability`     | Starter | Global PnL by UTC hour of close. |
+| `pulse_market_concentration`   | Pro | Percentile profit share — how concentrated alpha is. |
+| `pulse_style_distribution`     | Starter | HFT vs swing vs holder PnL split. |
 
 ## Pulse — refreshed cohorts (30-day rolling tier)
 
-Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) — who's printing *right now*, not all-time.
+Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) — who's printing *right now*, not all-time. All five are **Pro**.
 
 | Tool | Description |
 |------|-------------|
@@ -130,11 +136,15 @@ Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) �
 
 ## Live — real-time market + risk
 
+All `live_*` tools are Pro except `live_long_short_ratio` (Free).
+
 | Tool | Description |
 |------|-------------|
-| `live_long_short_ratio`        | Global L/S ratio by wallet count and notional. |
+| `live_long_short_ratio`        | Long/short ratio by wallet count and notional: exchange-wide with a per-coin breakdown, one coin (`coin`, with its top 5 longs and shorts), or an hourly history (`hours`, up to 168). |
 | `live_cohort_bias`             | Per-cohort bias for one coin. |
-| `live_cohort_bias_history`     | Historical cohort bias trajectory. |
+| `live_cohort_bias_history`     | Hourly cohort bias for one coin, up to 90 days. `tiers` fetches several series at once (e.g. Apex and Crowd); `format: "layer"` returns the chart envelope; `tierType` takes `pnl`, `pnl_recent` or `size`. |
+| `live_positioning_by_entry`    | Open positions bucketed by entry price, long vs short and by cohort, with each cohort's average entry, leverage and in-profit vs underwater split. |
+| `live_whale_trades`            | Largest fills by USD notional in the last 24h at most, with both counterparties' cohorts. |
 | `live_oi_history`              | Open interest time series. |
 | `live_official_oi`             | OI sourced from Hyperliquid's official feed. |
 | `live_liquidation_heatmap`     | Liquidation density by price level for one coin. |
@@ -145,6 +155,8 @@ Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) �
 | `live_risk_overview`           | Cross-coin risk dashboard. |
 | `live_mark_dislocations`       | Mark vs. oracle deviation events. |
 
+In MCP Apps clients, `live_cohort_bias` renders a long-vs-short-by-tier view and `live_liquidation_heatmap` renders a liquidation price ladder; the text result is unchanged.
+
 ## Market — direct Hyperliquid passthrough
 
 | Tool | Description |
@@ -154,6 +166,71 @@ Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) �
 | `market_orderbook`        | L2 orderbook for a symbol. |
 | `market_recent_candles`   | Recent candles for a symbol. |
 | `market_historical_oi`    | Historical OI series. |
+
+## Interactive chart (v0.17.0)
+
+<Note>
+  Released 12 Oct 2026 in connector v0.17.0; the sections below cover the chart work from v0.14.0 to v0.17.0. The interactive views appear only in clients that support MCP Apps; text-only clients get the same tool results.
+</Note>
+
+### v0.14.0: price charts and bounded candle history
+
+Use **`market_recent_candles`** for a price chart; use `market_price` for a quick mark/index/funding/OI lookup. Candles require **Pro**. An MCP Apps client can render candlesticks, dollar volume, moving averages (EMA 21, SMA 20/50), VWAP, Bollinger Bands, RSI, RSI zone markers, MACD and Stochastic. Text-only clients retain the candle result; `indicators` selects the initial chart layers without changing those rows.
+
+| Input or result | Behavior |
+|---|---|
+| `symbol` | Native or builder-dex ticker, such as `BTC`, `ETH` or `xyz:GOLD` |
+| `interval` | `1m` (default), `5m`, `15m`, `1h`, `4h` or `1d` |
+| `limit` | Default 240; **maximum 500**. Larger requests are clamped to 500 rather than rejected |
+| Candle order | Newest first in the tool result |
+| `volume` | **USD notional**. For hourly-source candles, estimated as base quantity × `(high + low + close) / 3` before aggregation |
+| Unknown `symbol` | `404` naming the symbol when Hyperliquid's market list confirms it is unlisted; use `list_markets` to find the exact ticker |
+
+The limit bounds the source history too. With the current fallback aggregation, `5m` and `15m` use the latest 500 one-minute bars; `4h` and `1d` use the latest 500 hourly bars. You may therefore receive fewer than 500 aggregated candles. This is recent history, with no older-page cursor.
+
+**Market search** uses `list_markets`: `search` matches the symbol case-insensitively before pagination, and `dex` narrows the venue. For example, search for `gold`, then use the returned `xyz:GOLD` ticker. Inactive listings are hidden unless `includeInactive=true`; the connector's search and paging controls do not add parameters to the underlying API route.
+
+### v0.15.0: explore the chart locally
+
+The chart adds a searchable market picker, remembered selections, synchronized indicator panes, candle readouts, keyboard inspection, pan/zoom, and controls to return to the latest available bars. Search typing, indicator settings and range changes use loaded data. Returning to a cached market/interval reuses its candles; **Refresh** requests candles explicitly and keeps the previous chart visible if the request fails.
+
+Liquidation levels and Apex vs The Crowd positioning load on request and refresh separately from candles. They describe **current snapshots**; each layer identifies its retrieval time and any available source measurement time. Expansion and sending an analysis prompt are available only when the host supports them; otherwise the prompt remains selectable for copying.
+
+**Standard candle VWAP** uses `sum(HLC3 × base quantity) / sum(base quantity)`, where `HLC3 = (high + low + close) / 3`. Intraday intervals reset at the UTC day; daily candles anchor to the first loaded bar. It is available only when the source supplies base quantity for the loaded candles and there is positive volume. If those weights are missing, the chart reports VWAP as unavailable instead of treating USD notional as base quantity. The volume histogram remains in dollars.
+
+### Chart layers (v0.16.0)
+
+The chart now draws what only Coinversa has: where open positions got in, who holds them, and how the two flagship cohorts have moved. Two new tools carry the data, and both are useful without the chart:
+
+| Tool | Tier | What it answers |
+|---|---|---|
+| `live_positioning_by_entry` | Pro | Where did the money that is open right now get in? Equal-width entry-price bins (`buckets` 1–200, default 60, across `range` 1–100% of the mark, default 30), long vs short and by cohort, plus one row per cohort and side with average entry, average leverage, in-profit / underwater / flat notional and notional within 5% of liquidation. `tierType` is `pnl`, `pnl_recent` (last 30 days of PnL — who is winning now) or `size`. Empty bins are dropped unless `includeEmptyBins` is set (`binsOmitted` says how many). Profit splits and liquidation distance use Hyperliquid's live mark (`markMethod: live_mark`), or the newest stored position mark when the feed is unavailable; `markDivergencePct` shows how far the stored marks are from it, and a note flags more than 1% |
+| `live_whale_trades` | Pro | What were the biggest fills? Largest first by USD notional, over `since` up to **24h** (default `6h`), `minNotional` default $1M with a $100K floor, `limit` up to 200 (default 50) — with both counterparties' cohorts and what the fill did to each position. `sourceCount` / `sourceTruncated` are the API's own figures; `count` / `totalCount` / `truncated` describe the rows in this response |
+
+`live_cohort_bias_history` gains `tiers` (up to 8, either vocabulary — not together with `tier`), `format: "layer"` (the API's chart envelope with a −1..1 `netBias`, per-series `hoursPresent` and provenance, returned unpaged), `tierType: "pnl_recent"` and `hours` up to **2160** (90 days). A `format: "layer"` answer can be up to 2,160 points per series — pass `maxResponseTokens` or a shorter `hours` when reading it as text; a shortened answer says so in `_responseLimit`, and partial data should never be read as complete. `format: "layer"` requires `tier` or `tiers`. `tierType: "pnl_recent"` snapshots begin 2026-05-14, so no earlier hours are returned.
+
+All three are snapshots or hourly series with explicit caveats — current open positions are **never history**, whale-trade cohorts are the wallets' **current** labels and the aggressor is unknown, and hourly history may contain reconstructed hours with today's labels, so it is not suitable for backtesting. The [chart layer endpoints](/api-reference/chart-layers) page has the fields and the reasoning.
+
+**In the chart.** Ask for a chart — *"show me the BTC 4h chart"* — and `market_recent_candles` opens the interactive view in clients that support MCP Apps. Under **Layers**, the Coinversa layers sit beside the technical indicators:
+
+| Layer | Source tool | What you see |
+|---|---|---|
+| Liquidation levels | `live_liquidation_heatmap` | Estimated current liquidation exposure as price bands; hover or tap for values |
+| Apex vs Crowd | `live_cohort_bias` | Current long share of open notional for each cohort |
+| Entry profile | `live_positioning_by_entry` | Long and short USD exposure by entry price, beside the price axis, with Apex and Crowd highlighted. Can be minimized |
+| Average entry lines | `live_positioning_by_entry` | Apex and Crowd average long and short entries, compared with the latest candle close (fees and funding excluded) |
+| Apex vs Crowd history | `live_cohort_bias_history` | Hourly long share over the loaded chart window, from one `format: "layer"` call capped at 2,160 hours. Missing hours stay gaps; labelled "possibly reconstructed" |
+| Biggest trades | `live_whale_trades` | **Off by default.** One call loads the latest 24h sample — up to 50 fills of $100K or more — and Top 50 / 20 / 5 filter it locally. Split markers show the buy-side and sell-side cohort; who initiated the trade is not known |
+
+With no `indicators` passed, the view opens with RSI, the entry profile, average entry lines and liquidation levels. `indicators` accepts `ema21`, `sma20`, `sma50`, `vwap`, `bollinger`, `rsi`, `macd`, `stochastic`, `rsiMarkers` and the Coinversa layers `liquidations`, `positioning`, `entryProfile`, `averageEntries`, `cohortHistory` and `whaleTrades` to choose the initial layers. A **PnL grouping** selector switches the entry layers and history between all-time and 30-day PnL cohorts; the Apex vs Crowd snapshot and biggest-trade markers always use all-time groups.
+
+Each layer loads once per market and is cached in the view. Refreshing candles does not refresh layers — **Refresh layers** does that explicitly — and there is no polling. Every layer shows its source and as-of time, and **Data & sources** keeps the full coverage notes. What Claude sees about the chart is a concise summary per layer, never raw fills or wallet addresses.
+
+### Image sharing (v0.17.0)
+
+**Share**, beside the price, opens a fullscreen composer. Pick a card — **Chart + inspection** (the chart as you left it, with the selected candle or trade) or **Cohort positioning** (Apex and Crowd long/short shares, open notional, wallet counts, average entries and leverage) — and a format: **X landscape** (1600 × 1200) or **Instagram portrait** (1080 × 1350). Then **Share image** hands the PNG and an editable caption to your device's share sheet where the device supports it, and **Save image** downloads it.
+
+Images are rendered locally in the view: no upload service, no account integration, and nothing is posted automatically. Each card carries its snapshot time and the footer *current positions, not a forecast* and *Market data from Hyperliquid, not investment advice*. Complete coverage notes stay in **Data & sources**.
 
 ## Entity resolution — owner-level intelligence · Pro <sup>new in 0.9</sup>
 
@@ -170,7 +247,7 @@ owner entity and aggregate across the whole family.
 
 | Tool | Description |
 |------|-------------|
-| `pulse_exchange_volume` | 24h volume, total and **per dex** — builder dexes are ~43% of Hyperliquid volume and most trackers' headlines omit them. |
+| `pulse_exchange_volume` | 24h volume, total and **per dex** (native `hl` plus every builder dex), with match counts and distinct traders. Builder dexes are a large share (about 30% on 2026-09-23); read `byDex` for the current split. |
 | `pulse_exchange_oi`     | Open interest by dex with long/short notional split. |
 | `pulse_active_traders`  | Distinct wallets that traded in the last 24h. |
 | `pulse_exchange_positions` | Open positions by dex + 24h flow: closes, liquidations, exchange-wide realized PnL. |
@@ -184,20 +261,20 @@ owner entity and aggregate across the whole family.
 
 ## HIP-4 — outcome contracts
 
-| Tool | Description |
-|------|-------------|
-| `hip4_outcomes`               | All known outcome contracts. |
-| `hip4_outcome`                | Metadata for one outcome. |
-| `hip4_outcome_summary`        | Volume + holder stats for one outcome. |
-| `hip4_outcome_recent_trades`  | Recent fills on one outcome. |
-| `hip4_questions`              | Outcome contracts grouped by question. |
-| `hip4_recent_settlements`     | Recently settled outcomes. |
-| `hip4_daily_volume`           | Daily HIP-4 trading volume. |
-| `hip4_most_active`            | Most-traded outcomes. |
-| `hip4_top_traders`            | Top outcome traders by volume / PnL. |
-| `hip4_trader_outcomes`        | Outcomes one wallet has traded. |
-| `hip4_cross_product_overlap`  | Overlap between outcome traders and perp traders. |
-| `hip4_perp_position_context`  | Whether outcome holders have open perp positions on the underlying. **Pro tier.** |
+| Tool | Tier | Description |
+|------|------|-------------|
+| `hip4_outcomes`               | Free | Outcome contracts that traded in the last `hours` (default 24, max 168), largest notional (USDH) first, capped at `limit` (default 25, max 200). |
+| `hip4_outcome`                | Free | Metadata for one outcome. |
+| `hip4_outcome_summary`        | [See matrix](/api-reference/tiers) | Volume + holder stats for one outcome. |
+| `hip4_outcome_recent_trades`  | Free | Recent fills on one outcome. |
+| `hip4_questions`              | Free | Outcome contracts grouped by question. |
+| `hip4_recent_settlements`     | Free | Recently settled outcomes. |
+| `hip4_daily_volume`           | Free | Daily HIP-4 trading volume. |
+| `hip4_most_active`            | Free | Most-traded outcomes. |
+| `hip4_top_traders`            | Starter | Top outcome traders by volume / PnL. |
+| `hip4_trader_outcomes`        | Starter | Outcomes one wallet has traded. |
+| `hip4_cross_product_overlap`  | Pro | Overlap between outcome traders and perp traders. |
+| `hip4_perp_position_context`  | Pro | Whether outcome holders have open perp positions on the underlying. |
 
 ## L4 order book (v0.12.0)
 
@@ -214,6 +291,8 @@ Four tools over the **order-level** book — every resting order with the wallet
 
 <Warning>
   **The coin is CASE-SENSITIVE on these four tools**, unlike every other coin-taking tool. It must be the node's own spelling — `BTC`, `HYPE`, `xyz:GOLD`, `cash:TSLA`, `#28200`. `btc` returns 404 with a hint rather than being normalised, because the rollups are keyed on the node's spelling. Use `list_markets` to discover exact names.
+
+  A correctly spelled coin outside the L4 sweep returns 404 (`BOOK_NOT_COVERED`) on all four tools, and retrying will not help; `data_coverage` lists the covered coins, and `market_orderbook` serves the L2 book. Spot pairs such as `PURR/USDC` are not addressable.
 </Warning>
 
 Bounds: `book_stop_map` takes `within_pct` 1–10 (default 10), `book_whales` takes `limit` 1–50 (default 20), `book_levels` takes `depth` 1–100 (default 50). All three are integers — a fraction is rejected before a request is made.
@@ -228,7 +307,7 @@ For the live order-by-order stream rather than a rollup, see the [`l4Book` webso
 
 ## Connector-side parameters
 
-Eight tools return payloads too large to hand an agent whole, so shaping parameters were added to them — five in **v0.13.0**, three more by **v0.13.7**. These are applied by the connector **after** it fetches the endpoint — the routes themselves take none of them, and you will not find them in the [API reference](/api-reference) or the OpenAPI spec. Calling the endpoint directly returns the full payload.
+Several tools take shaping parameters that the connector applies **after** it fetches the endpoint — the routes themselves take none of them, and you will not find them in the [API reference](/api-reference/introduction) or the OpenAPI spec. Calling the endpoint directly returns the full payload.
 
 | Tool | Endpoint | Connector-side | Sent upstream |
 |---|---|---|---|
@@ -237,18 +316,28 @@ Eight tools return payloads too large to hand an agent whole, so shaping paramet
 | `list_assets` | `/assets` | `search`, `detail`, `limit` (25, max 500), `offset` | `crossMarketOnly` |
 | `hip4_questions` | `/hip4/questions` | `status`, `search`, `limit` (25, max 200), `offset` | — |
 | `pulse_trader_daily_stats` | `/pulse/trader/{address}/daily` | `startDate`, `endDate`, `limit` (90, max 1000), `offset` | `address` (path) |
-| `list_markets` | `/pulse/market-overview` | `limit`, `offset` | — |
-| `live_long_short_ratio` | `/live/long-short` | `limit`, `offset` | — |
-| `live_cohort_bias_history` | `/live/cohort-bias-history/{coin}` | `limit`, `offset` | `coin` (path), `hours`, `tierType`, `tier` |
+| `list_markets` | `/pulse/market-overview` | `search`, `includeInactive`, `limit` (50, max 500), `offset` | `dex` |
+| `live_long_short_ratio` | `/live/long-short`, `/live/coins/{coin}/long-short`, `/live/long-short/history` | `limit` (25, max 500), `offset` (global and history forms) | `coin` (path, or query with `hours`), `hours` |
+| `live_cohort_bias_history` | `/live/cohort-bias-history/{coin}` | `limit` (100, max 2000), `offset` | `coin` (path), `hours`, `tierType`, `tier`, `tiers`, `format` |
+| `pulse_cohort_bias_history` | `/pulse/cohort-bias/history` | `tierType` (pnl/size), `tier`, `limit` (100, max 2000) | `coin`, `since`, `startTime`, `endTime` |
+| `pulse_cohort_performance_daily` | `/pulse/cohorts/daily-stats` | `tierType`, `tier`, `limit` (100, max 2000) | `since`, `startTime`, `endTime` |
+| `live_mark_dislocations` | `/live/risk/coins/{coin}/history` | `resolution` (5m), `limit` (500, max 5000) | `coin` (path), `hours` |
+| `live_coin_risk_history` | `/live/risk/coins/{coin}/history` | `include` | `coin` (path), `hours` |
+| `live_positioning_by_entry` | `/live/positioning-by-entry/{coin}` | `includeEmptyBins` | `coin` (path), `tierType`, `buckets`, `range` |
+| `pulse_lifecycle` | `/pulse/lifecycle/{id}` | `fillsLimit` (100, max 1000), `fillsOffset` | `id` (path) |
+| `hip4_outcomes` | `/hip4/outcomes` | `limit` (25, max 200) | `hours` |
+| `hip4_trader_outcomes` | `/hip4/trader/{address}/outcomes` | `limit` (50, max 200) | `address` (path), `days` |
 
 Parenthesised numbers are the default and the maximum. Every capped response carries `totalCount`, `truncated` and a `note` naming the next `offset`, so an agent can page without guessing.
 
-Around twenty **other** tools also take `limit` and `offset`, and those are passed straight through to the route, which pages for itself. The distinction only matters if you are calling the REST API directly: for the eight above, the parameter names in this table do not exist on the endpoint.
+Around twenty **other** tools also take `limit` and `offset`, and those are passed straight through to the route, which pages for itself. The distinction only matters if you are calling the REST API directly: for the tools above, the parameter names in the Connector-side column do not exist on the endpoint.
 
 <Warning>
-Some parameters do cross the boundary — `list_assets`'s `crossMarketOnly`, and `live_cohort_bias_history`'s `hours`, `tierType` and `tier` are real query parameters on their routes. The paging ones are not. A route silently ignores a parameter it does not declare — `GET /assets?limit=3` returns all 415 assets, not 3 — so do not reach for these names when calling the REST API directly.
+Some parameters do cross the boundary — `list_assets`'s `crossMarketOnly`, and `live_cohort_bias_history`'s `hours`, `tierType`, `tier`, `tiers` and `format` are real query parameters on their routes. The paging ones are not. A route silently ignores a parameter it does not declare — `GET /assets?limit=3` returns all 415 assets, not 3 — so do not reach for these names when calling the REST API directly.
 </Warning>
 
 <Note>
 Every tool accepts a `useToonFormat` flag (default `true`) that returns data in compact [TOON format](https://toon-format.dev) — about 50% fewer tokens than JSON for tabular data. Agents typically want this on; set to `false` if you need standard JSON.
+
+Every tool also accepts `maxResponseTokens` (500–30,000; complete array items are removed until the answer fits, disclosed in `_responseLimit`) and `responseTruncation` (`head` or `tail`, for unpaged arrays). Both are applied by the connector.
 </Note>

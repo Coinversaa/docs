@@ -1,0 +1,139 @@
+---
+title: "Chart layer endpoints"
+description: "Positioning by entry price, whale trades, Apex vs Crowd cohort-bias history and bounded recent candles: the Hyperliquid REST endpoints behind the Coinversa chart, with parameters, response fields, caching and caveats."
+---
+
+Four Pro endpoints feed the Coinversa chart — and work just as well on their own. **Positioning by entry** shows where the money that is open right now got in, **whale trades** lists the largest recent fills with both counterparties, **cohort-bias history** gives Apex vs The Crowd hour by hour, and **recent candles** draws the price underneath. Each one is a single cached call with bounded parameters, and every body says how fresh it is instead of implying "live".
+
+| Endpoint | Tier | Cache | What it answers |
+|---|---|---|---|
+| `/live/positioning-by-entry/{coin}` | Pro | 30 s | Where did the open longs and shorts get in, by cohort — and who is underwater? |
+| `/live/whale-trades/{coin}` | Pro | 60 s | What were the biggest fills in the last few hours, and who was on each side? |
+| `/live/cohort-bias-history/{coin}` | Pro | 30 s | How has Apex vs The Crowd positioning moved, hour by hour? |
+| `/pulse/market/candles/recent/{symbol}` | Pro | 15 s | Recent OHLCV for the price pane |
+
+All four take a market symbol in the path — a native perp (`BTC`) or a builder-dex symbol (`xyz:GOLD`). Case and surrounding whitespace are normalized, and the body echoes the canonical spelling. For positioning by entry, whale trades and recent candles, a symbol Hyperliquid's own universe does not list is a `404` (`Unknown market 'X'`). Cohort-bias history does not check the universe: an unknown symbol returns `200` with no history. A listed market with nothing to report is a `200` with empty arrays. Cohorts are returned as **legacy slugs** — `money_printer` is Apex, `exit_liquidity` is The Crowd — see [Cohorts](/concepts/cohorts).
+
+## Positioning by entry
+
+`GET /live/positioning-by-entry/{coin}` — every open Hyperliquid position on the market, bucketed by **entry price** into equal-width bins, split long vs short and by cohort, plus one summary row per cohort and side. Think of it as a volume-by-price profile built from who is actually holding, not from what traded.
+
+| Param | Default | Bounds | Meaning |
+|---|---|---|---|
+| `tierType` | `pnl` | `pnl` \| `pnl_recent` \| `size` | Cohort axis: all-time PnL tiers, the same slugs over the wallet's **last 30 days** of PnL (who is winning now), or lifetime traded-volume tiers |
+| `buckets` | `60` | 1–200 (`422` outside) | Number of equal-width entry-price bins |
+| `range` | `30` | 1–100 (`422` outside) | Percent below and above the reference mark the bins cover — `30` means mark × 0.7 to mark × 1.3 |
+
+### Response
+
+| Field | What it is |
+|---|---|
+| `bins[]` | Ascending price bins: `priceLow` / `priceHigh`, `longNotional` / `shortNotional` (USD), `longAccounts` / `shortAccounts`, and a per-cohort `tiers[]` split, most notional first. Empty when there are no positions or no mark |
+| `cohorts[]` | One row per (tier, side) with open notional, in tier order, long before short — **market-wide**, not limited to the bin range |
+| `rangeLow` / `rangeHigh` / `binSize` | The entry-price range the bins cover and the width of one bin, USD — derived from `markPx × (100 ± range) / 100` |
+| `nearLiqPct` | The near-liquidation threshold, in percent of mark (`5`) |
+| `cohorts[].pricedNotional` / `unpricedNotional` / `unpricedAccounts` | Notional with and without a stored entry price, and the positions without one. `pricedNotional` is the denominator of `avgEntryPx` and `inProfitShare` |
+| `cohorts[].avgEntryPx` | Notional-weighted average entry over priced positions; `null` when nothing is priced |
+| `cohorts[].avgLeverage` | Notional-weighted average leverage over positions with a stored leverage; `null` when none has one. `leverageCoveredNotional` is the notional behind it |
+| `cohorts[].inProfitNotional` / `underwaterNotional` / `flatNotional` | Priced notional strictly on the right side, the wrong side, or exactly at the reference mark. **Fees and funding are not included.** `inProfitShare` is in-profit ÷ priced, 0–1 |
+| `cohorts[].unknownProfitNotional` | Notional whose side of the mark cannot be told — unpriced positions, or everything when there is no mark |
+| `cohorts[].outsideRangeNotional` | Priced notional whose entry falls outside the bin range |
+| `cohorts[].nearLiqNotional` | Notional whose stored liquidation price is within `nearLiqPct` (5%) of the reference mark |
+| `cohorts[].notional` / `accounts` | Open notional and positions (= wallets — one row per wallet per market), **including** positions without an entry price, so totals reconcile with `/live/cohort-bias/{coin}` |
+| `long` / `short` | Side totals market-wide, including `pricedNotional` / `unpricedNotional` / `unpricedAccounts`, plus `inRangeNotional` / `outsideRangeNotional` and `inRangeAccounts` / `outsideRangeAccounts` for the bin range |
+| `markPx`, `markAsOf`, `markMethod`, `markSource` | The reference mark used for the bins, profit split and near-liquidation, and where it came from (below) |
+| `storedMark`, `storedMarkAsOf`, `markDivergencePct` | The mark the position rows themselves carry, and `(markPx − storedMark) / storedMark × 100` |
+| `coverage` | `positions`, `withoutTier`, `withoutEntry` (+ `withoutEntryNotional`), `withoutLeverage` — what was and was not counted |
+| `source` | `table` (`live_positions`), `kind` (`snapshot`), `asOf` (compute time, kept on cache hits), `newestRow` / `oldestRow` / `medianAgeS` (the spread of position observation times) |
+| `tierType`, `cohortBasis`, `tierWindowDays` | The axis echoed: `all_time_pnl`, `recent_30d_pnl` or `lifetime_volume`; `tierWindowDays` is `30` for `pnl_recent`, else `null` |
+| `notes[]` | Caveats to show beside the data |
+
+Only positions above $10 notional are counted (`coverage.positions`).
+
+**The reference mark** is Hyperliquid's live mark when the feed answers (`markMethod: "live_mark"`, read through a short per-dex cache — never older than 60 s). If the feed is unavailable the endpoint falls back to the mark stored on the most recently refreshed position (`newest_position`), then a notional-weighted stored mark (`weighted_fallback`), then `none` — never a `500`. The live mark is also skipped when it is older than the newest stored position row; the stored mark is then the reference (`newest_position`) and a note says so. The stored mark is always reported beside it: stored notionals are size × each wallet's **last-poll** mark, so a `markDivergencePct` above 1% means stored notionals and liquidation distances are noticeably stale, and a note says so.
+
+<Warning>
+  **A snapshot, never a history.** This is the open book now. A wallet that has not traded keeps its last-poll mark and notional, so in a quiet market positions can be hours old on average — read `source.medianAgeS` before calling it "live". Cohorts are each wallet's **current** label, not the label it had when it entered. Positions whose wallet has no tier yet are in the bins and side totals but in no cohort row (`coverage.withoutTier`). No wallet addresses are returned.
+</Warning>
+
+## Whale trades
+
+`GET /live/whale-trades/{coin}` — the largest individual fills on a market by USD notional (`price × size`), largest first, with **both counterparties** where indexed.
+
+| Param | Default | Bounds | Meaning |
+|---|---|---|---|
+| `since` | `6h` | `1m` to **`24h`**. Over 24h is a `400` — never silently narrowed. Below `1m` is a `422` | Lookback window: number + `m`, `h` or `d` |
+| `minNotional` | `1000000` | **Floor `100000`** (`422` below; `NaN` and infinities rejected) | Smallest fill, USD |
+| `limit` | `50` | 1–200 (`422` outside) | Fills returned, largest notional first, then newest |
+
+Each `trades[]` row carries `tid` (a **decimal string** — 64-bit, do not parse it into a JavaScript number), `idKind`, `time`, `price`, `size`, `notional`, and a `buyer` and `seller` with `address`, `pnlTier`, `sizeTier` and `direction` (what the fill did to that wallet's position: `Open Long`, `Close Short`, `Long > Short`, …). An unindexed counterparty is an empty party.
+
+| Field | What it is |
+|---|---|
+| `since` | The window as requested |
+| `minNotional` | The notional floor applied, USD |
+| `count` | Fills returned |
+| `windowStart` / `windowEnd` | The exact UTC bounds queried, `[windowStart, windowEnd)`, Unix ms — captured once per computation |
+| `truncated` | `true` only when at least one more fill above `minNotional` exists in the window — proven by fetching `limit + 1`, not inferred |
+| `ranking` | Always `notional_desc` |
+| `tierAssignment` | Always `current` — tiers are the wallets' labels now, not at fill time |
+| `aggressor` | Always `unknown` — which side took liquidity is not recorded |
+| `source.asOf` | Compute time (kept on cache hits). `source.observedThrough` is `null` and `coverage.completeness` is `unknown`: there is no ingestion watermark yet, so the newest fills of the window may be missing |
+
+**"Whale" means the trade is large** — not the `whale` size tier (lifetime volume) and not realized PnL (`/pulse/biggest-wins`, `/pulse/biggest-losses` and `/pulse/trades/recent` rank by PnL). A fill whose exchange id was missing carries a negative, wallet-specific id and `idKind: "synthetic"`: it is one wallet's observation and cannot be paired with its counterparty, which may appear as a separate row.
+
+<Note>
+  The 24h ceiling is a performance bound, not a data limit: fills are not indexed by notional, so cost grows with the market's fill count in the window. Equivalent windows (`6h`, `360m`) share one cache entry.
+</Note>
+
+## Cohort-bias history
+
+`GET /live/cohort-bias-history/{coin}` — hourly long/short notional and net bias per cohort, read from the hourly snapshot table:
+
+| Param | Default | Bounds | Meaning |
+|---|---|---|---|
+| `hours` | `168` | Silently clamped to 1–2160 (90 days) | Window ending now, UTC |
+| `tierType` | `pnl` | `pnl` \| `pnl_recent` \| `size` | `pnl_recent` (30-day PnL tiers) snapshots exist **since 2026-05-14** and are never backfilled |
+| `tier` | — | Either vocabulary | One series, as a flat array |
+| `tiers` | — | 1–8 comma-separated slugs, either vocabulary; whitespace and duplicates tolerated. Unknown slug → `422`; with `tier` → `422` | Several series in one call, `[{tier, history}]` in the order given |
+| `format` | `rows` | `rows` \| `layer` | `layer` returns the chart envelope below and needs `tier` or `tiers`; `rows` returns the plain history rows |
+
+The chart's call is `/live/cohort-bias-history/BTC?tiers=apex,crowd&hours=2160&format=layer`, which returns:
+
+```json
+{
+  "coin": "BTC", "tierType": "pnl", "cohortBasis": "all_time_pnl", "tierWindowDays": null,
+  "tiers": ["money_printer", "exit_liquidity"],
+  "windowStart": 1783856400000, "windowEnd": 1791632400000, "netBiasUnit": "ratio",
+  "series": [
+    { "tier": "money_printer", "hoursPresent": 2104,
+      "points": [ { "timestamp": 1783857600000, "longNotional": 4.4e8, "shortNotional": 6.4e8, "netBias": -0.18, "accountCount": 151 } ] }
+  ],
+  "source": { "table": "cohort_bias_snapshots", "kind": "hourly", "asOf": 1791632400000,
+              "observedFrom": 1783857600000, "observedThrough": 1791630000000, "cadence": "..." },
+  "coverage": { "hoursExpected": 2160, "provenance": "unknown_mixed", "backtestSuitable": false, "tierAssignment": "snapshot_or_current" }
+}
+```
+
+- **`netBias` is a −1..1 ratio** on this route (`netBiasUnit: "ratio"`), not the −100..100 percent of `/pulse/cohort-bias/history`. Long share is `(netBias + 1) / 2`.
+- **The window is explicit UTC**: `(windowStart, windowEnd]`, captured once and echoed in the body; rows stamped in the future are excluded. Snapshots are written at :00:05 UTC, so `observedThrough` normally trails now by up to an hour.
+- **Missing hours stay missing.** A stalled hour has no row, and a cohort with no open notional in an hour has no point — never 50%. `hoursPresent` vs `coverage.hoursExpected` tells you how many are absent. Draw gaps; do not interpolate or zero-fill.
+
+<Warning>
+  **Not suitable for backtests.** Some hours are written by a backfill that stamps **today's** tier labels on past hours (lookahead) and can touch the last 7 days, not only old ones; beyond the 30-day candle window a backfilled hour may also carry a placeholder price. Live and backfilled rows cannot be told apart yet, so `coverage.provenance` is `unknown_mixed` and `backtestSuitable` is `false` at every age. Compare snapshot to snapshot for "change vs 1h" — the current `/live/cohort-bias/{coin}` value filters out positions of $10 notional or less, and the snapshots do not.
+</Warning>
+
+## Recent candles
+
+`GET /pulse/market/candles/recent/{symbol}` returns recent OHLCV, **newest first**:
+
+| Param | Default | Bounds | Meaning |
+|---|---|---|---|
+| `interval` | `1m` | `1m`, `5m`, `15m`, `1h`, `4h`, `1d` — anything else is a `422` | `1m` and `1h` are stored; `5m`, `15m`, `4h` and `1d` are rolled up from `1m` |
+| `limit` | `120` | **Max 500.** Larger values are **clamped** to 500, not rejected, and the response carries `X-Limit-Clamped: 500`. Below 1 uses the default | Number of candles |
+
+- **Unknown market → `404`**, the same contract as `/market/price/{symbol}`: only when Hyperliquid's universe says the symbol does not exist. A listed market with no candles stays `200 []`.
+- **Rolled-up intervals inherit 1-minute retention** (30 days), so `1d` returns at most 30 daily bars.
+- Responses are **cached for 15 s**, keyed by symbol (case-folded), interval and effective limit — `limit=600` and `limit=720` share one entry.
+
+The [MCP chart view](/mcp/tools#chart-layers-v0-16-0) is built on exactly these four calls — one per layer, cached, no fan-out. See [the tier matrix](/api-reference/tiers) and [data windows](/api-reference/data-windows) for how they sit alongside the rest of the API.

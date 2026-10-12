@@ -11,11 +11,14 @@ Tier gates are enforced server-side. A request without sufficient entitlement re
   "status": 403,
   "detail": "Api key needed for this request",
   "code": "TIER_GATE",
+  "reason": "missing_api_key",
   "current_tier": "none",
   "required_tier": "starter",
   "upgrade_url": "https://coinversa.ai/developers#pricing"
 }
 ```
+
+`reason` is `missing_api_key` (no key), `invalid_api_key` (key present but inactive) or `insufficient_tier` (key below the required tier).
 
 Every endpoint requires an API key — keyless requests are rejected with the shape above (`current_tier: "none"`), even on endpoints whose required tier is `free`. The keyless exception is the [x402 pay-per-call surface](#x402-pay-per-call) below.
 
@@ -87,6 +90,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Risk & market | `/pulse/lethal-coins`, `/pulse/backstop-events`, `/pulse/market-concentration`, `/pulse/market/candles/recent/{symbol}`, `/market/historical-oi` |
     | Live risk | `/live/risk/overview`, `/live/risk/coins/{coin}`, `/live/risk/coins/{coin}/history`, `/live/risk/coins/{coin}/mark-dislocations`, `/live/risk/liquidations/recent`, `/live/risk/liquidations/summary`, `/live/liquidation-heatmap/{coin}` |
     | Live OI & cohort bias | `/live/oi-history`, `/live/oi-history/{coin}`, `/live/official-oi`, `/live/official-oi/{coin}`, `/live/cohort-bias/{coin}`, `/live/cohort-bias-history/{coin}` |
+    | Chart layers | `/live/positioning-by-entry/{coin}`, `/live/whale-trades/{coin}` — with `/live/cohort-bias-history/{coin}` and `/pulse/market/candles/recent/{symbol}` above, these feed the chart; see [Chart layer endpoints](/api-reference/chart-layers) |
     | Deep archetypes | `/pulse/max-pain-events`, `/pulse/perfect-exits`, `/pulse/wallet-drawdown-curve/{address}` |
     | Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/positions`, `/trades`, `/history` |
     | Cohort drilldowns (rolling 30d) | `/pulse/cohorts-recent/{tierType}/{tier}/positions`, `/trades`, `/lifecycle-stats`, `/top-positions`, `/alpha-concentration` |
@@ -130,6 +134,6 @@ Each API key has an effective tier. Endpoint access and daily/monthly caps are c
 
 The websocket resolves differently: a connection gets the **highest entitled tier across the account's keys**, and its connection cap is shared by all of them. See [WebSocket plan limits](/websocket/limits#resolved-limits-not-the-table).
 
-Tier entitlement is granted by an active Stripe subscription or an explicit grandfather override. If a paid key's subscription lapses, that specific key falls back to Free limits but is **not deleted** — your existing integrations keep working at reduced quota until you reactivate.
+Tier entitlement is granted by an active Stripe subscription, an explicit grandfather override, or a failed payment still inside its grace window (up to 14 days, never past the current billing period). A paid key whose own entitlement ends is still served at its tier if another active key on the same account is entitled at that tier (or at the lower paid tier that sibling holds); otherwise it falls back to Free limits. The key is **not deleted** — your existing integrations keep working at reduced quota until you reactivate.
 
 See [Authentication](/authentication) for the request-time mechanics and rate-limit headers.

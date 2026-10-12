@@ -1,6 +1,6 @@
 ---
 title: "Markets & symbols"
-description: "Native Hyperliquid perps, the 7 builder dexes, and symbol-format conventions."
+description: "Native Hyperliquid perps, builder dexes, and symbol-format conventions."
 ---
 
 Hyperliquid hosts two layers of perpetual markets: the **native** L1 perps (BTC, ETH, SOL, HYPE, etc.) and **builder dexes** — independent perp exchanges built on top of Hyperliquid with their own collateral tokens and listings.
@@ -9,28 +9,33 @@ Hyperliquid hosts two layers of perpetual markets: the **native** L1 perps (BTC,
 **Builder dex ≠ builder code.** A builder *dex* is a venue with its own markets (this page). A builder *code* is any address that attaches a fee to the orders it routes — every builder dex runs one, but so do wallet apps, front-ends, and bots that list no markets of their own. The [builder analytics endpoints](/concepts/builder-attribution) are about builder codes.
 </Note>
 
-## The 7 builder dexes
+## Builder dexes
 
-| Dex    | What it trades             | Collateral | Example symbols                    |
-|--------|----------------------------|------------|------------------------------------|
-| *(none)* | Native HL perps          | USDC       | `BTC`, `ETH`, `SOL`, `HYPE`        |
-| `xyz`  | Commodities, stocks, indices | USDC     | `xyz:GOLD`, `xyz:SILVER`, `xyz:TSLA` |
-| `flx`  | Perps                      | USDH       | `flx:BTC`, `flx:ETH`               |
-| `vntl` | Perps                      | USDH       | `vntl:ANTHROPIC`, `vntl:BTC`       |
-| `hyna` | Perps                      | USDE       | `hyna:SOL`, `hyna:BTC`             |
-| `km`   | Energy & commodities       | USDH       | `km:OIL`, `km:NATGAS`, `km:WHEAT`  |
-| `abcd` | Misc                       | USDC       | `abcd:BITCOIN`                     |
-| `cash` | Stocks & equities          | USDT0      | `cash:TSLA`, `cash:AAPL`, `cash:GOOGL` |
+Active builder dexes (Hyperliquid perpDexs, checked 2026-09-23):
+
+| Dex    | What it trades                         | Collateral | Example symbols                      |
+|--------|----------------------------------------|------------|--------------------------------------|
+| *(none)* | Native HL perps                      | USDC       | `BTC`, `ETH`, `SOL`, `HYPE`          |
+| `xyz`  | Stocks, commodities, indices, FX       | USDC       | `xyz:GOLD`, `xyz:SILVER`, `xyz:TSLA` |
+| `io`   | Pre-IPO and single stocks              | USDC       | `io:ANTH`, `io:OAI`                  |
+| `mkts` | Indices and bonds (Markets by Kinetiq) | USDC       | `mkts:US500`, `mkts:USTECH`          |
+| `para` | Stocks and crypto indices              | USDC       | `para:BTCD`, `para:AVGO`             |
+
+<Note>
+**Legacy dexes.** Every market on `flx`, `vntl`, `hyna`, `km`, `abcd` and `cash` is delisted on Hyperliquid (zero open interest, zero volume); `km`'s listings moved to `mkts`. Their historical trades still appear in the `pulse_*` trade and wallet analytics, but their prices are not live, and `list_markets` hides them unless `includeInactive=true`.
+</Note>
 
 ## Symbol format
 
 - **Native symbols:** just the ticker — `BTC`, `ETH`, `SOL`.
-- **Builder dex symbols:** `prefix:TICKER` — `xyz:SILVER`, `cash:TSLA`, `km:OIL`.
+- **Builder dex symbols:** `prefix:TICKER` — `xyz:SILVER`, `io:ANTH`, `mkts:US500`.
 
 The prefix is always lowercase; the ticker is always uppercase. This convention matches Hyperliquid's L1 storage format and is what the API expects in path / query params.
 
 <Note>
 Discover all available symbols with the `list_markets` tool (or `GET /pulse/market-overview`). Optionally pass a `dex` filter to narrow results to one venue.
+
+`list_markets` / `GET /pulse/market-overview` and `market_price` cover native perps, `xyz` and the legacy dexes only. `io`, `mkts` and `para` markets appear in trade, lifecycle and wallet analytics (`pulse_*`), but `list_markets(dex="io")` returns an empty list with a note, and `market_price` explains the gap instead of returning a price.
 </Note>
 
 ## Asset classes
@@ -40,7 +45,7 @@ Internally we tag every coin with an asset class. You usually don't need to thin
 | Class | Format | Example |
 |-------|--------|---------|
 | `perp`               | bare ticker (native HL perp)       | `BTC`, `HYPE` |
-| `hip3-perp`          | `dex:TICKER` (builder-deployed)    | `xyz:BTC`, `flx:TSLA` |
+| `hip3-perp`          | `dex:TICKER` (builder-deployed)    | `xyz:BTC`, `xyz:TSLA` |
 | `spot-canonical`     | `X/Y` named spot pair              | `PURR/USDC` |
 | `spot-non-canonical` | `@N` spot index                    | `@1`, `@22` |
 | `outcome`            | `#<encoding>` HIP-4 side token     | `#90`, `#211` |

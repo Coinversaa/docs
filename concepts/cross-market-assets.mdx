@@ -8,9 +8,13 @@ The same underlying exposure can appear under different tickers on different ven
 ## Vocabulary
 
 - **Canonical** — the economic-exposure identifier. Examples: `GOLD`, `BTC`, `OIL`.
-- **Symbol** — what appears on a specific venue. Examples: `GOLD` (native HL spot), `xyz:GOLD`, `hyna:PAXG`.
+- **Symbol** — what appears on a specific venue. Examples: `GOLD` (native HL spot), `xyz:GOLD`, `hyna:PAXG` (a historical, legacy-dex symbol).
 
 The registry maps every symbol to its canonical, including documented **synonyms** where two tickers track the same exposure.
+
+<Note>
+Venue lists cover native Hyperliquid, `xyz` and the legacy dexes (`flx`, `vntl`, `hyna`, `km`, `abcd`, `cash`; delisted, zero open interest). `io`, `mkts` and `para` are not in the asset directory yet.
+</Note>
 
 ## Known synonyms
 
@@ -45,22 +49,28 @@ Sample shape:
 
 ```json
 {
-  "success": true,
-  "asset": "BTC",
+  "query": "BTC",
+  "resolvedCanonical": "BTC",
+  "asset": { "canonical": "BTC", "synonyms": [], "crossMarket": true, "venueCount": 2 },
+  "aggregate": {
+    "totalOpenInterest": ..., "longPositions": 13071, "shortPositions": 10392,
+    "longNotional": ..., "shortNotional": ..., "netBias": 0.114, "biasRange": 0.077,
+    "totalUniqueWallets": ..., ...
+  },
   "venues": [
-    { "symbol": "BTC",      "dex": "hl",   "longPositions": 12431, "shortPositions": 9802, "netBias": 0.118, ... },
-    { "symbol": "flx:BTC",  "dex": "flx",  "longPositions": 412,   "shortPositions": 388,  "netBias": 0.030, ... },
-    { "symbol": "hyna:BTC", "dex": "hyna", "longPositions": 1217,  "shortPositions": 1054, "netBias": 0.072, ... }
-  ],
-  "aggregated": { "totalLongPositions": 14060, "totalShortPositions": 11244, "netBias": 0.111 }
+    { "dex": "hl",  "symbol": "BTC",     "longPositions": 12431, "shortPositions": 9802, "netBias": 0.118, ... },
+    { "dex": "xyz", "symbol": "xyz:BTC", "longPositions": 640,   "shortPositions": 590,  "netBias": 0.041, ... }
+  ]
 }
 ```
+
+`netBias` here is position-count bias, `(long - short) / (long + short)`. `totalUniqueWallets` is summed per venue, not deduplicated. An omitted venue metric means unavailable, not zero.
 
 ## When to use canonical vs venue symbols
 
 | Question | Use |
 |----------|-----|
-| "What's the BTC mark price on `flx`?" | venue symbol (`flx:BTC`) |
+| "What's the BTC mark price on `xyz`?" | venue symbol (`xyz:BTC`) |
 | "Which venues trade gold?"             | canonical (`GOLD`) |
 | "Total OI on BTC across all dexes?"    | canonical (`BTC`) → cross-market |
 | "Is PAXG the same as GOLD?"            | resolve via `list_asset` |
@@ -72,6 +82,5 @@ Live position / cohort data is **always per-venue** — `live_cohort_bias` expec
 
 | Tool / endpoint | Returns |
 |-----------------|---------|
-| `list_assets` / `GET /assets`        | Full directory of canonicals with their venue lists |
+| `list_assets` / `GET /assets`        | Full directory of canonicals with their venue lists; also returns `venues`, the builder dexes the directory covers |
 | `list_asset`  / `GET /assets/:c`     | One canonical's venue breakdown (accepts synonyms) |
-| `GET /assets/meta`                   | Static taxonomy: dex list, synonym rules, symbol-format reference |
