@@ -18993,8 +18993,9 @@
           }
         ],
         "summary": "Get API public v1 live official oi by coin",
-        "x-coinversa-min-tier": "pro",
-        "x-coinversa-quota-scope": "account"
+        "x-coinversa-min-tier": "free",
+        "x-coinversa-quota-scope": "account",
+        "description": "Free and Starter plans return at most the last 24 hours (the response carries a `note` when a longer window was requested); Pro and Enterprise return the requested window, default 7 days, up to 30 days."
       }
     },
     "/api/public/v1/live/oi-history": {

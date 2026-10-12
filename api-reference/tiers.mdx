@@ -50,7 +50,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
 
 <AccordionGroup>
   <Accordion title="Free (with API key)">
-    Global and per-trader basics. **Only three `/live/*` endpoints are Free** — the long/short trio; the live cohort-bias and risk snapshots are Starter, and history, open interest and the chart layers are Pro. Most `/market/*` endpoints are Free, but not all. See the table below for the exact list.
+    Global and per-trader basics. **Only four `/live/*` endpoints are Free** — the long/short trio and official open interest for one coin (last 24 hours); the live cohort-bias and risk snapshots are Starter, and longer history, the whole-dex OI batch and the chart layers are Pro. Most `/market/*` endpoints are Free, but not all. See the table below for the exact list.
 
     | Group | Endpoints |
     |-------|-----------|
@@ -61,7 +61,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Trader profile | `/pulse/trader/{address}`, `/pulse/trader/{address}/trades`, `/daily`, `/performance`, `/tokens`, `/demo`, `/closed-positions`, `/closed-positions/stats` |
     | Coin views | `/pulse/token-leaderboard/{coin}`, `/pulse/trades/recent` |
     | Lifecycle (single) | `/pulse/lifecycle/{id}`, `/pulse/closed-positions/recent` |
-    | Live state | `/live/long-short`, `/live/coins/{coin}/long-short`, `/live/long-short/history` — **only these three**; the rest of `/live/*` is Starter or Pro |
+    | Live state | `/live/long-short`, `/live/coins/{coin}/long-short`, `/live/long-short/history`, `/live/official-oi/{coin}` (last 24 hours on Free and Starter; up to 30 days on Pro) — **only these four**; the rest of `/live/*` is Starter or Pro |
     | Market | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/book/coverage` |
     | Exchange aggregates | `/exchange/volume`, `/exchange/oi`, `/exchange/active-traders`, `/exchange/positions` |
     | Assets | `/assets`, `/assets/{canonical}`, `/assets/{canonical}/cross-market` |
@@ -91,7 +91,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Discovery (deep) | `/pulse/persistent-winners`, `/pulse/one-month-wonders`, `/pulse/survivors`, `/pulse/anti-survivors`, `/pulse/capital-titans`, `/pulse/newcomer-whales` |
     | Risk & market | `/pulse/lethal-coins`, `/pulse/backstop-events`, `/pulse/market-concentration`, `/market/historical-oi` |
     | Live risk history | `/live/risk/coins/{coin}/history`, `/live/risk/coins/{coin}/mark-dislocations` |
-    | Live OI & cohort-bias history | `/live/oi-history`, `/live/oi-history/{coin}`, `/live/official-oi`, `/live/official-oi/{coin}`, `/live/cohort-bias-history/{coin}` |
+    | Live OI & cohort-bias history | `/live/oi-history`, `/live/oi-history/{coin}`, `/live/official-oi` (all coins), `/live/official-oi/{coin}` beyond 24 hours (7-day default, up to 30 days), `/live/cohort-bias-history/{coin}` |
     | Chart layers | `/live/positioning-by-entry/{coin}`, `/live/whale-trades/{coin}` — with `/live/cohort-bias-history/{coin}` above, these are the chart's Coinversa layers (the candles under them are Starter); see [Chart layer endpoints](/api-reference/chart-layers) |
     | Deep archetypes | `/pulse/max-pain-events`, `/pulse/perfect-exits`, `/pulse/wallet-drawdown-curve/{address}` |
     | Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/positions`, `/trades`, `/history` |
