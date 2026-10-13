@@ -4155,41 +4155,6 @@
         ],
         "type": "object"
       },
-      "Get-api-public-v1-live-official-oi-by-coinResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "https://api.coinversa.ai/schemas/Get-api-public-v1-live-official-oi-by-coinResponse.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "coin": {
-            "type": "string"
-          },
-          "dex": {
-            "type": "string"
-          },
-          "history": {
-            "items": {
-              "$ref": "#/components/schemas/OfficialOIEntry"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "coin",
-          "dex",
-          "history"
-        ],
-        "type": "object"
-      },
       "Get-api-public-v1-live-risk-coins-by-coin-mark-dislocationsResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4260,32 +4225,6 @@
         },
         "required": [
           "coin",
-          "history"
-        ],
-        "type": "object"
-      },
-      "Get-x402-api-public-v1-live-official-oi-by-coinResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "coin": {
-            "type": "string"
-          },
-          "dex": {
-            "type": "string"
-          },
-          "history": {
-            "items": {
-              "$ref": "#/components/schemas/OfficialOIEntry"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "coin",
-          "dex",
           "history"
         ],
         "type": "object"
@@ -7255,6 +7194,45 @@
         ],
         "type": "object"
       },
+      "OfficialOICoinBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/OfficialOICoinBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "dex": {
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialOIEntry"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "note": {
+            "description": "Set when the window was shortened by plan: Free and Starter return the last 24h; Pro and Enterprise return the requested window (up to the global lookback cap).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "coin",
+          "dex",
+          "history"
+        ],
+        "type": "object"
+      },
       "OfficialOICoinSeries": {
         "additionalProperties": false,
         "properties": {
@@ -8581,6 +8559,113 @@
         ],
         "type": "object"
       },
+      "SharpeLeaderboardBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/SharpeLeaderboardBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "calculatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "days": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "endDayExclusive": {
+            "description": "Exclusive UTC date.",
+            "type": "string"
+          },
+          "minEquity": {
+            "format": "double",
+            "type": "number"
+          },
+          "startDay": {
+            "description": "Inclusive UTC date.",
+            "type": "string"
+          },
+          "traders": {
+            "items": {
+              "$ref": "#/components/schemas/SharpeLeaderboardTrader"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "minEquity",
+          "traders",
+          "days",
+          "startDay",
+          "endDayExclusive",
+          "calculatedAt"
+        ],
+        "type": "object"
+      },
+      "SharpeLeaderboardTrader": {
+        "additionalProperties": false,
+        "properties": {
+          "accountValue": {
+            "description": "Equity at the latest stored checkpoint, not necessarily live equity.",
+            "format": "double",
+            "type": "number"
+          },
+          "annualizedPnlSharpe": {
+            "description": "Null when daily PnL has zero variance.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "equityUpdatedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meanDailyPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "stdDailyPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "trades": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountValue",
+          "equityUpdatedAt",
+          "wallet",
+          "annualizedPnlSharpe",
+          "realizedPnl",
+          "trades",
+          "meanDailyPnl",
+          "stdDailyPnl"
+        ],
+        "type": "object"
+      },
       "StyleDistributionRow": {
         "additionalProperties": false,
         "properties": {
@@ -9149,6 +9234,76 @@
           "recent",
           "allTime",
           "trend"
+        ],
+        "type": "object"
+      },
+      "TraderSharpeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/TraderSharpeBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "annualizedPnlSharpe": {
+            "description": "Null when daily PnL has zero variance.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "calculatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "days": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "endDayExclusive": {
+            "description": "Exclusive UTC date.",
+            "type": "string"
+          },
+          "meanDailyPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "realizedPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "startDay": {
+            "description": "Inclusive UTC date.",
+            "type": "string"
+          },
+          "stdDailyPnl": {
+            "format": "double",
+            "type": "number"
+          },
+          "trades": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "annualizedPnlSharpe",
+          "realizedPnl",
+          "trades",
+          "meanDailyPnl",
+          "stdDailyPnl",
+          "days",
+          "startDay",
+          "endDayExclusive",
+          "calculatedAt"
         ],
         "type": "object"
       },
@@ -9791,183 +9946,6 @@
           "asOf",
           "observedThrough",
           "cadence"
-        ],
-        "type": "object"
-      },
-      "SharpeLeaderboardBody": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "https://api.coinversa.ai/schemas/SharpeLeaderboardBody.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "calculatedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "days": {
-            "format": "int32",
-            "type": "integer"
-          },
-          "endDayExclusive": {
-            "description": "Exclusive UTC date.",
-            "type": "string"
-          },
-          "minEquity": {
-            "format": "double",
-            "type": "number"
-          },
-          "startDay": {
-            "description": "Inclusive UTC date.",
-            "type": "string"
-          },
-          "traders": {
-            "items": {
-              "$ref": "#/components/schemas/SharpeLeaderboardTrader"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "minEquity",
-          "traders",
-          "days",
-          "startDay",
-          "endDayExclusive",
-          "calculatedAt"
-        ],
-        "type": "object"
-      },
-      "SharpeLeaderboardTrader": {
-        "additionalProperties": false,
-        "properties": {
-          "accountValue": {
-            "description": "Equity at the latest stored checkpoint, not necessarily live equity.",
-            "format": "double",
-            "type": "number"
-          },
-          "annualizedPnlSharpe": {
-            "description": "Null when daily PnL has zero variance.",
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "equityUpdatedAt": {
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "meanDailyPnl": {
-            "format": "double",
-            "type": "number"
-          },
-          "realizedPnl": {
-            "format": "double",
-            "type": "number"
-          },
-          "stdDailyPnl": {
-            "format": "double",
-            "type": "number"
-          },
-          "trades": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "wallet": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "accountValue",
-          "equityUpdatedAt",
-          "wallet",
-          "annualizedPnlSharpe",
-          "realizedPnl",
-          "trades",
-          "meanDailyPnl",
-          "stdDailyPnl"
-        ],
-        "type": "object"
-      },
-      "TraderSharpeBody": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "https://api.coinversa.ai/schemas/TraderSharpeBody.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "annualizedPnlSharpe": {
-            "description": "Null when daily PnL has zero variance.",
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "calculatedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "days": {
-            "format": "int32",
-            "type": "integer"
-          },
-          "endDayExclusive": {
-            "description": "Exclusive UTC date.",
-            "type": "string"
-          },
-          "meanDailyPnl": {
-            "format": "double",
-            "type": "number"
-          },
-          "realizedPnl": {
-            "format": "double",
-            "type": "number"
-          },
-          "startDay": {
-            "description": "Inclusive UTC date.",
-            "type": "string"
-          },
-          "stdDailyPnl": {
-            "format": "double",
-            "type": "number"
-          },
-          "trades": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "wallet": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "wallet",
-          "annualizedPnlSharpe",
-          "realizedPnl",
-          "trades",
-          "meanDailyPnl",
-          "stdDailyPnl",
-          "days",
-          "startDay",
-          "endDayExclusive",
-          "calculatedAt"
         ],
         "type": "object"
       }
@@ -17848,7 +17826,7 @@
         ],
         "x-coinversa-freshness-notes": "No source observation timestamp is supplied by this operation. Request completion time is not data freshness.",
         "x-coinversa-mcp-tool": "live_cohort_bias",
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -18326,7 +18304,7 @@
         ],
         "x-coinversa-freshness-notes": "timestamp is computation time in Unix milliseconds, not source ingestion time. Cache refresh target is ten seconds; older cached computations can be served during refresh.",
         "x-coinversa-mcp-tool": "live_liquidation_heatmap",
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -18987,7 +18965,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Get-api-public-v1-live-official-oi-by-coinResponse"
+                  "$ref": "#/components/schemas/OfficialOICoinBody"
                 }
               }
             },
@@ -19171,8 +19149,7 @@
         ],
         "summary": "Get API public v1 live official oi by coin",
         "x-coinversa-min-tier": "free",
-        "x-coinversa-quota-scope": "account",
-        "description": "Free and Starter plans return at most the last 24 hours (the response carries a `note` when a longer window was requested); Pro and Enterprise return the requested window, default 7 days, up to 30 days."
+        "x-coinversa-quota-scope": "account"
       }
     },
     "/api/public/v1/live/oi-history": {
@@ -20079,7 +20056,7 @@
           }
         ],
         "summary": "Get API public v1 live risk coins by coin",
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -20765,7 +20742,7 @@
           }
         ],
         "summary": "Get API public v1 live risk liquidations recent",
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -20982,7 +20959,7 @@
           }
         ],
         "summary": "Get API public v1 live risk liquidations summary",
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -21162,7 +21139,7 @@
           }
         ],
         "summary": "Get API public v1 live risk overview",
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -22361,7 +22338,7 @@
         "tags": [
           "Market"
         ],
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -31040,7 +31017,7 @@
           }
         ],
         "summary": "List API public v1 pulse market candles recent by symbol",
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -32478,6 +32455,218 @@
         ],
         "summary": "List API public v1 pulse persistent winners",
         "x-coinversa-min-tier": "pro",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
+    "/api/public/v1/pulse/sharpe-leaderboard": {
+      "get": {
+        "description": "Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Uses 30 completed UTC calendar days, including days without fills as zero. Today is excluded. Top 50 wallets with fills in the window and latest stored account equity >= $2,500; equity eligibility is applied before ranking. Missing equity and zero-variance scores are excluded. No checkpoint-age cutoff is applied. EquityUpdatedAt identifies checkpoint age. Ranking breaks ties by realized PnL descending, then wallet ascending. Cached and proactively refreshed every 30 minutes; failed refreshes may serve the previous result. Cache refresh does not refresh equity checkpoints.",
+        "operationId": "get-api-public-v1-pulse-sharpe-leaderboard",
+        "parameters": [
+          {
+            "description": "Completed UTC days; only 30 is currently supported.",
+            "explode": false,
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "default": 30,
+              "description": "Completed UTC days; only 30 is currently supported.",
+              "format": "int32",
+              "maximum": 30,
+              "minimum": 30,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharpeLeaderboardBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "PnL Sharpe leaderboard",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -35404,6 +35593,243 @@
         "x-coinversa-quota-scope": "account"
       }
     },
+    "/api/public/v1/pulse/trader/{address}/sharpe": {
+      "get": {
+        "description": "Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Uses 30 completed UTC calendar days, including days without fills as zero. Today is excluded. No equity eligibility filter applies to this route.",
+        "operationId": "get-api-public-v1-pulse-trader-by-address-sharpe",
+        "parameters": [
+          {
+            "description": "Hyperliquid wallet address.",
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "description": "Hyperliquid wallet address.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Completed UTC days; only 30 is currently supported.",
+            "explode": false,
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "default": 30,
+              "description": "Completed UTC days; only 30 is currently supported.",
+              "format": "int32",
+              "maximum": 30,
+              "minimum": 30,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraderSharpeBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Wallet PnL Sharpe",
+        "x-coinversa-min-tier": "starter",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
     "/api/public/v1/pulse/trader/{address}/tokens": {
       "get": {
         "operationId": "list-api-public-v1-pulse-trader-by-address-tokens",
@@ -36769,455 +37195,6 @@
         ],
         "summary": "Get API public v1 verify",
         "x-coinversa-min-tier": "free",
-        "x-coinversa-quota-scope": "account"
-      }
-    },
-    "/api/public/v1/pulse/sharpe-leaderboard": {
-      "get": {
-        "description": "**Beta.** Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Uses 30 completed UTC calendar days, including days without fills as zero. Today is excluded. Top 50 wallets with fills in the window and latest stored account equity >= $2,500; equity eligibility is applied before ranking. Missing equity and zero-variance scores are excluded. No checkpoint-age cutoff is applied. EquityUpdatedAt identifies checkpoint age. Ranking breaks ties by realized PnL descending, then wallet ascending. Cached and proactively refreshed every 30 minutes; failed refreshes may serve the previous result. Cache refresh does not refresh equity checkpoints.",
-        "operationId": "get-api-public-v1-pulse-sharpe-leaderboard",
-        "parameters": [
-          {
-            "description": "Completed UTC days; only 30 is currently supported.",
-            "explode": false,
-            "in": "query",
-            "name": "days",
-            "schema": {
-              "default": 30,
-              "description": "Completed UTC days; only 30 is currently supported.",
-              "format": "int32",
-              "maximum": 30,
-              "minimum": 30,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SharpeLeaderboardBody"
-                }
-              }
-            },
-            "description": "OK",
-            "headers": {
-              "X-Billing-Grace-Expires": {
-                "$ref": "#/components/headers/X-Billing-Grace-Expires"
-              },
-              "X-Billing-State": {
-                "$ref": "#/components/headers/X-Billing-State"
-              },
-              "X-RateLimit-Daily": {
-                "$ref": "#/components/headers/X-RateLimit-Daily"
-              },
-              "X-RateLimit-Daily-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
-              },
-              "X-RateLimit-Monthly": {
-                "$ref": "#/components/headers/X-RateLimit-Monthly"
-              },
-              "X-RateLimit-Monthly-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
-              },
-              "X-RateLimit-Next": {
-                "$ref": "#/components/headers/X-RateLimit-Next"
-              },
-              "X-RateLimit-Remaining": {
-                "$ref": "#/components/headers/X-RateLimit-Remaining"
-              },
-              "X-RateLimit-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Reset"
-              },
-              "X-RateLimit-Route": {
-                "$ref": "#/components/headers/X-RateLimit-Route"
-              },
-              "X-RateLimit-Scope": {
-                "$ref": "#/components/headers/X-RateLimit-Scope"
-              },
-              "X-RateLimit-Tier": {
-                "$ref": "#/components/headers/X-RateLimit-Tier"
-              },
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Bad Request",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Forbidden",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Unprocessable Entity",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "429": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Too Many Requests",
-            "headers": {
-              "Retry-After": {
-                "$ref": "#/components/headers/Retry-After"
-              },
-              "X-Billing-Grace-Expires": {
-                "$ref": "#/components/headers/X-Billing-Grace-Expires"
-              },
-              "X-Billing-State": {
-                "$ref": "#/components/headers/X-Billing-State"
-              },
-              "X-RateLimit-Daily": {
-                "$ref": "#/components/headers/X-RateLimit-Daily"
-              },
-              "X-RateLimit-Daily-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
-              },
-              "X-RateLimit-Monthly": {
-                "$ref": "#/components/headers/X-RateLimit-Monthly"
-              },
-              "X-RateLimit-Monthly-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
-              },
-              "X-RateLimit-Next": {
-                "$ref": "#/components/headers/X-RateLimit-Next"
-              },
-              "X-RateLimit-Remaining": {
-                "$ref": "#/components/headers/X-RateLimit-Remaining"
-              },
-              "X-RateLimit-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Reset"
-              },
-              "X-RateLimit-Route": {
-                "$ref": "#/components/headers/X-RateLimit-Route"
-              },
-              "X-RateLimit-Scope": {
-                "$ref": "#/components/headers/X-RateLimit-Scope"
-              },
-              "X-RateLimit-Tier": {
-                "$ref": "#/components/headers/X-RateLimit-Tier"
-              },
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Internal Server Error",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "504": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Gateway Timeout",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "apiKey": []
-          }
-        ],
-        "summary": "PnL Sharpe leaderboard",
-        "x-coinversa-min-tier": "starter",
-        "x-coinversa-quota-scope": "account"
-      }
-    },
-    "/api/public/v1/pulse/trader/{address}/sharpe": {
-      "get": {
-        "description": "**Beta.** Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Uses 30 completed UTC calendar days, including days without fills as zero. Today is excluded. No equity eligibility filter applies to this route.",
-        "operationId": "get-api-public-v1-pulse-trader-by-address-sharpe",
-        "parameters": [
-          {
-            "description": "Hyperliquid wallet address.",
-            "in": "path",
-            "name": "address",
-            "required": true,
-            "schema": {
-              "description": "Hyperliquid wallet address.",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Completed UTC days; only 30 is currently supported.",
-            "explode": false,
-            "in": "query",
-            "name": "days",
-            "schema": {
-              "default": 30,
-              "description": "Completed UTC days; only 30 is currently supported.",
-              "format": "int32",
-              "maximum": 30,
-              "minimum": 30,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TraderSharpeBody"
-                }
-              }
-            },
-            "description": "OK",
-            "headers": {
-              "X-Billing-Grace-Expires": {
-                "$ref": "#/components/headers/X-Billing-Grace-Expires"
-              },
-              "X-Billing-State": {
-                "$ref": "#/components/headers/X-Billing-State"
-              },
-              "X-RateLimit-Daily": {
-                "$ref": "#/components/headers/X-RateLimit-Daily"
-              },
-              "X-RateLimit-Daily-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
-              },
-              "X-RateLimit-Monthly": {
-                "$ref": "#/components/headers/X-RateLimit-Monthly"
-              },
-              "X-RateLimit-Monthly-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
-              },
-              "X-RateLimit-Next": {
-                "$ref": "#/components/headers/X-RateLimit-Next"
-              },
-              "X-RateLimit-Remaining": {
-                "$ref": "#/components/headers/X-RateLimit-Remaining"
-              },
-              "X-RateLimit-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Reset"
-              },
-              "X-RateLimit-Route": {
-                "$ref": "#/components/headers/X-RateLimit-Route"
-              },
-              "X-RateLimit-Scope": {
-                "$ref": "#/components/headers/X-RateLimit-Scope"
-              },
-              "X-RateLimit-Tier": {
-                "$ref": "#/components/headers/X-RateLimit-Tier"
-              },
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Bad Request",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Forbidden",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Not Found",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Unprocessable Entity",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "429": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Too Many Requests",
-            "headers": {
-              "Retry-After": {
-                "$ref": "#/components/headers/Retry-After"
-              },
-              "X-Billing-Grace-Expires": {
-                "$ref": "#/components/headers/X-Billing-Grace-Expires"
-              },
-              "X-Billing-State": {
-                "$ref": "#/components/headers/X-Billing-State"
-              },
-              "X-RateLimit-Daily": {
-                "$ref": "#/components/headers/X-RateLimit-Daily"
-              },
-              "X-RateLimit-Daily-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
-              },
-              "X-RateLimit-Monthly": {
-                "$ref": "#/components/headers/X-RateLimit-Monthly"
-              },
-              "X-RateLimit-Monthly-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
-              },
-              "X-RateLimit-Next": {
-                "$ref": "#/components/headers/X-RateLimit-Next"
-              },
-              "X-RateLimit-Remaining": {
-                "$ref": "#/components/headers/X-RateLimit-Remaining"
-              },
-              "X-RateLimit-Reset": {
-                "$ref": "#/components/headers/X-RateLimit-Reset"
-              },
-              "X-RateLimit-Route": {
-                "$ref": "#/components/headers/X-RateLimit-Route"
-              },
-              "X-RateLimit-Scope": {
-                "$ref": "#/components/headers/X-RateLimit-Scope"
-              },
-              "X-RateLimit-Tier": {
-                "$ref": "#/components/headers/X-RateLimit-Tier"
-              },
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Internal Server Error",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "504": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Gateway Timeout",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "apiKey": []
-          }
-        ],
-        "summary": "Wallet PnL Sharpe",
-        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     }
