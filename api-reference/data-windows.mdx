@@ -80,6 +80,8 @@ The [Sharpe endpoints](/concepts/sharpe) count **completed UTC days** and always
 | `/pulse/trader/{address}/sharpe/interval` | `startDay` (inclusive) + `days` | `days` 1–90; `startDay` no earlier than 90 days ago; the exclusive end no later than today |
 | `/pulse/trader/{address}/sharpe/monthly` | Three buckets | 3 × 30 days (90), or with `useCalendarMonths=true` the current month to date plus two full months (at most 93) |
 
+The leaderboard also takes activity floors over the same 30-day window: `minActiveDays` (1–30, default 10) and `minPnl` (−1,000,000,000 to 1,000,000,000, default 1000). Values out of range are a `422`.
+
 The `minRecentSharpe` filter reads a stored 30-day score refreshed hourly; `minTotalSharpe` reads a stored score from each wallet's first available daily history through yesterday, refreshed daily. Both are the wallet's **current** score, also when filtering older trades or lifecycles.
 
 ## Live / real-time
@@ -90,7 +92,7 @@ Most `/live/*` routes return current state — each call returns the latest stat
 |-------|-----------|
 | `/live/*` snapshots | Long/short ratio, cohort bias, liquidation heatmap, risk overview, positioning by entry, etc. |
 | Market state | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}` |
-| TP/SL trigger orders | `/market/book/triggers/{coin}`, `/pulse/trader/{address}/trigger-orders` — an exchange-wide snapshot refreshed roughly every minute, **latest only, no history**; `503` once it is older than 1,200 seconds. See [TP/SL trigger orders](/concepts/trigger-orders) |
+| TP/SL trigger orders | `/market/book/triggers/{coin}`, `/pulse/trader/{address}/trigger-orders` — an exchange-wide snapshot refreshed roughly every minute, **latest only, no history**; `503` once it is older than 1,200 seconds (20 minutes). See [TP/SL trigger orders](/concepts/trigger-orders) |
 
 These take an explicit window: `/live/long-short/history`, `/live/oi-history[/{coin}]`, `/live/official-oi[/{coin}]`, `/live/risk/coins/{coin}/history` and `/live/cohort-bias-history/{coin}` (`hours`, default 168, silently clamped to 1–2160); `/live/risk/coins/{coin}/mark-dislocations` (`hours`, default and maximum 168); `/live/risk/liquidations/recent` and `/live/risk/liquidations/summary` (`since`, default `7d`); `/live/whale-trades/{coin}` (`since`, default `6h`, 24h ceiling). `/live/cohort-bias-history/{coin}` reads **hourly snapshots** and echoes its explicit UTC window in the `format=layer` body. `/live/positioning-by-entry/{coin}` is a **current snapshot of open positions**, never history, whose rows were observed at different times (`source.medianAgeS`). See [Chart layer endpoints](/api-reference/chart-layers).
 

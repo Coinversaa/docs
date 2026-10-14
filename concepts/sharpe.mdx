@@ -21,7 +21,7 @@ annualizedPnlSharpe = √365 × mean(daily realized PnL) ÷ sample standard devi
   **This is a realized-PnL proxy, not a portfolio Sharpe.** It is not divided by account equity, so it measures dollar PnL rather than percentage returns, and it excludes **fees, funding and unrealized PnL**. A wallet sitting on a large open loss can score well.
 </Warning>
 
-**It rewards consistency, not size.** A wallet that makes $80 a day without fail can outrank one that made $1.5M with some red days — on the 14 Oct 2026 leaderboard, the #2 wallet had $77.85 of realized PnL over the 30 days. Always read `annualizedPnlSharpe` alongside `realizedPnl` and `trades`, which every response carries next to it with `meanDailyPnl` and `stdDailyPnl`.
+**It rewards consistency, not size.** A wallet that makes $3 a day without fail can outrank one that made $1.5M with some red days, and a wallet with a single winning day in 30 scores √(365/30) ≈ 3.49 whatever the amount. On the 14 Oct 2026 leaderboard, before activity floors were added, the #2 wallet had $77.85 of realized PnL over the 30 days. The leaderboard now applies activity floors by default (see [below](#the-leaderboard)); the wallet endpoints do not. Always read `annualizedPnlSharpe` alongside `realizedPnl` and `trades`, which every response carries next to it with `meanDailyPnl` and `stdDailyPnl`.
 
 ## Endpoints
 
@@ -47,11 +47,19 @@ The wallet endpoints answer for wallets Pulse tracks; an address it has never in
 
 ### The leaderboard
 
-`/pulse/sharpe-leaderboard` ranks the top **50** wallets. To be eligible a wallet must have fills in the window and **at least $2,500 of stored account equity** (`minEquity`); the equity check happens before ranking. Wallets with no equity on record, or with zero variance, are left out. Ties break by realized PnL, then by wallet address.
+`/pulse/sharpe-leaderboard` ranks the top **50** wallets. To be eligible a wallet needs **at least $2,500 of stored account equity** (`minEquity`) and must clear two **activity floors**. Both apply by default and can be changed:
+
+| Parameter | Default | Range | Keeps wallets with |
+|---|---|---|---|
+| `minActiveDays` | `10` | 1–30, integer | at least this many completed UTC days in the window with one or more fills |
+| `minPnl` | `1000` | −1,000,000,000 to 1,000,000,000 | summed realized PnL over the window of at least this many dollars (inclusive) |
+
+All three checks happen **before** ranking, so the 50 slots go to wallets that pass. Wallets with no equity on record, or with zero variance, are left out. Ties break by realized PnL, then by wallet address. Each row also reports `activeDays`, and the response echoes the floors it applied as `minActiveDays` and `minPnl` next to `minEquity`. Out-of-range, non-integer `minActiveDays` or non-finite values are a `422`.
+
+The defaults keep wallets whose score rests on a couple of lucky days or a few dollars off the board. `minActiveDays` counts fill days the same way as `/pulse/hidden-gems`, and `minPnl` uses the same name and dollar meaning as `/pulse/max-pain` and `/pulse/perfect-exits`. To see the whole field, pass `minActiveDays=1&minPnl=-1000000000`.
 
 - `accountValue` and `equityUpdatedAt` are the wallet's **latest stored equity checkpoint** — not necessarily its live balance, and no checkpoint is too old to count.
 - The result is **cached and refreshed every 30 minutes**; if a refresh fails, the previous result may be served. `calculatedAt` tells you how old the answer is.
-- There is **no minimum-activity filter** beyond having fills in the window, which is why low-PnL wallets can rank high (see above).
 
 ## Sharpe filters on cohort endpoints
 
@@ -65,6 +73,10 @@ Nine cohort and positioning endpoints take two optional filters that keep only w
 Both are **inclusive minimums**. Zero and negative values are valid; non-finite values are `422`. Leave a filter out and nothing is filtered on it; set it and wallets without a score are excluded. Set both and a wallet must pass both. Filters apply **before** limits and aggregation, so totals and medians describe the qualifying wallets only.
 
 The filter uses each wallet's **current** score. On trade and lifecycle history, a fill from three weeks ago is kept or dropped by the wallet's score today, not its score then — do not use it to backtest.
+
+<Note>
+  **These filters have no activity floor.** Unlike the leaderboard, they do not take `minActiveDays` or `minPnl`. The stored score does not record how many days a wallet traded, and a wallet with a single winning day in the window scores about **3.49**. A `minRecentSharpe` below that can therefore admit one-day wallets. The cohort itself (its PnL or size tier) is the only size floor.
+</Note>
 
 | Endpoint | Tier | MCP tool |
 |---|---|---|
@@ -85,6 +97,7 @@ The filters do not change an endpoint's tier.
 | Question | Tool |
 |---|---|
 | Who are the most consistent traders on Hyperliquid this month? | `pulse_sharpe_leaderboard` |
+| Which consistent traders made at least $50k over the last 30 days? | `pulse_sharpe_leaderboard` with `minPnl: 50000` |
 | What's the Sharpe ratio of 0x…? | `pulse_trader_sharpe` |
 | How did 0x…'s Sharpe look between 1 and 21 September? | `pulse_trader_sharpe_interval` |
 | Is 0x… getting more or less consistent month by month? | `pulse_trader_sharpe_monthly` |
@@ -98,7 +111,7 @@ curl "https://api.coinversa.ai/api/public/v1/pulse/trader/0xYOUR_WALLET/sharpe/i
 
 ## Coverage
 
-- **Wallets**: every wallet Pulse tracks (see [Data coverage](/concepts/data-coverage)). The leaderboard additionally needs a stored equity checkpoint of at least $2,500.
+- **Wallets**: every wallet Pulse tracks (see [Data coverage](/concepts/data-coverage)). The leaderboard additionally needs a stored equity checkpoint of at least $2,500 and, by default, 10 fill days and $1,000 of realized PnL in the window.
 - **History**: per-wallet scores and intervals reach back **90 days**; the monthly view up to 93. `minTotalSharpe` uses each wallet's full available daily history.
 - **Freshness**: wallet scores are computed on each request from the daily rollup; the leaderboard is up to 30 minutes old; the stored filter scores refresh hourly (recent) and daily (total).
 
