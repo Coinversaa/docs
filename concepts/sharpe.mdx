@@ -36,7 +36,7 @@ The wallet endpoints answer for wallets Pulse tracks; an address it has never in
 
 ### Custom intervals
 
-`/sharpe/interval` scores 1–90 completed days. `startDay` must be no earlier than 90 days before today, and the exclusive end (`startDay + days`) cannot be later than today. **Out-of-range windows are rejected with `400`, not shortened** — unlike the silent `since` clamps elsewhere in the API. A one-day interval returns a `null` score and a standard deviation of `0`.
+`/sharpe/interval` scores 1–90 completed days. `startDay` must be no earlier than 90 days before today, and the exclusive end (`startDay + days`) cannot be later than today. **Out-of-range windows are rejected, not shortened** — unlike the silent `since` clamps elsewhere in the API: a malformed `startDay`, a start more than 90 days ago or an end later than today is a `400`; a missing, non-integer or out-of-range `days` (outside 1–90) is a `422`. A one-day interval returns a `null` score and a standard deviation of `0`.
 
 ### Monthly buckets
 
@@ -56,7 +56,7 @@ The wallet endpoints answer for wallets Pulse tracks; an address it has never in
 
 All three checks happen **before** ranking, so the 50 slots go to wallets that pass. Wallets with no equity on record, or with zero variance, are left out. Ties break by realized PnL, then by wallet address. Each row also reports `activeDays`, and the response echoes the floors it applied as `minActiveDays` and `minPnl` next to `minEquity`. Out-of-range, non-integer `minActiveDays` or non-finite values are a `422`.
 
-The defaults keep wallets whose score rests on a couple of lucky days or a few dollars off the board. `minActiveDays` counts fill days the same way as `/pulse/hidden-gems`, and `minPnl` uses the same name and dollar meaning as `/pulse/max-pain` and `/pulse/perfect-exits`. To see the whole field, pass `minActiveDays=1&minPnl=-1000000000`.
+The defaults keep wallets whose score rests on a couple of lucky days or a few dollars off the board. `minActiveDays` counts fill days the same way as `/pulse/hidden-gems`, but only inside the 30-day window (hidden-gems counts over all time). `minPnl` has the same name, dollar meaning and default as on `/pulse/max-pain-events` and `/pulse/perfect-exits`, but unlike them it accepts negative values, so the floor can be switched off. To see the whole field, pass `minActiveDays=1&minPnl=-1000000000`.
 
 - `accountValue` and `equityUpdatedAt` are the wallet's **latest stored equity checkpoint** — not necessarily its live balance, and no checkpoint is too old to count.
 - The result is **cached and refreshed every 30 minutes**; if a refresh fails, the previous result may be served. `calculatedAt` tells you how old the answer is.

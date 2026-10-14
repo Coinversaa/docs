@@ -72,7 +72,7 @@ The `since` clamp is **silent**: the response's `window` field echoes what you r
 
 ## Sharpe windows
 
-The [Sharpe endpoints](/concepts/sharpe) count **completed UTC days** and always exclude today. Unlike `since`, their windows are **validated, not clamped** — a window outside the bounds is a `400`.
+The [Sharpe endpoints](/concepts/sharpe) count **completed UTC days** and always exclude today. Unlike `since`, their windows are **validated, not clamped**: a `days` value outside its range, non-integer or missing is a `422`; on `/sharpe/interval`, a malformed `startDay`, a start more than 90 days ago or an end later than today is a `400`.
 
 | Endpoint | Window | Bound |
 |----------|--------|-------|
@@ -80,7 +80,7 @@ The [Sharpe endpoints](/concepts/sharpe) count **completed UTC days** and always
 | `/pulse/trader/{address}/sharpe/interval` | `startDay` (inclusive) + `days` | `days` 1–90; `startDay` no earlier than 90 days ago; the exclusive end no later than today |
 | `/pulse/trader/{address}/sharpe/monthly` | Three buckets | 3 × 30 days (90), or with `useCalendarMonths=true` the current month to date plus two full months (at most 93) |
 
-The leaderboard also takes activity floors over the same 30-day window: `minActiveDays` (1–30, default 10) and `minPnl` (−1,000,000,000 to 1,000,000,000, default 1000). Values out of range are a `422`.
+The leaderboard also takes activity floors over the same 30-day window: `minActiveDays` (fill days inside the window, 1–30, default 10) and `minPnl` (−1,000,000,000 to 1,000,000,000, default 1000). Values out of range are a `422`.
 
 The `minRecentSharpe` filter reads a stored 30-day score refreshed hourly; `minTotalSharpe` reads a stored score from each wallet's first available daily history through yesterday, refreshed daily. Both are the wallet's **current** score, also when filtering older trades or lifecycles.
 
