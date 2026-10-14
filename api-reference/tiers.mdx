@@ -77,7 +77,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Chart & book | `/pulse/market/candles/recent/{symbol}` (the price pane of the chart), `/market/book/summary/{coin}` (L4 depth and imbalance summary) |
     | Lifecycle aggregates | `/pulse/trader/{address}/lifecycles`, `/pulse/trader/{address}/lifecycle-summary` |
     | Comparison | `/pulse/compare` |
-    | Sharpe (beta) | `/pulse/sharpe-leaderboard`, `/pulse/trader/{address}/sharpe` — a realized-PnL Sharpe proxy over 30 completed UTC days (not equity returns; excludes fees, funding and unrealized PnL). The leaderboard only ranks wallets with at least $2,500 of stored equity |
+    | Sharpe | `/pulse/sharpe-leaderboard`, `/pulse/trader/{address}/sharpe`, `/pulse/trader/{address}/sharpe/interval`, `/pulse/trader/{address}/sharpe/monthly` — a realized-PnL Sharpe proxy (not equity returns; excludes fees, funding and unrealized PnL). The leaderboard only ranks wallets with at least $2,500 of stored equity and, by default, 10 fill days and $1,000 of realized PnL in the window. The `minRecentSharpe` / `minTotalSharpe` filters on cohort and positioning endpoints do not change those endpoints' tiers. See [Sharpe ratios](/concepts/sharpe) |
     | Coin alpha | `/pulse/coin-alpha-map`, `/pulse/coin-kings` |
     | Behavior | `/pulse/hour-profitability`, `/pulse/style-distribution` |
     | Risk | `/pulse/top-liquidators` |
@@ -100,6 +100,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Cohort timeseries | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` |
     | Builder analytics (deep) | `/builders/{builder}/traders`, `/builders/{builder}/fills`, `/builders/{builder}/cohorts`, `/builders/{builder}/retention`, `/builders/{builder}/overlap`, `/builders/{builder}/orders`, `/builders/{builder}/heatmap`, `/builders/{builder}/lifecycle`, `/builders/{builder}/journey` — see [Builder endpoints](/api-reference/builders) |
     | L4 order book (per order) | `/market/book/stops/{coin}`, `/market/book/whales/{coin}`, `/market/book/levels/{coin}` — order-level, with the wallet on every order. `/market/book/summary/{coin}` is Starter; `/market/book/coverage` is Free. |
+    | TP/SL trigger orders | `/market/book/triggers/{coin}`, `/pulse/trader/{address}/trigger-orders` — every pending stop-loss and take-profit order, by market or by wallet. See [TP/SL trigger orders](/concepts/trigger-orders) |
     | Entity resolution | `/entity/{address}`, `/entities/leaderboard` |
     | HIP-4 (deep) | `/hip4/cross-product/overlap`, `/hip4/outcomes/{outcome_id}/perp-position-context` |
   </Accordion>

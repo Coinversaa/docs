@@ -1,11 +1,11 @@
 ---
 title: "Tool catalog"
-description: "All 109 Coinversa Pulse MCP tools by category, with descriptions, required tiers, connector-side parameters and the interactive views."
+description: "All 115 Coinversa Pulse MCP tools by category, with descriptions, required tiers, connector-side parameters and the interactive views."
 ---
 
-Every MCP tool is a thin wrapper around a public API endpoint, and each tool's tier is the tier of the endpoint behind it. There is no clean split by family: among the single-trader tools the lifecycle and compare tools are Starter and the drawdown curve is Pro; most HIP-4 tools are Free, with some at Starter and two at Pro; the live snapshot tools (cohort bias, liquidation heatmap, risk overview and coin snapshot, recent liquidations and their summary) are Starter while live history and the chart-layer tools are Pro, and `live_long_short_ratio` is Free; `market_price` and `market_orderbook` are Free, `market_recent_candles` is Starter and `market_historical_oi` is Pro; `book_summary` is Starter and the other book tools are Pro; the archetype tools are split between Starter and Pro. Where a tier cell below links to the matrix, check the matrix for that tool's current tier. Check [the tier matrix](/api-reference/tiers) for the endpoint a tool wraps rather than inferring from its name.
+Every MCP tool is a thin wrapper around a public API endpoint, and each tool's tier is the tier of the endpoint behind it. There is no clean split by family: among the single-trader tools the lifecycle and compare tools are Starter and the drawdown curve is Pro; most HIP-4 tools are Free, with some at Starter and two at Pro; the live snapshot tools (cohort bias, liquidation heatmap, risk overview and coin snapshot, recent liquidations and their summary) are Starter while live history and the chart-layer tools are Pro, and `live_long_short_ratio` is Free; `market_price` and `market_orderbook` are Free, `market_recent_candles` is Starter and `market_historical_oi` is Pro; `book_summary` is Starter and the other book tools, including the trigger-order tools, are Pro; the four Sharpe tools are Starter; the archetype tools are split between Starter and Pro. Where a tier cell below links to the matrix, check the matrix for that tool's current tier. Check [the tier matrix](/api-reference/tiers) for the endpoint a tool wraps rather than inferring from its name.
 
-The connector registers **109 tools**; `builder_heatmap` is withheld while its hourly rollup backfills, so clients see 108.
+The connector registers **115 tools**; `builder_heatmap` is withheld while its hourly rollup backfills, so clients see 114.
 
 Every tool reads from a public API endpoint, so the [API reference](/api-reference/introduction) is where the response fields live. The **inputs are not always the endpoint's**: several tools accept shaping parameters the route itself does not take — see [Connector-side parameters](#connector-side-parameters). As of **v0.12.0** the catalog includes the [L4 order book](#l4-order-book-v0-12-0): four `book_*` tools answering a question each, rather than handing you a raw book to parse. v0.11.0 added [builder analytics](/api-reference/builders): eleven `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, user lifecycle, journey economics and order intent, plus the inverse per-wallet view.
 
@@ -64,6 +64,7 @@ Every builder tool (all twelve, including `trader_builders`) carries the attribu
 | `pulse_trader_closed_positions`       | Closed positions for one wallet. |
 | `pulse_trader_closed_position_stats`  | Aggregate closed-position stats. |
 | `pulse_compare`                       | Side-by-side lifecycle comparison of 2–5 wallets. **Starter tier.** |
+| `pulse_trader_trigger_orders`         | Pending take-profit and stop-loss orders for this exact wallet, across markets or one `coin`. **Pro tier.** See [TP/SL trigger orders](/concepts/trigger-orders). |
 
 In clients that support MCP Apps interactive views, `pulse_trader_profile`, `pulse_trader_performance` and `pulse_trader_demo` render the Coinversa wallet card (90-day position stats, PnL curve, open positions); other clients receive the data as text.
 
@@ -77,6 +78,19 @@ In clients that support MCP Apps interactive views, `pulse_trader_profile`, `pul
 | `pulse_cohort_history`            | Pro | Cohort performance over time. |
 | `pulse_cohort_bias_history`       | Pro | Cohort long/short bias over time. |
 | `pulse_cohort_performance_daily`  | Pro | Daily cohort PnL / volume. |
+
+## Sharpe ratios (v0.17.4)
+
+All four Sharpe tools are **Starter**. An annualized **realized-PnL Sharpe** — √365 × mean daily realized PnL ÷ its sample standard deviation, days without fills counted as zero, today excluded. It is a proxy, not a portfolio Sharpe: not divided by equity, and fees, funding and unrealized PnL are left out. It rewards consistency over size, so read it next to `realizedPnl`. See [Sharpe ratios](/concepts/sharpe).
+
+| Tool | Tier | What it answers |
+|------|------|-----------------|
+| `pulse_sharpe_leaderboard`      | Starter | The 50 most consistent wallets over the last 30 completed UTC days, among wallets with at least $2,500 of stored equity that clear the activity floors `minActiveDays` (fill days in the window, 1–30, default 10) and `minPnl` (window realized PnL in USD, default 1000). Refreshed every 30 minutes |
+| `pulse_trader_sharpe`           | Starter | One wallet's score over the last 30 completed UTC days, with realized PnL, fill count and the daily mean and standard deviation |
+| `pulse_trader_sharpe_interval`  | Starter | The same over a window you choose: `startDay` (within the last 90 days) and `days` (1–90). Out-of-range windows are rejected, not shortened |
+| `pulse_trader_sharpe_monthly`   | Starter | Three buckets, newest first: 3 × 30 days, or the current and two previous calendar months with `useCalendarMonths` |
+
+**Sharpe filters on cohort tools.** `live_cohort_bias`, `live_positioning_by_entry`, `pulse_cohort_positions`, `pulse_cohort_trades` and the five `pulse_cohort_recent_*` tools take optional `minRecentSharpe` (30-day score, refreshed hourly) and `minTotalSharpe` (full-history score, refreshed daily). Both are inclusive minimums, combined with AND, applied before limits and aggregation, and use each wallet's **current** score. Unlike the leaderboard they have **no activity floor**: one winning day scores about 3.49, so a lower threshold can admit one-day wallets. Each tool keeps its own tier.
 
 ## Pulse — position lifecycles
 
@@ -322,12 +336,25 @@ Four tools over the **order-level** book — every resting order with the wallet
 Bounds: `book_stop_map` takes `within_pct` 1–10 (default 10), `book_whales` takes `limit` 1–50 (default 20), `book_levels` takes `depth` 1–100 (default 50). All three are integers — a fraction is rejected before a request is made.
 
 <Note>
-  **Snapshot-derived, latest-only.** The gateway re-exports the node's full L4 book on a fixed cadence and the rollups are recomputed per coin, so there is **no history** — one row per coin, replaced each time its block height advances. Every response carries `as_of_height` (the L1 block the answer is true at) and `age_s`; check `age_s` before citing a number. Past the staleness ceiling the routes answer `503` rather than serving a stale book. For the aggregated L2 view with no tier gate, use `market_orderbook`.
+  **Snapshot-derived, latest-only.** The gateway re-exports the node's full L4 book on a fixed cadence and the rollups are recomputed per coin, so there is **no history** — one row per coin, replaced each time its block height advances. Every response carries `as_of_height` (the L1 block the answer is true at) and `age_s`; check `age_s` before citing a number. A rollup older than 1,200 seconds (20 minutes) returns `503` rather than a stale book. For the aggregated L2 view with no tier gate, use `market_orderbook`.
 
   `data_coverage` reports a `book` dataset with coins covered, the latest height and its freshness.
 </Note>
 
 For the live order-by-order stream rather than a rollup, see the [`l4Book` websocket feed](/websocket/order-book).
+
+## TP/SL trigger orders (v0.17.4)
+
+Both tools are **Pro**. `book_stop_map` buckets stop and take-profit size by distance from mid; these two tools return the **individual orders** behind it, with the wallet on each. See [TP/SL trigger orders](/concepts/trigger-orders).
+
+| Tool | Tier | What it answers |
+|---|---|---|
+| `book_triggers` | Pro | Which stop-loss and take-profit orders are waiting on this market, and who placed them? |
+| `pulse_trader_trigger_orders` | Pro | Which TP/SL orders does this wallet have pending, across markets or for one `coin`? This exact wallet only, not its sub-accounts; no trader record needed |
+
+They read their **own exchange-wide snapshot** — native perps, builder dexes and HIP-4, independent of the L4 sweep — refreshed roughly every minute, latest only. A snapshot missing or older than 1,200 seconds (20 minutes) returns `503`. As with the book tools the coin is **case-sensitive** and not normalized, but an unknown coin returns an empty list rather than a 404, so an empty answer proves nothing. `side` is the order's `B`/`A` (buy/sell), not the position's direction.
+
+Paging: `limit` 1–500 (default 100), `offset` up to 100,000. For any page after the first, pass `snapshot_height` = the first page's `as_of_height`; a `409` means the snapshot changed, so restart at `offset` 0. Each result adds `count`, `hasMore`, `nextOffset` and a `note` with the value to send next.
 
 ## Connector-side parameters
 

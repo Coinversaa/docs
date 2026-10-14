@@ -70,6 +70,20 @@ The `since` clamp is **silent**: the response's `window` field echoes what you r
 
 **Underlying history:** builder-fee orders and attributed fills are complete and gapless from **2025-01-25**. Trigger-order (stop/TP) fill capture went live **2026-08-20** with backfill to **2026-03-24** and earlier history in progress — until it completes, attributed metrics slightly undercount vs ledger revenue (disclosed in every response's `dataNotes`). Ledger revenue itself is cumulative on-chain data with no window floor. The clamps above are per-request query windows, not data floors — retention's 12-month triangle reads the full order history. See [Builder codes & attribution](/concepts/builder-attribution).
 
+## Sharpe windows
+
+The [Sharpe endpoints](/concepts/sharpe) count **completed UTC days** and always exclude today. Unlike `since`, their windows are **validated, not clamped**: a `days` value outside its range, non-integer or missing is a `422`; on `/sharpe/interval`, a malformed `startDay`, a start more than 90 days ago or an end later than today is a `400`.
+
+| Endpoint | Window | Bound |
+|----------|--------|-------|
+| `/pulse/trader/{address}/sharpe`, `/pulse/sharpe-leaderboard` | Last 30 completed days | `days` accepts only `30` |
+| `/pulse/trader/{address}/sharpe/interval` | `startDay` (inclusive) + `days` | `days` 1–90; `startDay` no earlier than 90 days ago; the exclusive end no later than today |
+| `/pulse/trader/{address}/sharpe/monthly` | Three buckets | 3 × 30 days (90), or with `useCalendarMonths=true` the current month to date plus two full months (at most 93) |
+
+The leaderboard also takes activity floors over the same 30-day window: `minActiveDays` (fill days inside the window, 1–30, default 10) and `minPnl` (−1,000,000,000 to 1,000,000,000, default 1000). Values out of range are a `422`.
+
+The `minRecentSharpe` filter reads a stored 30-day score refreshed hourly; `minTotalSharpe` reads a stored score from each wallet's first available daily history through yesterday, refreshed daily. Both are the wallet's **current** score, also when filtering older trades or lifecycles.
+
 ## Live / real-time
 
 Most `/live/*` routes return current state — each call returns the latest state from the indexer.
@@ -78,6 +92,7 @@ Most `/live/*` routes return current state — each call returns the latest stat
 |-------|-----------|
 | `/live/*` snapshots | Long/short ratio, cohort bias, liquidation heatmap, risk overview, positioning by entry, etc. |
 | Market state | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}` |
+| TP/SL trigger orders | `/market/book/triggers/{coin}`, `/pulse/trader/{address}/trigger-orders` — an exchange-wide snapshot refreshed roughly every minute, **latest only, no history**; `503` once it is older than 1,200 seconds (20 minutes). See [TP/SL trigger orders](/concepts/trigger-orders) |
 
 These take an explicit window: `/live/long-short/history`, `/live/oi-history[/{coin}]`, `/live/official-oi[/{coin}]`, `/live/risk/coins/{coin}/history` and `/live/cohort-bias-history/{coin}` (`hours`, default 168, silently clamped to 1–2160); `/live/risk/coins/{coin}/mark-dislocations` (`hours`, default and maximum 168); `/live/risk/liquidations/recent` and `/live/risk/liquidations/summary` (`since`, default `7d`); `/live/whale-trades/{coin}` (`since`, default `6h`, 24h ceiling). `/live/cohort-bias-history/{coin}` reads **hourly snapshots** and echoes its explicit UTC window in the `format=layer` body. `/live/positioning-by-entry/{coin}` is a **current snapshot of open positions**, never history, whose rows were observed at different times (`source.medianAgeS`). See [Chart layer endpoints](/api-reference/chart-layers).
 

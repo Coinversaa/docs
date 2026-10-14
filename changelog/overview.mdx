@@ -3,6 +3,32 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="October 15, 2026" tags={["API", "MCP", "v0.17.4"]}>
+
+## Sharpe ratios in the connector, and every pending TP/SL order on Hyperliquid
+
+**Sharpe ratios (Starter).** The realized-PnL Sharpe from October 13 is now in the connector, with two new ways to slice it. Four tools, each with its endpoint:
+
+- `pulse_sharpe_leaderboard` — `/pulse/sharpe-leaderboard`: the 50 most consistent wallets over the last 30 completed UTC days, among wallets with at least $2,500 of stored equity. **New:** activity floors `minActiveDays` (default 10 fill days) and `minPnl` (default $1,000 of window realized PnL), applied before ranking; each row reports `activeDays`
+- `pulse_trader_sharpe` — `/pulse/trader/{address}/sharpe`: one wallet's 30-day score
+- **New:** `pulse_trader_sharpe_interval` — `/pulse/trader/{address}/sharpe/interval`: any window of 1–90 completed days within the last 90. Out-of-range windows are rejected, not clamped: a bad `startDay` or a window outside the last 90 days is a `400`, a `days` value outside 1–90 a `422`
+- **New:** `pulse_trader_sharpe_monthly` — `/pulse/trader/{address}/sharpe/monthly`: three buckets, newest first — 3 × 30 days, or the current and two previous calendar months — to see whether a wallet is getting more or less consistent
+
+**Sharpe filters** on nine cohort and positioning endpoints and their tools — `/live/cohort-bias/{coin}`, `/live/positioning-by-entry/{coin}`, the lifetime cohort positions and trades, and the five `/pulse/cohorts-recent/*` drill-downs: `minRecentSharpe` (30-day score, refreshed hourly) and `minTotalSharpe` (full-history score, refreshed daily) keep only wallets above a threshold, so "how are Apex wallets positioned on BTC" can become "how are the *consistent* Apex wallets positioned". Filters use each wallet's current score and do not change any endpoint's tier.
+
+The method is unchanged and stays a proxy: √365 × mean daily realized PnL ÷ its standard deviation, with no equity normalization and no fees, funding or unrealized PnL. It rewards consistency, not size. The leaderboard's default floors keep few-day and few-dollar wallets off it, but the wallet scores and cohort filters have no activity floor, so read the score with `realizedPnl` and `trades`. See [Sharpe ratios](/concepts/sharpe).
+
+**TP/SL trigger orders (Pro).** Every untriggered **stop-loss and take-profit order** on Hyperliquid, one by one with the wallet that placed it:
+
+- `book_triggers` — `/market/book/triggers/{coin}`: every pending trigger order on a market
+- `pulse_trader_trigger_orders` — `/pulse/trader/{address}/trigger-orders`: one wallet's pending triggers, across markets or for one coin
+
+One exchange-wide snapshot covers native perps, builder dexes and HIP-4, refreshed roughly every minute, latest only (no history); a snapshot older than 1,200 seconds (20 minutes) is a `503` rather than a stale answer. Pages are pinned to a snapshot with `snapshot_height`. `book_stop_map` keeps the bucketed view; these are the orders behind it (Hyperliquid's own API returns trigger orders one wallet at a time — this is the whole exchange in one call). See [TP/SL trigger orders](/concepts/trigger-orders).
+
+The catalog is **115 tools**, up from 109; `builder_heatmap` is still withheld, so the connector advertises 114. The API has **124 endpoints**.
+
+</Update>
+
 <Update label="October 13, 2026" tags={["API", "MCP", "Pricing"]}>
 
 ## Starter now includes live positioning, risk and the chart
