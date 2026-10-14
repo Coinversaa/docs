@@ -1,0 +1,83 @@
+---
+title: "TP/SL trigger orders"
+description: "Every pending take-profit and stop-loss order on Hyperliquid, one by one with the wallet behind it — by market or by wallet, across native perps, builder dexes and HIP-4. Latest-only snapshot refreshed about every minute. Pro."
+---
+
+A **trigger order** is a conditional order that waits for a price — a **stop-loss** or **take-profit** — and only becomes a real order when that price trades. Until then it sits outside the visible book. Pulse snapshots every untriggered trigger order on Hyperliquid and serves them **individually**: the trigger price, size, side, and the wallet that placed each one. Both endpoints are **Pro**.
+
+## Endpoints
+
+| Endpoint | MCP tool | What it answers |
+|---|---|---|
+| `/market/book/triggers/{coin}` | `book_triggers` | Which stop-loss and take-profit orders are waiting on this market, and whose are they? |
+| `/pulse/trader/{address}/trigger-orders` | `pulse_trader_trigger_orders` | Which TP/SL orders does this wallet have pending, across every market or one (`coin`)? |
+
+For the **bucketed** view — how much stop and take-profit size sits at each distance from mid — use `/market/book/stops/{coin}` (`book_stop_map`) from the [L4 order book](/mcp/tools#l4-order-book-v0-12-0) tools. The trigger endpoints are the order-by-order detail behind that picture.
+
+## What each order carries
+
+| Field | Meaning |
+|---|---|
+| `coin`, `oid`, `address` | Market, Hyperliquid order ID, and the wallet that placed it |
+| `side` | `B` = buy, `A` = sell. This is the order's side, **not** the position's long/short — a long's stop-loss is a sell |
+| `trigger_px` | The price that fires the order |
+| `limit_px` | The order's limit price |
+| `size`, `orig_size` | Current and original size |
+| `order_type` | Hyperliquid's order type label |
+| `reduce_only` | Whether the order can only reduce a position |
+| `is_position_tpsl` | `true` for a TP/SL attached to the position, `false` for a standalone trigger order |
+| `placed_at` | Placement time, Unix milliseconds UTC |
+| `cloid` | Client order ID, or `null` |
+
+Prices and sizes are **decimal strings**, kept at the exchange's precision — parse them rather than comparing as text. Orders are sorted by `coin`, then `oid`.
+
+## Coverage and freshness
+
+- **Every market.** One exchange-wide snapshot covers native perps, [builder dexes](/concepts/markets) (e.g. `xyz:GOLD`) and [HIP-4](/concepts/hip4) outcomes (e.g. `#28200`). It is separate from the L4 book rollups, so a coin outside the [L4 sweep](/mcp/tools#l4-order-book-v0-12-0) still has trigger orders here.
+- **Refreshed roughly every minute.** Every response says what it is true at: `as_of_height` (the L1 block), `as_of_block_time` and `age_s`. Check `age_s` before citing a number.
+- **Latest only — no history.** You can ask what is pending now, not what was pending yesterday, or which orders fired.
+- **Stale is an error, not an answer.** If the snapshot is missing or older than **1,200 seconds (20 minutes)**, both endpoints return `503`.
+- **Untriggered orders only.** Resting limit orders are in the [L4 book](/mcp/tools#l4-order-book-v0-12-0) tools; executed fills are in the trade endpoints.
+
+<Warning>
+  **The coin is case-sensitive and not normalized.** Use the node's own spelling — `BTC`, `xyz:GOLD`, `#28200` — and `list_markets` to find it. An unknown or misspelled coin returns an **empty list, not a 404**, so an empty answer does not prove a market exists or has no stops. Names containing `/` cannot be addressed on `/market/book/triggers/{coin}`.
+</Warning>
+
+The wallet endpoint looks up **that exact address** — not its sub-accounts or owner entity (`pulse_entity_profile` resolves those). It needs no trader record, so any address works, and a wallet with no pending triggers returns an empty list.
+
+## Paging
+
+Both endpoints page with `limit` (1–500, default 100) and `offset` (0–100,000). Because the snapshot changes every minute, later pages are pinned to the first page's snapshot:
+
+<Steps>
+  <Step title="First page">
+    Call with `offset=0` and no `snapshot_height`. Note `as_of_height`, and whether `has_more` is `true`.
+  </Step>
+  <Step title="Next pages">
+    Keep the same filters, advance `offset` by the number of orders returned, and pass `snapshot_height=<as_of_height>`. An `offset` above 0 without `snapshot_height` is a `400`.
+  </Step>
+  <Step title="If you get 409">
+    The snapshot was replaced while you were paging. Start again at `offset=0` without `snapshot_height`.
+  </Step>
+</Steps>
+
+The MCP tools do the bookkeeping for you: each result adds `count`, `hasMore`, `nextOffset` and a `note` with the `snapshot_height` to send next.
+
+```bash curl
+curl "https://api.coinversa.ai/api/public/v1/market/book/triggers/BTC?limit=500" \
+  -H "X-API-Key: $COINVERSA_API_KEY"
+```
+
+## What you can ask
+
+| Question | Tool |
+|---|---|
+| Show me every stop-loss and take-profit order waiting on BTC | `book_triggers` |
+| Which wallets have take-profit orders waiting on xyz:GOLD? | `book_triggers` |
+| What TP/SL orders does 0x… have open, and at what prices? | `pulse_trader_trigger_orders` |
+| Where are 0x…'s stops on ETH? | `pulse_trader_trigger_orders` with `coin: "ETH"` |
+| How much stop size sits within 2% of the BTC mid? | `book_stop_map` |
+
+The `address` on each order goes straight into `pulse_trader_profile` or `pulse_trader_sharpe`, so "whose stops are these, and are they any good" is one follow-up call.
+
+See the [tier matrix](/api-reference/tiers) for plans and the [API reference](/api-reference/introduction) for full response schemas.

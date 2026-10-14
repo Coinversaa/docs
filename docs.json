@@ -35,6 +35,8 @@
               "concepts/markets",
               "concepts/cohorts",
               "concepts/position-lifecycles",
+          "concepts/sharpe",
+          "concepts/trigger-orders",
               "concepts/cross-market-assets",
               "concepts/hip4",
               "concepts/builder-attribution",

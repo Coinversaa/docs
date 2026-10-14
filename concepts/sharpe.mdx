@@ -1,0 +1,105 @@
+---
+title: "Sharpe ratios"
+description: "Annualized realized-PnL Sharpe for any tracked Hyperliquid wallet: 30-day score, custom 1–90-day intervals, three monthly buckets, a top-50 Sharpe leaderboard and Sharpe filters on cohort endpoints. Starter."
+---
+
+A **Sharpe ratio** asks how steady a wallet's profits are, not how large. Pulse computes one for every tracked Hyperliquid wallet from its daily realized PnL — a single wallet's score, the same score over any window in the last 90 days, three month-sized buckets to see whether it is improving, and a leaderboard of the most consistent wallets with real equity behind them. All four endpoints are **Starter**.
+
+## How the score is computed
+
+```text
+annualizedPnlSharpe = √365 × mean(daily realized PnL) ÷ sample standard deviation(daily realized PnL)
+```
+
+- **Daily realized PnL**, in dollars, from the same per-wallet daily rollup as the rest of Pulse. It is not limited to perps.
+- **Every day in the window counts.** A day without fills counts as `0`, so a wallet that trades twice a month is not scored on its two good days.
+- **Completed UTC days only.** Today is always excluded; `asOf` is midnight UTC at the end of the window, and `calculatedAt` is when the number was computed.
+- **Risk-free rate is zero.** Annualized with √365 because crypto trades every day.
+- **Null, not zero,** when there are fewer than two days or the daily PnL never varies. The score is rounded to 4 decimals.
+
+<Warning>
+  **This is a realized-PnL proxy, not a portfolio Sharpe.** It is not divided by account equity, so it measures dollar PnL rather than percentage returns, and it excludes **fees, funding and unrealized PnL**. A wallet sitting on a large open loss can score well.
+</Warning>
+
+**It rewards consistency, not size.** A wallet that makes $80 a day without fail can outrank one that made $1.5M with some red days — on the 14 Oct 2026 leaderboard, the #2 wallet had $77.85 of realized PnL over the 30 days. Always read `annualizedPnlSharpe` alongside `realizedPnl` and `trades`, which every response carries next to it with `meanDailyPnl` and `stdDailyPnl`.
+
+## Endpoints
+
+| Endpoint | MCP tool | What it returns | Window |
+|---|---|---|---|
+| `/pulse/trader/{address}/sharpe` | `pulse_trader_sharpe` | One wallet's score and its inputs | Last 30 completed UTC days (`days` accepts only `30`) |
+| `/pulse/trader/{address}/sharpe/interval` | `pulse_trader_sharpe_interval` | The same, over a window you choose | `startDay` (`YYYY-MM-DD`, inclusive) and `days` (1–90), both required |
+| `/pulse/trader/{address}/sharpe/monthly` | `pulse_trader_sharpe_monthly` | Exactly three buckets, newest first | 3 × 30 days, or calendar months with `useCalendarMonths=true` |
+| `/pulse/sharpe-leaderboard` | `pulse_sharpe_leaderboard` | Top 50 wallets by score | Last 30 completed UTC days (`days` accepts only `30`) |
+
+The wallet endpoints answer for wallets Pulse tracks; an address it has never indexed returns `404`. They apply **no equity filter** — any tracked wallet gets a score.
+
+### Custom intervals
+
+`/sharpe/interval` scores 1–90 completed days. `startDay` must be no earlier than 90 days before today, and the exclusive end (`startDay + days`) cannot be later than today. **Out-of-range windows are rejected with `400`, not shortened** — unlike the silent `since` clamps elsewhere in the API. A one-day interval returns a `null` score and a standard deviation of `0`.
+
+### Monthly buckets
+
+`/sharpe/monthly` always returns three buckets, newest first, each with its own `startDay`, `endDayExclusive`, `days` and `asOf`:
+
+- **Default** (`useCalendarMonths=false`): the last 30 completed days, the 30 before that, and the 30 before that — 90 days in all.
+- **`useCalendarMonths=true`**: the completed days of the current UTC month plus the two full calendar months before it — at most 93 days. On the 1st of a month the current bucket has `days: 0`, zero statistics and a `null` score.
+
+### The leaderboard
+
+`/pulse/sharpe-leaderboard` ranks the top **50** wallets. To be eligible a wallet must have fills in the window and **at least $2,500 of stored account equity** (`minEquity`); the equity check happens before ranking. Wallets with no equity on record, or with zero variance, are left out. Ties break by realized PnL, then by wallet address.
+
+- `accountValue` and `equityUpdatedAt` are the wallet's **latest stored equity checkpoint** — not necessarily its live balance, and no checkpoint is too old to count.
+- The result is **cached and refreshed every 30 minutes**; if a refresh fails, the previous result may be served. `calculatedAt` tells you how old the answer is.
+- There is **no minimum-activity filter** beyond having fills in the window, which is why low-PnL wallets can rank high (see above).
+
+## Sharpe filters on cohort endpoints
+
+Nine cohort and positioning endpoints take two optional filters that keep only wallets above a Sharpe threshold:
+
+| Parameter | Score it filters on | Refreshed |
+|---|---|---|
+| `minRecentSharpe` | The wallet's score over the last 30 completed UTC days | Hourly |
+| `minTotalSharpe` | The wallet's score from its first available daily history through yesterday UTC | Daily |
+
+Both are **inclusive minimums**. Zero and negative values are valid; non-finite values are `422`. Leave a filter out and nothing is filtered on it; set it and wallets without a score are excluded. Set both and a wallet must pass both. Filters apply **before** limits and aggregation, so totals and medians describe the qualifying wallets only.
+
+The filter uses each wallet's **current** score. On trade and lifecycle history, a fill from three weeks ago is kept or dropped by the wallet's score today, not its score then — do not use it to backtest.
+
+| Endpoint | Tier | MCP tool |
+|---|---|---|
+| `/live/cohort-bias/{coin}` | Starter | `live_cohort_bias` |
+| `/live/positioning-by-entry/{coin}` | Pro | `live_positioning_by_entry` |
+| `/pulse/cohorts/{tierType}/{tier}/positions` | Pro | `pulse_cohort_positions` |
+| `/pulse/cohorts/{tierType}/{tier}/trades` | Pro | `pulse_cohort_trades` |
+| `/pulse/cohorts-recent/{tierType}/{tier}/positions` | Pro | `pulse_cohort_recent_positions` |
+| `/pulse/cohorts-recent/{tierType}/{tier}/trades` | Pro | `pulse_cohort_recent_trades` |
+| `/pulse/cohorts-recent/{tierType}/{tier}/top-positions` | Pro | `pulse_cohort_recent_top_positions` |
+| `/pulse/cohorts-recent/{tierType}/{tier}/lifecycle-stats` | Pro | `pulse_cohort_recent_lifecycle_stats` |
+| `/pulse/cohorts-recent/{tierType}/{tier}/alpha-concentration` | Pro | `pulse_cohort_recent_alpha_concentration` |
+
+The filters do not change an endpoint's tier.
+
+## What you can ask
+
+| Question | Tool |
+|---|---|
+| Who are the most consistent traders on Hyperliquid this month? | `pulse_sharpe_leaderboard` |
+| What's the Sharpe ratio of 0x…? | `pulse_trader_sharpe` |
+| How did 0x…'s Sharpe look between 1 and 21 September? | `pulse_trader_sharpe_interval` |
+| Is 0x… getting more or less consistent month by month? | `pulse_trader_sharpe_monthly` |
+| How is BTC positioned among Apex wallets with a 30-day Sharpe above 2? | `live_cohort_bias` with `minRecentSharpe: 2` |
+| Where did high-Sharpe wallets get into their ETH positions? | `live_positioning_by_entry` with `minTotalSharpe` |
+
+```bash curl
+curl "https://api.coinversa.ai/api/public/v1/pulse/trader/0xYOUR_WALLET/sharpe/interval?startDay=2026-09-01&days=21" \
+  -H "X-API-Key: $COINVERSA_API_KEY"
+```
+
+## Coverage
+
+- **Wallets**: every wallet Pulse tracks (see [Data coverage](/concepts/data-coverage)). The leaderboard additionally needs a stored equity checkpoint of at least $2,500.
+- **History**: per-wallet scores and intervals reach back **90 days**; the monthly view up to 93. `minTotalSharpe` uses each wallet's full available daily history.
+- **Freshness**: wallet scores are computed on each request from the daily rollup; the leaderboard is up to 30 minutes old; the stored filter scores refresh hourly (recent) and daily (total).
+
+See the [tier matrix](/api-reference/tiers) for plans and the [API reference](/api-reference/introduction) for full response schemas.
