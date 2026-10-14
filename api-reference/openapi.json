@@ -8571,6 +8571,11 @@
             "readOnly": true,
             "type": "string"
           },
+          "asOf": {
+            "description": "Midnight UTC at the exclusive end of the data window; not the calculation time.",
+            "format": "date-time",
+            "type": "string"
+          },
           "calculatedAt": {
             "format": "date-time",
             "type": "string"
@@ -8583,7 +8588,17 @@
             "description": "Exclusive UTC date.",
             "type": "string"
           },
+          "minActiveDays": {
+            "description": "Applied minimum fill days in the window.",
+            "format": "int32",
+            "type": "integer"
+          },
           "minEquity": {
+            "format": "double",
+            "type": "number"
+          },
+          "minPnl": {
+            "description": "Applied minimum window realized PnL, USD.",
             "format": "double",
             "type": "number"
           },
@@ -8603,11 +8618,14 @@
         },
         "required": [
           "minEquity",
+          "minActiveDays",
+          "minPnl",
           "traders",
           "days",
           "startDay",
           "endDayExclusive",
-          "calculatedAt"
+          "calculatedAt",
+          "asOf"
         ],
         "type": "object"
       },
@@ -8619,8 +8637,13 @@
             "format": "double",
             "type": "number"
           },
+          "activeDays": {
+            "description": "Completed UTC days in the window with at least one fill.",
+            "format": "int32",
+            "type": "integer"
+          },
           "annualizedPnlSharpe": {
-            "description": "Null when daily PnL has zero variance.",
+            "description": "Null with fewer than two completed days or zero daily PnL variance.",
             "format": "double",
             "type": [
               "number",
@@ -8655,6 +8678,7 @@
           }
         },
         "required": [
+          "activeDays",
           "accountValue",
           "equityUpdatedAt",
           "wallet",
@@ -9250,12 +9274,17 @@
             "type": "string"
           },
           "annualizedPnlSharpe": {
-            "description": "Null when daily PnL has zero variance.",
+            "description": "Null with fewer than two completed days or zero daily PnL variance.",
             "format": "double",
             "type": [
               "number",
               "null"
             ]
+          },
+          "asOf": {
+            "description": "Midnight UTC at the exclusive end of the data window; not the calculation time.",
+            "format": "date-time",
+            "type": "string"
           },
           "calculatedAt": {
             "format": "date-time",
@@ -9303,7 +9332,55 @@
           "days",
           "startDay",
           "endDayExclusive",
-          "calculatedAt"
+          "calculatedAt",
+          "asOf"
+        ],
+        "type": "object"
+      },
+      "TraderSharpeMonthlyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/TraderSharpeMonthlyBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "asOf": {
+            "description": "Midnight UTC today; the current UTC day is excluded.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "buckets": {
+            "description": "Exactly three buckets, newest first. On the first of a UTC month the current-month bucket has zero days, zero statistics, and a null Sharpe ratio.",
+            "items": {
+              "$ref": "#/components/schemas/TraderSharpeBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "calculatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "useCalendarMonths": {
+            "type": "boolean"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "useCalendarMonths",
+          "calculatedAt",
+          "asOf",
+          "buckets"
         ],
         "type": "object"
       },
@@ -9344,6 +9421,138 @@
           "winningTrades",
           "winRate",
           "volume"
+        ],
+        "type": "object"
+      },
+      "TriggerOrder": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "cloid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "coin": {
+            "type": "string"
+          },
+          "is_position_tpsl": {
+            "type": "boolean"
+          },
+          "limit_px": {
+            "type": "string"
+          },
+          "oid": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "order_type": {
+            "type": "string"
+          },
+          "orig_size": {
+            "type": "string"
+          },
+          "placed_at": {
+            "description": "Order placement time, Unix milliseconds UTC.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "reduce_only": {
+            "type": "boolean"
+          },
+          "side": {
+            "description": "B = buy, A = sell; not a position's long/short direction.",
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          },
+          "trigger_px": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "coin",
+          "oid",
+          "address",
+          "side",
+          "trigger_px",
+          "limit_px",
+          "size",
+          "orig_size",
+          "order_type",
+          "reduce_only",
+          "is_position_tpsl",
+          "placed_at",
+          "cloid"
+        ],
+        "type": "object"
+      },
+      "TriggerOrdersBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/TriggerOrdersBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "age_s": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "as_of_block_time": {
+            "type": "string"
+          },
+          "as_of_height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "limit": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "offset": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerOrder"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of_height",
+          "as_of_block_time",
+          "age_s",
+          "source",
+          "limit",
+          "offset",
+          "has_more",
+          "orders"
         ],
         "type": "object"
       },
@@ -17612,6 +17821,28 @@
         "operationId": "list-api-public-v1-live-cohort-bias-by-coin",
         "parameters": [
           {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
             "description": "Exact indexed market symbol, e.g. BTC or xyz:GOLD. No matching rows returns an empty array.",
             "example": "BTC",
             "in": "path",
@@ -19578,6 +19809,28 @@
       "get": {
         "operationId": "get-api-public-v1-live-positioning-by-entry-by-coin",
         "parameters": [
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
           {
             "description": "Market symbol, e.g. BTC or xyz:GOLD. Case and surrounding whitespace are normalized; the body echoes the canonical spelling.",
             "in": "path",
@@ -22339,6 +22592,286 @@
           "Market"
         ],
         "x-coinversa-min-tier": "starter",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
+    "/api/public/v1/market/book/triggers/{coin}": {
+      "get": {
+        "description": "Individual untriggered stop/take-profit orders for a market, ordered by coin and order ID. Latest-only exchange-wide snapshot, refreshed roughly every minute independently of the L4 book rollups. Prices and sizes are decimal strings. A fresh snapshot with no matching orders returns an empty list (including unknown coins); it does not establish market existence. Use /market/book/stops/{coin} for the bucketed aggregate view. Pagination uses limit/offset and snapshot_height; changed snapshots require restarting.",
+        "operationId": "get-api-public-v1-market-book-triggers-by-coin",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "maximum": 100000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "For subsequent pages, supply the first page's as_of_height. Required when offset > 0. A replaced snapshot returns 409; restart from offset 0.",
+            "explode": false,
+            "in": "query",
+            "name": "snapshot_height",
+            "schema": {
+              "default": 0,
+              "description": "For subsequent pages, supply the first page's as_of_height. Required when offset > 0. A replaced snapshot returns 409; restart from offset 0.",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Case-sensitive node symbol, e.g. BTC, xyz:GOLD, #28200. Names containing '/' are not addressable on this path.",
+            "in": "path",
+            "name": "coin",
+            "required": true,
+            "schema": {
+              "description": "Case-sensitive node symbol, e.g. BTC, xyz:GOLD, #28200. Names containing '/' are not addressable on this path.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerOrdersBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Market trigger orders",
+        "tags": [
+          "Market"
+        ],
+        "x-coinversa-min-tier": "pro",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -25397,6 +25930,28 @@
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-alpha-concentration",
         "parameters": [
           {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
             "in": "path",
             "name": "tierType",
             "required": true,
@@ -25621,6 +26176,28 @@
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-lifecycle-stats",
         "parameters": [
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
           {
             "in": "path",
             "name": "tierType",
@@ -25869,6 +26446,28 @@
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-positions",
         "parameters": [
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
           {
             "in": "path",
             "name": "tierType",
@@ -26122,6 +26721,28 @@
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-top-positions",
         "parameters": [
           {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
             "in": "path",
             "name": "tierType",
             "required": true,
@@ -26369,6 +26990,28 @@
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-recent-by-tier-type-by-tier-trades",
         "parameters": [
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
           {
             "in": "path",
             "name": "tierType",
@@ -27298,6 +27941,28 @@
         "operationId": "list-api-public-v1-pulse-cohorts-by-tier-type-by-tier-positions",
         "parameters": [
           {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
             "in": "path",
             "name": "tierType",
             "required": true,
@@ -27549,6 +28214,28 @@
       "get": {
         "operationId": "list-api-public-v1-pulse-cohorts-by-tier-type-by-tier-trades",
         "parameters": [
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+            "explode": false,
+            "in": "query",
+            "name": "minRecentSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe over 30 completed UTC days (refreshed hourly). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Fees, funding and unrealized PnL are excluded; this is not equity-return Sharpe. Applied with minTotalSharpe using AND, before limits and aggregation.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+            "explode": false,
+            "in": "query",
+            "name": "minTotalSharpe",
+            "schema": {
+              "description": "Optional inclusive minimum stored annualized realized-PnL Sharpe from first available daily history through yesterday UTC (refreshed daily). Finite values only, including zero and negatives. Undefined/unpopulated scores are excluded when set. Uses the current wallet score, not a historical score. Applied with minRecentSharpe using AND; omitted thresholds do not filter.",
+              "format": "double",
+              "type": "number"
+            }
+          },
           {
             "in": "path",
             "name": "tierType",
@@ -32460,7 +33147,7 @@
     },
     "/api/public/v1/pulse/sharpe-leaderboard": {
       "get": {
-        "description": "Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Uses 30 completed UTC calendar days, including days without fills as zero. Today is excluded. Top 50 wallets with fills in the window and latest stored account equity >= $2,500; equity eligibility is applied before ranking. Missing equity and zero-variance scores are excluded. No checkpoint-age cutoff is applied. EquityUpdatedAt identifies checkpoint age. Ranking breaks ties by realized PnL descending, then wallet ascending. Cached and proactively refreshed every 30 minutes; failed refreshes may serve the previous result. Cache refresh does not refresh equity checkpoints.",
+        "description": "Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Days without fills count as zero. Only completed UTC days are included; today is excluded. No equity eligibility filter applies to wallet routes. Uses 30 completed UTC calendar days. Top 50 wallets with latest stored account equity >= $2,500, at least minActiveDays completed UTC days with a fill in the window (default 10) and window realized PnL >= minPnl (default $1,000); equity and activity eligibility are applied before ranking. minActiveDays=1 with minPnl=-1000000000 removes the activity floors. Missing equity and zero-variance scores are excluded. No checkpoint-age cutoff is applied. EquityUpdatedAt identifies checkpoint age. Ranking breaks ties by realized PnL descending, then wallet ascending. Cached and proactively refreshed every 30 minutes; failed refreshes may serve the previous result. Cache refresh does not refresh equity checkpoints.",
         "operationId": "get-api-public-v1-pulse-sharpe-leaderboard",
         "parameters": [
           {
@@ -32475,6 +33162,34 @@
               "maximum": 30,
               "minimum": 30,
               "type": "integer"
+            }
+          },
+          {
+            "description": "Minimum distinct completed UTC days inside the 30-day window with at least one fill (default 10, 1-30). Same fill-day definition as /pulse/hidden-gems, which counts over all time instead. Applied before ranking. Filters out wallets whose score rests on a few trading days.",
+            "explode": false,
+            "in": "query",
+            "name": "minActiveDays",
+            "schema": {
+              "default": 10,
+              "description": "Minimum distinct completed UTC days inside the 30-day window with at least one fill (default 10, 1-30). Same fill-day definition as /pulse/hidden-gems, which counts over all time instead. Applied before ranking. Filters out wallets whose score rests on a few trading days.",
+              "format": "int32",
+              "maximum": 30,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Minimum gross realized PnL in USD summed over the window, inclusive (default 1,000; -1,000,000,000 to 1,000,000,000). Same name, USD meaning and default as on /pulse/max-pain-events and /pulse/perfect-exits; unlike there, negatives are allowed so the floor can be switched off. Applied before ranking.",
+            "explode": false,
+            "in": "query",
+            "name": "minPnl",
+            "schema": {
+              "default": 1000,
+              "description": "Minimum gross realized PnL in USD summed over the window, inclusive (default 1,000; -1,000,000,000 to 1,000,000,000). Same name, USD meaning and default as on /pulse/max-pain-events and /pulse/perfect-exits; unlike there, negatives are allowed so the floor can be switched off. Applied before ranking.",
+              "format": "double",
+              "maximum": 1000000000,
+              "minimum": -1000000000,
+              "type": "number"
             }
           }
         ],
@@ -35595,7 +36310,7 @@
     },
     "/api/public/v1/pulse/trader/{address}/sharpe": {
       "get": {
-        "description": "Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Uses 30 completed UTC calendar days, including days without fills as zero. Today is excluded. No equity eligibility filter applies to this route.",
+        "description": "Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Days without fills count as zero. Only completed UTC days are included; today is excluded. No equity eligibility filter applies to wallet routes. Uses 30 completed UTC calendar days. No equity eligibility filter applies to this route.",
         "operationId": "get-api-public-v1-pulse-trader-by-address-sharpe",
         "parameters": [
           {
@@ -35826,6 +36541,488 @@
           }
         ],
         "summary": "Wallet PnL Sharpe",
+        "x-coinversa-min-tier": "starter",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
+    "/api/public/v1/pulse/trader/{address}/sharpe/interval": {
+      "get": {
+        "description": "Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Days without fills count as zero. Only completed UTC days are included; today is excluded. No equity eligibility filter applies to wallet routes. startDay is an inclusive YYYY-MM-DD UTC date; days is required and must be 1–90. Start must be within the last 90 days and the exclusive end cannot exceed today. Invalid bounds are rejected, not silently shortened. A one-day interval returns a null score and zero standard deviation.",
+        "operationId": "get-api-public-v1-pulse-trader-by-address-sharpe-interval",
+        "parameters": [
+          {
+            "description": "Hyperliquid wallet address.",
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "description": "Hyperliquid wallet address.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive UTC date (YYYY-MM-DD), no earlier than 90 days before today.",
+            "explode": false,
+            "in": "query",
+            "name": "startDay",
+            "required": true,
+            "schema": {
+              "description": "Inclusive UTC date (YYYY-MM-DD), no earlier than 90 days before today.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Number of completed UTC days. The exclusive end must not be later than today. One-day intervals return a null Sharpe ratio.",
+            "explode": false,
+            "in": "query",
+            "name": "days",
+            "required": true,
+            "schema": {
+              "description": "Number of completed UTC days. The exclusive end must not be later than today. One-day intervals return a null Sharpe ratio.",
+              "format": "int32",
+              "maximum": 90,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraderSharpeBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Wallet interval PnL Sharpe",
+        "x-coinversa-min-tier": "starter",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
+    "/api/public/v1/pulse/trader/{address}/sharpe/monthly": {
+      "get": {
+        "description": "Annualized gross realized-PnL Sharpe proxy: sqrt(365) * mean daily PnL / sample standard deviation, with risk-free return zero. Not equity-normalized portfolio Sharpe; excludes fees, funding and unrealized PnL. Days without fills count as zero. Only completed UTC days are included; today is excluded. No equity eligibility filter applies to wallet routes. Returns exactly three buckets, newest first. useCalendarMonths defaults to false: the last 30 completed days, the previous 30, and the previous 30 (90 days total). True uses the current partial UTC month and two preceding full UTC months, capped at 93 days and excluding all earlier months. On the first of a month the current bucket is empty with a null score. Each bucket exposes its actual dates, day count and asOf.",
+        "operationId": "get-api-public-v1-pulse-trader-by-address-sharpe-monthly",
+        "parameters": [
+          {
+            "description": "Hyperliquid wallet address.",
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "description": "Hyperliquid wallet address.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "False: three consecutive 30-day UTC buckets, newest first. True: completed days of the current UTC month plus the two preceding full calendar months, newest first; at most 93 days, with no earlier months included. Today is always excluded.",
+            "explode": false,
+            "in": "query",
+            "name": "useCalendarMonths",
+            "schema": {
+              "default": false,
+              "description": "False: three consecutive 30-day UTC buckets, newest first. True: completed days of the current UTC month plus the two preceding full calendar months, newest first; at most 93 days, with no earlier months included. Today is always excluded.",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraderSharpeMonthlyBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Wallet monthly PnL Sharpe",
         "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
@@ -36310,6 +37507,295 @@
         ],
         "summary": "List API public v1 pulse trader by address trades",
         "x-coinversa-min-tier": "free",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
+    "/api/public/v1/pulse/trader/{address}/trigger-orders": {
+      "get": {
+        "description": "Individual untriggered stop/take-profit orders for this exact wallet across markets, optionally filtered by case-sensitive coin. Ordered by coin and order ID. Latest-only exchange-wide snapshot, refreshed roughly every minute. No trader registration or related-subaccount lookup is required; a wallet with no matching orders returns an empty list. Pagination uses limit/offset and snapshot_height; changed snapshots require restarting.",
+        "operationId": "get-api-public-v1-pulse-trader-by-address-trigger-orders",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "maximum": 100000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "For subsequent pages, supply the first page's as_of_height. Required when offset > 0. A replaced snapshot returns 409; restart from offset 0.",
+            "explode": false,
+            "in": "query",
+            "name": "snapshot_height",
+            "schema": {
+              "default": 0,
+              "description": "For subsequent pages, supply the first page's as_of_height. Required when offset > 0. A replaced snapshot returns 409; restart from offset 0.",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "0x-prefixed 20-byte wallet address; queries this wallet only, not related subaccounts.",
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "description": "0x-prefixed 20-byte wallet address; queries this wallet only, not related subaccounts.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional case-sensitive node symbol. Omit to return this wallet's triggers across all markets.",
+            "explode": false,
+            "in": "query",
+            "name": "coin",
+            "schema": {
+              "description": "Optional case-sensitive node symbol. Omit to return this wallet's triggers across all markets.",
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerOrdersBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Conflict",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Service Unavailable",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Wallet trigger orders",
+        "tags": [
+          "Pulse"
+        ],
+        "x-coinversa-min-tier": "pro",
         "x-coinversa-quota-scope": "account"
       }
     },
