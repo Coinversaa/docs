@@ -30,25 +30,25 @@ MAE/MFE is **perp-only** — spot positions have no adverse/favorable excursion 
 | What are this wallet's position-level stats? | `pulse_trader_lifecycle_summary` |
 | Break one position down into its composing fills | `pulse_lifecycle` |
 | How far underwater did each position go before working? | `pulse_wallet_drawdown_curve` |
-| Which winners survived the deepest drawdowns? | `pulse_max_pain_events` |
-| Who exited closest to the top? | `pulse_perfect_exits` |
+| Which profitable positions had the deepest drawdowns first? | `pulse_profitable_after_drawdown` |
+| Which exits captured most of the favorable move? | `pulse_exits_near_peak_favorable_move` |
 | What just closed across the whole exchange? | `pulse_lifecycles_recent` |
 
 ## Trader archetypes
 
-Because lifecycles capture the full arc of every position over a rolling 90-day window, Pulse can surface behavioral archetypes nobody else computes:
+Because lifecycles capture the full arc of every position over a rolling 90-day window, Pulse can group wallets by how their positions played out:
 
 - **Survivors / anti-survivors** — wallets that hit a deep cumulative-PnL trough then recovered (or never did).
-- **Persistent winners** — profitable across multiple distinct months, not lucky once.
-- **Capital titans** — the best PnL per dollar of fees paid.
-- **One-month wonders** — huge in a single month, then gave it back.
-- **Newcomer whales** — a recent first lifecycle but already moving large notional.
-- **Coin kings** — the top earner of each coin.
-- **Top liquidators / lethal coins** — who profits from liquidating others, and which coins blow people up most often.
+- **Persistent winners** — profitable across multiple distinct months.
+- **Fee efficiency** (`pulse_fee_efficiency_leaderboard`) — realized PnL per dollar of fees paid.
+- **Single large month, then giveback** (`pulse_single_month_giveback_wallets`) — one large profitable month, part of which was later given back.
+- **Newcomer whales** — a recent first lifecycle with large notional.
+- **Top earners by coin** (`pulse_top_earners_by_coin`) — the highest-PnL wallet(s) on each coin.
+- **Top liquidators / liquidation rate by coin** (`pulse_top_liquidators`, `pulse_liquidation_rate_by_coin`) — which wallets execute the most liquidations, and which coins have the highest share of positions liquidated.
 
 ## Refreshed cohorts
 
-The `pulse_cohort_recent_*` tools classify wallets by their **last-30-day** tier (`pnl_tier_recent` / `size_tier_recent`) instead of all-time — surfacing who is printing *right now* and catching regime changes the all-time [cohort](/concepts/cohorts) tools miss. Same dollar thresholds as the all-time tiers, refreshed hourly. The same labels are available as `tierType=pnl_recent` on `live_positioning_by_entry` and `live_cohort_bias_history`. See [Trader cohorts](/concepts/cohorts).
+The `pulse_cohort_recent_*` tools classify wallets by their **last-30-day** tier (`pnl_tier_recent` / `size_tier_recent`) instead of all-time — reflecting recent performance and showing changes the all-time [cohort](/concepts/cohorts) tools miss. Same dollar thresholds as the all-time tiers, refreshed hourly. The same labels are available as `tierType=pnl_recent` on `live_positioning_by_entry` and `live_cohort_bias_history`. See [Trader cohorts](/concepts/cohorts).
 
 ## Window & freshness
 

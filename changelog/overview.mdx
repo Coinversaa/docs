@@ -3,6 +3,30 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="October 21, 2026" tags={["MCP", "v0.17.6"]}>
+
+## Connector v0.17.5–v0.17.6: clearer tool names
+
+Eleven connector tools have new names that say what they return. The old names keep working as aliases, with the same inputs, plan and output, but the connector no longer lists them; update saved prompts and agents when convenient.
+
+| New name | Old name (alias) | What it returns |
+|----------|------------------|-----------------|
+| `pulse_trader_position_summary` | `pulse_trader_demo` | One wallet's 90-day position summary and largest recent wins and losses |
+| `pulse_exits_near_peak_favorable_move` | `pulse_perfect_exits` | Exits that captured a high share of the maximum favorable move |
+| `pulse_fee_efficiency_leaderboard` | `pulse_capital_titans` | Wallets ranked by realized PnL per dollar of fees |
+| `pulse_top_earners_by_coin` | `pulse_coin_kings` | Highest realized-PnL wallet(s) per coin |
+| `pulse_liquidation_rate_by_coin` | `pulse_lethal_coins` | Coins ranked by the share of positions liquidated |
+| `pulse_profitable_after_drawdown` | `pulse_max_pain_events` | Profitable closed positions that first had a deep drawdown |
+| `pulse_high_win_rate_low_activity_wallets` | `pulse_hidden_gems` | Wallets with a high win rate and positive PnL over a moderate trade count |
+| `pulse_single_month_giveback_wallets` | `pulse_one_month_wonders` | One large profitable month, part of which was later given back |
+| `pulse_coin_profit_pools` | `pulse_coin_alpha_map` | Per-coin winner, loser and net profit pools |
+| `pulse_cohort_recent_profit_concentration` | `pulse_cohort_recent_alpha_concentration` | Profit concentration within a recent-tier cohort |
+| `pulse_largest_liquidation_losses` | `pulse_backstop_events` | The largest individual liquidations ranked by realized loss |
+
+Tool titles and descriptions across the catalog were reworded to describe the data plainly, and the connector's server instructions are now reference notes (coverage, which tool answers which question, freshness, plans and tier names). Tier parameters now list only the current tier names (Apex, Sharps, ... Heavyweights, ...); the older tier identifiers are still accepted. The `best_traders_positioning` prompt is now `tier_positioning_by_coin`. No endpoint, output or plan changed. The catalog is still **115 tools** (114 advertised while `builder_heatmap` is withheld). See the [MCP tool catalog](/mcp/tools).
+
+</Update>
+
 <Update label="October 15, 2026" tags={["API", "MCP", "v0.17.4"]}>
 
 ## Sharpe ratios in the connector, and every pending TP/SL order on Hyperliquid
