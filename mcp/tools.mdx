@@ -8,7 +8,7 @@ Every MCP tool is a thin wrapper around a public API endpoint, and each tool's t
 The connector registers **115 tools**; `builder_heatmap` is withheld while its hourly rollup backfills, so clients see 114.
 
 <Note>
-**Renamed in v0.17.5.** Ten tools have new, descriptive names. The old names still work as aliases (same inputs, plan and output) but are no longer listed by the connector, so update saved prompts and agents to the new names:
+**Renamed in v0.17.5 and v0.17.6.** Eleven tools have new, descriptive names. The old names still work as aliases (same inputs, plan and output) but are no longer listed by the connector, so update saved prompts and agents to the new names:
 
 | New name | Old name (alias) |
 |----------|------------------|
@@ -22,6 +22,7 @@ The connector registers **115 tools**; `builder_heatmap` is withheld while its h
 | `pulse_single_month_giveback_wallets` | `pulse_one_month_wonders` |
 | `pulse_coin_profit_pools` | `pulse_coin_alpha_map` |
 | `pulse_cohort_recent_profit_concentration` | `pulse_cohort_recent_alpha_concentration` |
+| `pulse_largest_liquidation_losses` | `pulse_backstop_events` |
 </Note>
 
 Every tool reads from a public API endpoint, so the [API reference](/api-reference/introduction) is where the response fields live. The **inputs are not always the endpoint's**: several tools accept shaping parameters the route itself does not take — see [Connector-side parameters](#connector-side-parameters). As of **v0.12.0** the catalog includes the [L4 order book](#l4-order-book-v0-12-0): four `book_*` tools answering a question each, rather than handing you a raw book to parse. v0.11.0 added [builder analytics](/api-reference/builders): eleven `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, user lifecycle, journey economics and order intent, plus the inverse per-wallet view.
@@ -128,7 +129,7 @@ Every position reconstructed open→close from on-chain fills, with MAE/MFE. See
 | `pulse_wallet_drawdown_curve`  | Per-position drawdown (MAE) and run-up (MFE) for one wallet. |
 | `pulse_profitable_after_drawdown` | Closed positions that went deeply underwater and still closed in profit. Formerly `pulse_max_pain_events` (still accepted). |
 | `pulse_exits_near_peak_favorable_move` | Exits that captured a high share of the maximum favorable move (MFE). Formerly `pulse_perfect_exits` (still accepted). |
-| `pulse_backstop_events`        | The largest individual liquidations by realized loss. |
+| `pulse_largest_liquidation_losses` | The largest individual liquidations by realized loss. Formerly `pulse_backstop_events` (still accepted). |
 
 ## Pulse — trader archetypes
 
