@@ -3,6 +3,24 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="Set at merge" tags={["MCP", "v0.17.5"]}>
+
+## Connector v0.17.5: clearer tool names
+
+Five connector tools have new names that say what they return. The old names keep working as aliases, with the same inputs, plan and output, but the connector no longer lists them; update saved prompts and agents when convenient.
+
+| New name | Old name (alias) | What it returns |
+|----------|------------------|-----------------|
+| `pulse_trader_position_summary` | `pulse_trader_demo` | One wallet's 90-day position summary and largest recent wins and losses |
+| `pulse_high_mfe_capture_exits` | `pulse_perfect_exits` | Exits that captured a high share of the maximum favorable move |
+| `pulse_fee_efficiency_leaderboard` | `pulse_capital_titans` | Wallets ranked by realized PnL per dollar of fees |
+| `pulse_top_earners_by_coin` | `pulse_coin_kings` | Highest realized-PnL wallet(s) per coin |
+| `pulse_liquidation_rate_by_coin` | `pulse_lethal_coins` | Coins ranked by the share of positions liquidated |
+
+Tool titles and descriptions across the catalog were reworded to describe the data plainly, and the connector's server instructions are now reference notes (coverage, which tool answers which question, freshness, plans and tier names). No endpoint, input, output or plan changed. The catalog is still **115 tools** (114 advertised while `builder_heatmap` is withheld). See the [MCP tool catalog](/mcp/tools).
+
+</Update>
+
 <Update label="October 15, 2026" tags={["API", "MCP", "v0.17.4"]}>
 
 ## Sharpe ratios in the connector, and every pending TP/SL order on Hyperliquid
