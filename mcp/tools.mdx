@@ -8,15 +8,20 @@ Every MCP tool is a thin wrapper around a public API endpoint, and each tool's t
 The connector registers **115 tools**; `builder_heatmap` is withheld while its hourly rollup backfills, so clients see 114.
 
 <Note>
-**Renamed in v0.17.5.** Five tools have new, descriptive names. The old names still work as aliases (same inputs, plan and output) but are no longer listed by the connector, so update saved prompts and agents to the new names:
+**Renamed in v0.17.5.** Ten tools have new, descriptive names. The old names still work as aliases (same inputs, plan and output) but are no longer listed by the connector, so update saved prompts and agents to the new names:
 
 | New name | Old name (alias) |
 |----------|------------------|
 | `pulse_trader_position_summary` | `pulse_trader_demo` |
-| `pulse_high_mfe_capture_exits` | `pulse_perfect_exits` |
+| `pulse_exits_near_peak_favorable_move` | `pulse_perfect_exits` |
 | `pulse_fee_efficiency_leaderboard` | `pulse_capital_titans` |
 | `pulse_top_earners_by_coin` | `pulse_coin_kings` |
 | `pulse_liquidation_rate_by_coin` | `pulse_lethal_coins` |
+| `pulse_profitable_after_drawdown` | `pulse_max_pain_events` |
+| `pulse_high_win_rate_low_activity_wallets` | `pulse_hidden_gems` |
+| `pulse_single_month_giveback_wallets` | `pulse_one_month_wonders` |
+| `pulse_coin_profit_pools` | `pulse_coin_alpha_map` |
+| `pulse_cohort_recent_profit_concentration` | `pulse_cohort_recent_alpha_concentration` |
 </Note>
 
 Every tool reads from a public API endpoint, so the [API reference](/api-reference/introduction) is where the response fields live. The **inputs are not always the endpoint's**: several tools accept shaping parameters the route itself does not take — see [Connector-side parameters](#connector-side-parameters). As of **v0.12.0** the catalog includes the [L4 order book](#l4-order-book-v0-12-0): four `book_*` tools answering a question each, rather than handing you a raw book to parse. v0.11.0 added [builder analytics](/api-reference/builders): eleven `builder_*` tools covering the leaderboard, per-builder profiles, attributed traders and fills, cohort composition, retention, audience overlap, user lifecycle, journey economics and order intent, plus the inverse per-wallet view.
@@ -57,7 +62,7 @@ Every builder tool (all twelve, including `trader_builders`) carries the attribu
 |------|-------------|
 | `pulse_global_stats`               | Total traders, trades, volume, PnL, data coverage. |
 | `pulse_leaderboard`                | Traders ranked by PnL (default), fill-level win rate, volume or biggest losers, over day/week/month/all-time, with a minimum-fill gate. PnL is gross closed PnL before fees. |
-| `pulse_hidden_gems`                | Wallets with a high win rate and positive PnL over a moderate trade count (min/max trade filters). |
+| `pulse_high_win_rate_low_activity_wallets` | Wallets with a high win rate and positive PnL over a moderate trade count (min/max trade filters). Formerly `pulse_hidden_gems` (still accepted). |
 | `pulse_most_traded_coins`          | Coins ranked by cumulative trade count, with unique traders and total PnL. No volume figure; use `list_markets` or `pulse_exchange_volume` for volume. |
 | `pulse_biggest_trades`             | Biggest winning (`type: "wins"`) or losing (`type: "losses"`) trades by PnL across Hyperliquid, with an optional PnL `threshold`. |
 | `pulse_recent_trades`              | Largest trades by absolute PnL in the last `since` window (default 10m), optionally for one coin. |
@@ -121,8 +126,8 @@ Every position reconstructed open→close from on-chain fills, with MAE/MFE. See
 | Tool | Description |
 |------|-------------|
 | `pulse_wallet_drawdown_curve`  | Per-position drawdown (MAE) and run-up (MFE) for one wallet. |
-| `pulse_max_pain_events`        | Closed positions that went deeply underwater and still closed in profit. |
-| `pulse_high_mfe_capture_exits` | Exits that captured a high share of the maximum favorable move (MFE). Formerly `pulse_perfect_exits` (still accepted). |
+| `pulse_profitable_after_drawdown` | Closed positions that went deeply underwater and still closed in profit. Formerly `pulse_max_pain_events` (still accepted). |
+| `pulse_exits_near_peak_favorable_move` | Exits that captured a high share of the maximum favorable move (MFE). Formerly `pulse_perfect_exits` (still accepted). |
 | `pulse_backstop_events`        | The largest individual liquidations by realized loss. |
 
 ## Pulse — trader archetypes
@@ -133,17 +138,17 @@ Every position reconstructed open→close from on-chain fills, with MAE/MFE. See
 | `pulse_anti_survivors`       | Pro | Wallets whose cumulative realized PnL hit a deep trough and is still negative. |
 | `pulse_persistent_winners`   | Pro | Profitable across multiple distinct months. |
 | `pulse_fee_efficiency_leaderboard` | Pro | Wallets ranked by realized PnL per dollar of fees paid. Formerly `pulse_capital_titans` (still accepted). |
-| `pulse_one_month_wonders`    | Pro | One large profitable month, part of which was later given back. |
+| `pulse_single_month_giveback_wallets` | Pro | One large profitable month, part of which was later given back. Formerly `pulse_one_month_wonders` (still accepted). |
 | `pulse_newcomer_whales`      | Pro | Recent first lifecycle with large gross notional. |
 | `pulse_top_earners_by_coin`  | Starter | Highest realized-PnL wallet(s) per coin. Formerly `pulse_coin_kings` (still accepted). |
-| `pulse_top_liquidators`      | Starter | Wallets that execute the most liquidations: count, distinct victims and coins, and penalty collected. The PnL field is the liquidated positions' closed PnL (the victims' losses), not the liquidator's profit. |
+| `pulse_top_liquidators`      | Starter | Wallets that execute the most liquidations: count, distinct liquidated wallets and coins, and penalty collected. The PnL field is the liquidated positions' closed PnL, not the liquidator's profit. |
 | `pulse_liquidation_rate_by_coin` | Pro | Coins ranked by the share of position lifecycles that ended in liquidation. Formerly `pulse_lethal_coins` (still accepted). |
 
 ## Pulse — market structure
 
 | Tool | Tier | Description |
 |------|------|-------------|
-| `pulse_coin_alpha_map`         | Starter | Per-coin winner / loser / net profit pools. |
+| `pulse_coin_profit_pools`      | Starter | Per-coin winner / loser / net profit pools. Formerly `pulse_coin_alpha_map` (still accepted). |
 | `pulse_hour_profitability`     | Starter | Global PnL by UTC hour of close. |
 | `pulse_market_concentration`   | Pro | Percentile profit share — how concentrated alpha is. |
 | `pulse_style_distribution`     | Starter | HFT vs swing vs holder PnL split. |
@@ -158,7 +163,7 @@ Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) �
 | `pulse_cohort_recent_trades`              | Recent trades from a recent-tier cohort. |
 | `pulse_cohort_recent_lifecycle_stats`     | Per-wallet lifecycle stats for a recent-tier cohort. |
 | `pulse_cohort_recent_top_positions`       | Top closed lifecycles from a recent-tier cohort. |
-| `pulse_cohort_recent_alpha_concentration` | Profit concentration within a recent-tier cohort. |
+| `pulse_cohort_recent_profit_concentration` | Profit concentration within a recent-tier cohort. Formerly `pulse_cohort_recent_alpha_concentration` (still accepted). |
 
 ## Live — real-time market + risk
 

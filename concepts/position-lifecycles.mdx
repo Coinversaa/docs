@@ -30,8 +30,8 @@ MAE/MFE is **perp-only** — spot positions have no adverse/favorable excursion 
 | What are this wallet's position-level stats? | `pulse_trader_lifecycle_summary` |
 | Break one position down into its composing fills | `pulse_lifecycle` |
 | How far underwater did each position go before working? | `pulse_wallet_drawdown_curve` |
-| Which profitable positions had the deepest drawdowns first? | `pulse_max_pain_events` |
-| Which exits captured most of the favorable move? | `pulse_high_mfe_capture_exits` |
+| Which profitable positions had the deepest drawdowns first? | `pulse_profitable_after_drawdown` |
+| Which exits captured most of the favorable move? | `pulse_exits_near_peak_favorable_move` |
 | What just closed across the whole exchange? | `pulse_lifecycles_recent` |
 
 ## Trader archetypes
@@ -41,7 +41,7 @@ Because lifecycles capture the full arc of every position over a rolling 90-day 
 - **Survivors / anti-survivors** — wallets that hit a deep cumulative-PnL trough then recovered (or never did).
 - **Persistent winners** — profitable across multiple distinct months.
 - **Fee efficiency** (`pulse_fee_efficiency_leaderboard`) — realized PnL per dollar of fees paid.
-- **One-month wonders** — one large profitable month, part of which was later given back.
+- **Single large month, then giveback** (`pulse_single_month_giveback_wallets`) — one large profitable month, part of which was later given back.
 - **Newcomer whales** — a recent first lifecycle with large notional.
 - **Top earners by coin** (`pulse_top_earners_by_coin`) — the highest-PnL wallet(s) on each coin.
 - **Top liquidators / liquidation rate by coin** (`pulse_top_liquidators`, `pulse_liquidation_rate_by_coin`) — which wallets execute the most liquidations, and which coins have the highest share of positions liquidated.
