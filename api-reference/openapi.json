@@ -6937,6 +6937,93 @@
         ],
         "type": "object"
       },
+      "MarketVWAPBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/MarketVWAPBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "baseVolume": {
+            "description": "Base-asset volume, counting each match once (sum of both users' fill sizes divided by two).",
+            "format": "double",
+            "type": "number"
+          },
+          "cached": {
+            "description": "True when this response came from the scheduled large-market snapshot; false for an on-demand calculation.",
+            "type": "boolean"
+          },
+          "calculatedAt": {
+            "description": "When the calculation completed, not the newest fill time.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "coin": {
+            "type": "string"
+          },
+          "fillRows": {
+            "description": "Indexed per-user fill rows, normally two per match. Also used to classify expensive markets.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "latestTradeAt": {
+            "description": "Newest indexed fill included in this calculation. Null for an empty window; the window end alone does not establish feed freshness.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quoteVolume": {
+            "description": "Quote notional, counting each match once (sum of both users' price * size divided by two).",
+            "format": "double",
+            "type": "number"
+          },
+          "vwap": {
+            "description": "SUM(price * size) / SUM(size) over indexed fills in the window. Null when there is no volume; not a candle approximation or open-position entry price.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "window": {
+            "enum": [
+              "24h"
+            ],
+            "type": "string"
+          },
+          "windowEnd": {
+            "description": "Exclusive UTC cutoff captured before the query. Preserved on cache hits and failed refreshes.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "windowStart": {
+            "description": "Inclusive UTC start, exactly 24 hours before windowEnd.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window",
+          "windowStart",
+          "windowEnd",
+          "calculatedAt",
+          "cached",
+          "coin",
+          "vwap",
+          "baseVolume",
+          "quoteVolume",
+          "fillRows",
+          "latestTradeAt"
+        ],
+        "type": "object"
+      },
       "MaxPainEventRow": {
         "additionalProperties": false,
         "properties": {
@@ -9542,12 +9629,17 @@
           },
           "source": {
             "type": "string"
+          },
+          "stale": {
+            "description": "True when age_s > 1200. Stale snapshots are still returned with HTTP 200.",
+            "type": "boolean"
           }
         },
         "required": [
           "as_of_height",
           "as_of_block_time",
           "age_s",
+          "stale",
           "source",
           "limit",
           "offset",
@@ -21843,7 +21935,7 @@
     },
     "/api/public/v1/market/book/levels/{coin}": {
       "get": {
-        "description": "The depth ladder with the detail L2 discards: the top price levels per side, best-first, each with total size, order count, DISTINCT wallet count and the age of the oldest order on it — so a level held by one wallet is distinguishable from the same size across twenty. Snapshot-derived, refreshed every 60s, latest-only.",
+        "description": "The depth ladder with the detail L2 discards: the top price levels per side, best-first, each with total size, order count, DISTINCT wallet count and the age of the oldest order on it — so a level held by one wallet is distinguishable from the same size across twenty. Snapshot-derived, refreshed every 60s, latest-only. Available snapshots return HTTP 200 with stale=true when age_s > 1200, otherwise stale=false.",
         "operationId": "get-api-public-v1-market-book-levels-by-coin",
         "parameters": [
           {
@@ -22053,21 +22145,6 @@
               }
             }
           },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Service Unavailable",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
           "504": {
             "content": {
               "application/problem+json": {
@@ -22099,7 +22176,7 @@
     },
     "/api/public/v1/market/book/stops/{coin}": {
       "get": {
-        "description": "Where the stops are: every untriggered stop / take-profit order bucketed by distance from mid in 0.25% steps out to within_pct, with per bucket the count, size, reduce-only share, stop vs take-profit split and side split — plus totals below and above mid, the nearest trigger each side, and how many sit beyond the window. Snapshot-derived, refreshed every 60s, latest-only.",
+        "description": "Where the stops are: every untriggered stop / take-profit order bucketed by distance from mid in 0.25% steps out to within_pct, with per bucket the count, size, reduce-only share, stop vs take-profit split and side split — plus totals below and above mid, the nearest trigger each side, and how many sit beyond the window. Snapshot-derived, refreshed every 60s, latest-only. Available snapshots return HTTP 200 with stale=true when age_s > 1200, otherwise stale=false.",
         "operationId": "get-api-public-v1-market-book-stops-by-coin",
         "parameters": [
           {
@@ -22309,21 +22386,6 @@
               }
             }
           },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Service Unavailable",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
           "504": {
             "content": {
               "application/problem+json": {
@@ -22355,7 +22417,7 @@
     },
     "/api/public/v1/market/book/summary/{coin}": {
       "get": {
-        "description": "How deep and how lopsided a book is right now: touch prices, spread in bps, and per side the size / order count / distinct wallet count within 0.5, 1, 2, 5 and 10% of mid, plus near- and far-band imbalance, the orders resting at the touch, their median age and post-only share. Snapshot-derived, refreshed every 60s, latest-only. /market/orderbook/{symbol} remains the aggregated L2 view.",
+        "description": "How deep and how lopsided a book is right now: touch prices, spread in bps, and per side the size / order count / distinct wallet count within 0.5, 1, 2, 5 and 10% of mid, plus near- and far-band imbalance, the orders resting at the touch, their median age and post-only share. Snapshot-derived, refreshed every 60s, latest-only. Available snapshots return HTTP 200 with stale=true when age_s > 1200, otherwise stale=false. /market/orderbook/{symbol} remains the aggregated L2 view.",
         "operationId": "get-api-public-v1-market-book-summary-by-coin",
         "parameters": [
           {
@@ -22551,21 +22613,6 @@
               }
             }
           },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Service Unavailable",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
           "504": {
             "content": {
               "application/problem+json": {
@@ -22597,7 +22644,7 @@
     },
     "/api/public/v1/market/book/triggers/{coin}": {
       "get": {
-        "description": "Individual untriggered stop/take-profit orders for a market, ordered by coin and order ID. Latest-only exchange-wide snapshot, refreshed roughly every minute independently of the L4 book rollups. Prices and sizes are decimal strings. A fresh snapshot with no matching orders returns an empty list (including unknown coins); it does not establish market existence. Use /market/book/stops/{coin} for the bucketed aggregate view. Pagination uses limit/offset and snapshot_height; changed snapshots require restarting.",
+        "description": "Individual untriggered stop/take-profit orders for a market, ordered by coin and order ID. Latest-only exchange-wide snapshot, refreshed roughly every minute independently of the L4 book rollups. Prices and sizes are decimal strings. Available snapshots return HTTP 200 with stale=true when age_s > 1200, otherwise stale=false. Missing snapshots return 503. A snapshot with no matching orders returns an empty list (including unknown coins); it does not establish market existence. Use /market/book/stops/{coin} for the bucketed aggregate view. Pagination uses limit/offset and snapshot_height; changed snapshots require restarting.",
         "operationId": "get-api-public-v1-market-book-triggers-by-coin",
         "parameters": [
           {
@@ -22877,7 +22924,7 @@
     },
     "/api/public/v1/market/book/whales/{coin}": {
       "get": {
-        "description": "Who is sitting on a book: the largest resting orders (wallet, side, price, size, distance from mid, tif, order type, rest duration) and the biggest wallets per side by total resting size. Wallet addresses join to the trader routes. Snapshot-derived, refreshed every 60s, latest-only.",
+        "description": "Who is sitting on a book: the largest resting orders (wallet, side, price, size, distance from mid, tif, order type, rest duration) and the biggest wallets per side by total resting size. Wallet addresses join to the trader routes. Snapshot-derived, refreshed every 60s, latest-only. Available snapshots return HTTP 200 with stale=true when age_s > 1200, otherwise stale=false.",
         "operationId": "get-api-public-v1-market-book-whales-by-coin",
         "parameters": [
           {
@@ -23081,21 +23128,6 @@
               }
             },
             "description": "Internal Server Error",
-            "headers": {
-              "X-Request-ID": {
-                "$ref": "#/components/headers/X-Request-ID"
-              }
-            }
-          },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/APIError"
-                }
-              }
-            },
-            "description": "Service Unavailable",
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/X-Request-ID"
@@ -31708,6 +31740,232 @@
         "x-coinversa-quota-scope": "account"
       }
     },
+    "/api/public/v1/pulse/market/vwap/{coin}": {
+      "get": {
+        "description": "Exact volume-weighted execution price from indexed perpetual fills over [windowStart, windowEnd), not candles or open-position entries. One current 24h result per venue market; no custom windows or anchors. Markets with at least 25,000 per-user fill rows/day are refreshed together every two minutes; smaller markets and requests before the first successful warm calculate on demand. Requests never start the exchange-wide batch. Failed batch refreshes may serve older results: inspect windowEnd, calculatedAt and latestTradeAt. An empty window returns null vwap, zero volumes and null latestTradeAt; 404 is returned only when the venue confirms the symbol is unknown. No migrations or additional indexes are required.",
+        "operationId": "get-api-public-v1-pulse-market-vwap-by-coin",
+        "parameters": [
+          {
+            "description": "Perpetual market, e.g. BTC or xyz:GOLD. Case and surrounding whitespace are normalized. Spot and outcome contracts are not supported.",
+            "in": "path",
+            "name": "coin",
+            "required": true,
+            "schema": {
+              "description": "Perpetual market, e.g. BTC or xyz:GOLD. Case and surrounding whitespace are normalized. Spot and outcome contracts are not supported.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketVWAPBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rolling 24-hour market VWAP",
+        "tags": [
+          "Market"
+        ],
+        "x-coinversa-min-tier": "starter",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
     "/api/public/v1/pulse/max-pain-events": {
       "get": {
         "operationId": "list-api-public-v1-pulse-max-pain-events",
@@ -37512,7 +37770,7 @@
     },
     "/api/public/v1/pulse/trader/{address}/trigger-orders": {
       "get": {
-        "description": "Individual untriggered stop/take-profit orders for this exact wallet across markets, optionally filtered by case-sensitive coin. Ordered by coin and order ID. Latest-only exchange-wide snapshot, refreshed roughly every minute. No trader registration or related-subaccount lookup is required; a wallet with no matching orders returns an empty list. Pagination uses limit/offset and snapshot_height; changed snapshots require restarting.",
+        "description": "Individual untriggered stop/take-profit orders for this exact wallet across markets, optionally filtered by case-sensitive coin. Ordered by coin and order ID. Latest-only exchange-wide snapshot, refreshed roughly every minute. Available snapshots return HTTP 200 with stale=true when age_s > 1200, otherwise stale=false. Missing snapshots return 503. No trader registration or related-subaccount lookup is required; a wallet with no matching orders returns an empty list. Pagination uses limit/offset and snapshot_height; changed snapshots require restarting.",
         "operationId": "get-api-public-v1-pulse-trader-by-address-trigger-orders",
         "parameters": [
           {
