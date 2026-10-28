@@ -11,7 +11,8 @@ Websocket access is **capacity-based**: you are limited by how many connections 
 |---|---:|---:|---|---:|
 | Free | 1 | 2 | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser`, `bbo`, `allMids` | 5 GB |
 | Starter | 1 | 25 | Free's feeds plus `trades` (the firehose), `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` | 50 GB |
-| Pro | 5 | 100 | All 24: Starter's feeds plus `l4Book` ([order book](/websocket/order-book)), [liquidations](/websocket/feeds#liquidations), [leverage changes](/websocket/feeds#leverage-and-margin), [TWAP orders](/websocket/feeds#twap-orders) and [TWAP statuses](/websocket/feeds#twap-statuses), with their single-wallet and [list variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
+| Agent | 2 | 50 | Starter's feeds plus [liquidations](/websocket/feeds#liquidations): `liquidations`, `liquidationsByUser` and `liquidationsByUsers` | 100 GB |
+| Pro | 5 | 100 | All 24: Agent's feeds plus `l4Book` ([order book](/websocket/order-book)), [leverage changes](/websocket/feeds#leverage-and-margin), [TWAP orders](/websocket/feeds#twap-orders) and [TWAP statuses](/websocket/feeds#twap-statuses), with their single-wallet and [list variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
 | Enterprise | custom | custom | all 24 | 250 GB |
 
 Keep these capacity scopes distinct:
@@ -45,7 +46,7 @@ An order-book snapshot is a data frame written to your connection, so **its byte
 | Connection cap | The upgrade is refused: `HTTP 429` for header clients, close code `4429` for browser clients. No `Retry-After`; a connection that died silently frees its slot within about 40 seconds. |
 | Subscription cap | `{"channel":"error","data":"too many subscriptions"}` on the open socket. Unsubscribe one and the slot frees immediately. |
 | Order-book cap | None of its own: `l4Book` subscriptions spend slots from the general per-connection cap. |
-| Feed not in plan | `{"channel":"error","data":"feed not in tier"}` on the open socket — `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` below Starter, and `l4Book`, `liquidations`, `liquidationsByUser`, `liquidationsByUsers`, `leverageUpdates`, `leverageUpdatesByUser`, `leverageUpdatesByUsers`, `twapOrders`, `twapOrdersByUser`, `twapOrdersByUsers`, `twapStatuses` and `twapStatusesByUser` below Pro. |
+| Feed not in plan | `{"channel":"error","data":"feed not in tier"}` on the open socket — `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` below Starter, `liquidations`, `liquidationsByUser` and `liquidationsByUsers` below Agent, and `l4Book`, `leverageUpdates`, `leverageUpdatesByUser`, `leverageUpdatesByUsers`, `twapOrders`, `twapOrdersByUser`, `twapOrdersByUsers`, `twapStatuses` and `twapStatusesByUser` below Pro. |
 | Wallets in one list | `{"channel":"error","data":"too many values for argument users"}` — over 1,000 distinct wallets on one `…ByUsers` subscription. Nothing is subscribed. Duplicates are removed before the count. |
 | Fair-use bandwidth | Nothing on the wire. The Usage page shows consumption against the allowance. |
 

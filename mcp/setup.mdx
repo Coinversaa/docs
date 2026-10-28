@@ -145,7 +145,7 @@ In clients that support MCP Apps, four tools can render an interactive view inst
 
 | View | Tool | Tier |
 |------|------|------|
-| Chart | `market_recent_candles` | Starter (Coinversa layers: Pro) |
+| Chart | `market_recent_candles` | Starter (entry profile and average entries: Agent; Apex vs Crowd history and biggest trades: Pro) |
 | Liquidation map | `live_liquidation_heatmap` | Starter |
 | Long vs short by cohort | `live_cohort_bias` | Starter |
 | Wallet profile card | `pulse_trader_profile`, `pulse_trader_performance`, `pulse_trader_position_summary` | Free |
@@ -172,7 +172,7 @@ You should see the agent call `pulse_global_stats` and return Pulse's coverage a
     The MCP connection didn't initialize. For Claude Desktop, check Console.app on macOS for `mcp` errors. For Cursor, check the MCP panel in settings. Most often: missing `-y` on the npx command, or a JSON syntax error in the config.
   </Accordion>
   <Accordion title="Rate limit errors immediately">
-    You may have an aggressive prompt or you share a key with a bot. The MCP and direct-API calls share one quota — see [authentication](/authentication#rate-limit-headers). Ask the agent to call `pulse_my_plan` to see your tier and limits, and bump to Starter or Pro if you genuinely need more.
+    You may have an aggressive prompt or you share a key with a bot. The MCP and direct-API calls share one quota — see [authentication](/authentication#rate-limit-headers). Ask the agent to call `pulse_my_plan` to see your tier and limits, and move to a plan with more volume (Starter, Agent or Pro) if you genuinely need more.
   </Accordion>
   <Accordion title="Want to run a self-hosted MCP server">
     Clone [Coinversaa/mcp-server](https://github.com/Coinversaa/mcp-server) and run `bun run remote`. Set `COINVERSAA_KEK` (`openssl rand -base64 32`, keep it stable), and `COINVERSAA_SERVICE_KEY` (or `COINVERSAA_ALLOW_NO_SERVICE_KEY=1` for local development; only the paste-a-key path then works). Set `COINVERSAA_API_URL` if you also host the backend, and `MCP_APPS_ENABLED=1` for interactive views. See the [README](https://github.com/Coinversaa/mcp-server#readme) for the full environment table.

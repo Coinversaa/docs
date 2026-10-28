@@ -30,6 +30,7 @@ Your key's tier is set by your active subscription. Free is the default; paid ti
 |------|-----------:|--------:|----------:|-----:|------:|
 | Free       | 30     | 1,000   | unlimited | 1   | $0           |
 | Starter    | 120    | 2,000   | 50,000    | 3   | $29 / mo     |
+| Agent      | 300    | 10,000  | 250,000   | 5   | $49 / mo     |
 | Pro        | 600    | 20,000  | 500,000   | 10  | $199 / mo    |
 | Enterprise | 10,000+ | unlimited | unlimited | unlimited | from $1,999 / mo |
 
@@ -45,7 +46,7 @@ Authenticated responses include these, 429s included:
 
 | Header | Meaning |
 |--------|---------|
-| `X-RateLimit-Tier`      | Tier resolved for this request (`free`, `starter`, `pro`, `enterprise`) |
+| `X-RateLimit-Tier`      | Tier resolved for this request (`free`, `starter`, `agent`, `pro`, `enterprise`) |
 | `X-RateLimit-Remaining` | Minimum remaining tokens across the account minute and per-route buckets |
 | `X-RateLimit-Next`      | Time until the next token is available across the checked buckets (a duration string, e.g. `12.4s`), not a full-window refill |
 | `X-RateLimit-Route`     | Remaining allowance on the per-route limit, where one applies |
@@ -104,6 +105,8 @@ All errors are JSON **problem details**: `title`, `status`, a human-readable `de
       "upgrade_url": "https://coinversa.ai/developers#pricing"
     }
     ```
+    `required_tier` is one of `starter`, `agent`, `pro` or `enterprise` — tiers rank `free` < `starter` < `agent` < `pro` < `enterprise`.
+
     Action: upgrade at `upgrade_url`, or (for [builder endpoints](/api-reference/builders)) fall back to the endpoint's [x402 pay-per-call twin](/api-reference/tiers#x402-pay-per-call). Agents: report `required_tier` to the human rather than retrying.
   </Accordion>
 

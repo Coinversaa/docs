@@ -19,7 +19,7 @@ Only some endpoints carry tags so far, so the generated reference mixes a few ta
 
 - **Pulse** — historical trader and cohort analytics; the rich endpoints (`/pulse/*`), including the Daily Pulse editions (`/pulse/daily/*`).
 - **Builders** — the builder-code economy: ledger-exact revenue, attributed flow, retention, overlap (`/builders/*`, `/trader/{address}/builders`). Start from the [endpoint guide](/api-reference/builders).
-- **Live** — near-real-time market and risk (`/live/*`), including the Pro chart-layer endpoints: cohort positioning by entry price (`/live/positioning-by-entry/{coin}`), large fills (`/live/whale-trades/{coin}`) and cohort bias history in layer format (`/live/cohort-bias-history/{coin}?format=layer`). See [Chart layers](/api-reference/chart-layers). For fills pushed as they land rather than polled, use the [WebSocket](/websocket/overview).
+- **Live** — near-real-time market and risk (`/live/*`), including the chart-layer endpoints: cohort positioning by entry price (`/live/positioning-by-entry/{coin}`, Agent), large fills (`/live/whale-trades/{coin}`, Pro) and cohort bias history (Pro) in layer format (`/live/cohort-bias-history/{coin}?format=layer`). See [Chart layers](/api-reference/chart-layers). For fills pushed as they land rather than polled, use the [WebSocket](/websocket/overview).
 - **Market** — mark price, L2 orderbook and positions (`/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/positions/{address}`), L4 order-book rollups from Coinversa snapshots (`/market/book/*`), historical open interest (`/market/historical-oi`), and OHLCV candles at `/pulse/market/candles/recent/{symbol}` (intervals 1m, 5m, 15m, 1h, 4h, 1d; up to 500 per call).
 - **Assets** — canonical cross-market taxonomy (`/assets/*`).
 - **HIP-4** — outcome contract discovery, settlements, perp-position context (`/hip4/*`).
@@ -35,7 +35,7 @@ Only some endpoints carry tags so far, so the generated reference mixes a few ta
 
 ## Tier requirements
 
-Every endpoint requires an API key; each is gated at **Free**, **Starter**, or **Pro** — the full matrix is in [Tiers](/api-reference/tiers). A 403 carries `code: "TIER_GATE"` with `required_tier` and an `upgrade_url`, so agents can explain exactly what a request needs.
+Every endpoint requires an API key; each is gated at **Free**, **Starter**, **Agent** or **Pro** — the full matrix is in [Tiers](/api-reference/tiers). A 403 carries `code: "TIER_GATE"` with `required_tier` and an `upgrade_url`, so agents can explain exactly what a request needs.
 
 ## Stability
 
