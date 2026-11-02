@@ -7309,7 +7309,7 @@
             ]
           },
           "note": {
-            "description": "Set when the window was shortened by plan: Free and Starter return the last 24h; Pro and Enterprise return the requested window (up to the global lookback cap).",
+            "description": "Set when the window was shortened by plan: Free, Starter and Agent return the last 24h; Pro and Enterprise return the requested window (up to the global lookback cap).",
             "type": "string"
           }
         },
@@ -20181,7 +20181,7 @@
           }
         ],
         "summary": "Get API public v1 live positioning by entry by coin",
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "agent",
         "x-coinversa-quota-scope": "account"
       }
     },
@@ -22411,7 +22411,7 @@
         "tags": [
           "Market"
         ],
-        "x-coinversa-min-tier": "pro",
+        "x-coinversa-min-tier": "agent",
         "x-coinversa-quota-scope": "account"
       }
     },
