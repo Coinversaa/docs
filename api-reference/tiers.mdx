@@ -18,7 +18,7 @@ Tier gates are enforced server-side. A request without sufficient entitlement re
 }
 ```
 
-`reason` is `missing_api_key` (no key), `invalid_api_key` (key present but inactive) or `insufficient_tier` (key below the required tier).
+`reason` is `missing_api_key` (no key), `invalid_api_key` (key present but inactive) or `insufficient_tier` (key below the required tier). Tiers rank `free` < `starter` < `agent` < `pro` < `enterprise`, and `required_tier` / `current_tier` use those slugs.
 
 Every endpoint requires an API key — keyless requests are rejected with the shape above (`current_tier: "none"`), even on endpoints whose required tier is `free`. The keyless exception is the [x402 pay-per-call surface](#x402-pay-per-call) below.
 
@@ -28,6 +28,7 @@ Every endpoint requires an API key — keyless requests are rejected with the sh
 |------|---:|---:|---:|---:|---:|
 | Free            | 30 | 1,000 | unlimited | 1 | $0 |
 | Starter         | 120 | 2,000 | 50,000 | 3 | $29 |
+| Agent           | 300 | 10,000 | 250,000 | 5 | $49 |
 | Pro             | 600 | 20,000 | 500,000 | 10 | $199 |
 | Enterprise      | 10,000+ | unlimited | unlimited | unlimited | from $1,999 |
 
@@ -41,7 +42,8 @@ These are **REST** limits. The [WebSocket](/websocket/overview) is metered on ca
 |------|---:|---:|---|---:|
 | Free       | 1 | 2   | `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser`, `bbo`, `allMids` | 5 GB |
 | Starter    | 1 | 25  | Free's feeds plus `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers`, `l2Book` | 50 GB |
-| Pro        | 5 | 100 | all 24, incl. `l4Book`, liquidations, leverage changes, [TWAP orders and statuses](/websocket/feeds#twap-statuses), the [derived quote feeds](/websocket/feeds#derived-order-book-quotes) and the [multi-wallet variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
+| Agent      | 2 | 50  | Starter's feeds plus `liquidations`, `liquidationsByUser`, `liquidationsByUsers` | 100 GB |
+| Pro        | 5 | 100 | all 24, incl. `l4Book`, leverage changes, [TWAP orders and statuses](/websocket/feeds#twap-statuses), the [derived quote feeds](/websocket/feeds#derived-order-book-quotes) and the [multi-wallet variants](/websocket/feeds#multi-wallet-subscriptions) | 250 GB |
 | Enterprise | custom overrides | custom overrides | all 24 | 250 GB |
 
 Enterprise websocket numbers are per-account overrides reported in the `connected` frame — see [WebSocket plan limits](/websocket/limits).
@@ -50,7 +52,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
 
 <AccordionGroup>
   <Accordion title="Free (with API key)">
-    Global and per-trader basics. **Only four `/live/*` endpoints are Free** — the long/short trio and official open interest for one coin (last 24 hours); the live cohort-bias and risk snapshots are Starter, and longer history, the whole-dex OI batch and the chart layers are Pro. Most `/market/*` endpoints are Free, but not all. See the table below for the exact list.
+    Global and per-trader basics. **Only four `/live/*` endpoints are Free** — the long/short trio and official open interest for one coin (last 24 hours); the live cohort-bias and risk snapshots are Starter, positioning by entry is Agent, and longer history, the whole-dex OI batch, whale trades and cohort-bias history are Pro. Most `/market/*` endpoints are Free, but not all. See the table below for the exact list.
 
     | Group | Endpoints |
     |-------|-----------|
@@ -61,7 +63,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | Trader profile | `/pulse/trader/{address}`, `/pulse/trader/{address}/trades`, `/daily`, `/performance`, `/tokens`, `/demo`, `/closed-positions`, `/closed-positions/stats` |
     | Coin views | `/pulse/token-leaderboard/{coin}`, `/pulse/trades/recent` |
     | Lifecycle (single) | `/pulse/lifecycle/{id}`, `/pulse/closed-positions/recent` |
-    | Live state | `/live/long-short`, `/live/coins/{coin}/long-short`, `/live/long-short/history`, `/live/official-oi/{coin}` (last 24 hours on Free and Starter; up to 30 days on Pro) — **only these four**; the rest of `/live/*` is Starter or Pro |
+    | Live state | `/live/long-short`, `/live/coins/{coin}/long-short`, `/live/long-short/history`, `/live/official-oi/{coin}` (last 24 hours on Free, Starter and Agent; up to 30 days on Pro) — **only these four**; the rest of `/live/*` is Starter, Agent or Pro |
     | Market | `/market/positions/{address}`, `/market/price/{symbol}`, `/market/orderbook/{symbol}`, `/market/book/coverage` |
     | Exchange aggregates | `/exchange/volume`, `/exchange/oi`, `/exchange/active-traders`, `/exchange/positions` |
     | Assets | `/assets`, `/assets/{canonical}`, `/assets/{canonical}/cross-market` |
@@ -86,20 +88,29 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
     | HIP-4 | `/hip4/outcomes/{outcome_id}/summary`, `/hip4/top-traders`, `/hip4/trader/{address}/outcomes` |
   </Accordion>
 
-  <Accordion title="Pro — includes Starter, plus">
+  <Accordion title="Agent — includes Starter, plus">
+    Starter's endpoints at Agent volume (300 / min, 10,000 / day, 250,000 / month), plus two live positioning routes:
+
+    | Group | Endpoints |
+    |-------|-----------|
+    | Positioning by entry | `/live/positioning-by-entry/{coin}` — open positions bucketed by entry price, by cohort; the chart's entry profile and average entry lines. See [Chart layer endpoints](/api-reference/chart-layers#positioning-by-entry) |
+    | L4 stop map | `/market/book/stops/{coin}` — untriggered stop and take-profit size bucketed by distance from mid. The per-order book tools (`/market/book/whales/{coin}`, `/market/book/levels/{coin}`, `/market/book/triggers/{coin}`) stay Pro |
+  </Accordion>
+
+  <Accordion title="Pro — includes Agent, plus">
     | Group | Endpoints |
     |-------|-----------|
     | Discovery (deep) | `/pulse/persistent-winners`, `/pulse/one-month-wonders`, `/pulse/survivors`, `/pulse/anti-survivors`, `/pulse/capital-titans`, `/pulse/newcomer-whales` |
     | Risk & market | `/pulse/lethal-coins`, `/pulse/backstop-events`, `/pulse/market-concentration`, `/market/historical-oi` |
     | Live risk history | `/live/risk/coins/{coin}/history`, `/live/risk/coins/{coin}/mark-dislocations` |
     | Live OI & cohort-bias history | `/live/oi-history`, `/live/oi-history/{coin}`, `/live/official-oi` (all coins), `/live/official-oi/{coin}` beyond 24 hours (7-day default, up to 30 days), `/live/cohort-bias-history/{coin}` |
-    | Chart layers | `/live/positioning-by-entry/{coin}`, `/live/whale-trades/{coin}` — with `/live/cohort-bias-history/{coin}` above, these are the chart's Coinversa layers (the candles under them are Starter); see [Chart layer endpoints](/api-reference/chart-layers) |
+    | Chart layers | `/live/whale-trades/{coin}` — with `/live/cohort-bias-history/{coin}` above, these are the chart's history and large-trade layers (the candles are Starter, positioning by entry is Agent); see [Chart layer endpoints](/api-reference/chart-layers) |
     | Deep archetypes | `/pulse/max-pain-events`, `/pulse/perfect-exits`, `/pulse/wallet-drawdown-curve/{address}` |
     | Cohort drilldowns (lifetime) | `/pulse/cohorts/{tierType}/{tier}/positions`, `/trades`, `/history` |
     | Cohort drilldowns (rolling 30d) | `/pulse/cohorts-recent/{tierType}/{tier}/positions`, `/trades`, `/lifecycle-stats`, `/top-positions`, `/alpha-concentration` |
     | Cohort timeseries | `/pulse/cohorts/daily-stats`, `/pulse/cohort-bias/history` |
     | Builder analytics (deep) | `/builders/{builder}/traders`, `/builders/{builder}/fills`, `/builders/{builder}/cohorts`, `/builders/{builder}/retention`, `/builders/{builder}/overlap`, `/builders/{builder}/orders`, `/builders/{builder}/heatmap`, `/builders/{builder}/lifecycle`, `/builders/{builder}/journey` — see [Builder endpoints](/api-reference/builders) |
-    | L4 order book (per order) | `/market/book/stops/{coin}`, `/market/book/whales/{coin}`, `/market/book/levels/{coin}` — order-level, with the wallet on every order. `/market/book/summary/{coin}` is Starter; `/market/book/coverage` is Free. |
+    | L4 order book (per order) | `/market/book/whales/{coin}`, `/market/book/levels/{coin}` — order-level, with the wallet on every order. `/market/book/stops/{coin}` is Agent, `/market/book/summary/{coin}` is Starter; `/market/book/coverage` is Free. |
     | TP/SL trigger orders | `/market/book/triggers/{coin}`, `/pulse/trader/{address}/trigger-orders` — every pending stop-loss and take-profit order, by market or by wallet. See [TP/SL trigger orders](/concepts/trigger-orders) |
     | Entity resolution | `/entity/{address}`, `/entities/leaderboard` |
     | HIP-4 (deep) | `/hip4/cross-product/overlap`, `/hip4/outcomes/{outcome_id}/perp-position-context` |

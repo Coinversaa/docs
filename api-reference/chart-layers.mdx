@@ -3,11 +3,11 @@ title: "Chart layer endpoints"
 description: "Positioning by entry price, whale trades, Apex vs Crowd cohort-bias history and bounded recent candles: the Hyperliquid REST endpoints behind the Coinversa chart, with parameters, response fields, caching and caveats."
 ---
 
-Four endpoints feed the Coinversa chart — and work just as well on their own. **Positioning by entry** shows where the money that is open right now got in, **whale trades** lists the largest recent fills with both counterparties, **cohort-bias history** gives Apex vs The Crowd hour by hour, and **recent candles** draws the price underneath. Each one is a single cached call with bounded parameters, and every body says how fresh it is instead of implying "live". The three layer routes are Pro; candles are Starter, so on a Starter key the chart keeps its candles, indicators and the Starter snapshots (liquidation levels, cohort positioning) and marks the Pro layers instead of failing.
+Four endpoints feed the Coinversa chart — and work just as well on their own. **Positioning by entry** shows where the money that is open right now got in, **whale trades** lists the largest recent fills with both counterparties, **cohort-bias history** gives Apex vs The Crowd hour by hour, and **recent candles** draws the price underneath. Each one is a single cached call with bounded parameters, and every body says how fresh it is instead of implying "live". Positioning by entry is **Agent**; whale trades and cohort-bias history are **Pro**; candles are **Starter**. On a Starter key the chart keeps its candles, indicators and the Starter snapshots (liquidation levels, cohort positioning) and marks the gated layers instead of failing; on an Agent key it adds the entry profile and average entry lines and marks the two Pro layers.
 
 | Endpoint | Tier | Cache | What it answers |
 |---|---|---|---|
-| `/live/positioning-by-entry/{coin}` | Pro | 30 s | Where did the open longs and shorts get in, by cohort — and who is underwater? |
+| `/live/positioning-by-entry/{coin}` | Agent | 30 s | Where did the open longs and shorts get in, by cohort — and who is underwater? |
 | `/live/whale-trades/{coin}` | Pro | 60 s | What were the biggest fills in the last few hours, and who was on each side? |
 | `/live/cohort-bias-history/{coin}` | Pro | 30 s | How has Apex vs The Crowd positioning moved, hour by hour? |
 | `/pulse/market/candles/recent/{symbol}` | Starter | 15 s | Recent OHLCV for the price pane |

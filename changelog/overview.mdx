@@ -3,6 +3,35 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="October 29, 2026" tags={["Pricing", "API", "MCP", "WebSocket"]}>
+
+## New plan: Agent ($49/month)
+
+**Agent** is a new paid plan between Starter and Pro, effective when the plan launches in the [billing portal](https://developers.coinversa.ai/billing). It is for agents and bots that need more request volume than Starter, plus the live positioning tools. **$49/month or $490/year.**
+
+| | Starter | **Agent** | Pro |
+|---|---:|---:|---:|
+| Requests / min | 120 | **300** | 600 |
+| Requests / day | 2,000 | **10,000** | 20,000 |
+| Requests / month | 50,000 | **250,000** | 500,000 |
+| Active keys | 3 | **5** | 10 |
+| WebSocket connections (per account) | 1 | **2** | 5 |
+| Subscriptions per connection | 25 | **50** | 100 |
+| Fair-use bandwidth / month | 50 GB | **100 GB** | 250 GB |
+
+Agent includes everything in Starter, and two endpoints move from Pro to Agent:
+
+- **Positioning by entry** — `/live/positioning-by-entry/{coin}` (`live_positioning_by_entry`): open positions bucketed by entry price, long vs short and by cohort. In the chart, this is the entry profile and the average entry lines
+- **L4 stop map** — `/market/book/stops/{coin}` (`book_stop_map`): untriggered stop and take-profit size bucketed by distance from mid
+
+On the WebSocket, Agent gets Starter's feeds plus the three **liquidation feeds** — `liquidations`, `liquidationsByUser` and `liquidationsByUsers` — which move from Pro to Agent.
+
+History, wallet deep-dives, whale trades, cohort drill-downs, the per-order L4 book tools (`book_whales`, `book_levels`, `book_triggers`), TP/SL trigger orders and the `l4Book` feed stay on **Pro**. Pro keeps every endpoint and feed it had.
+
+**Plan denials can now name Agent.** A REST `403 TIER_GATE` can carry `required_tier: "agent"`, the `X-RateLimit-Tier` header can read `agent`, and in the connector a plan-limited tool result can carry `requiredPlan: { "tier": "agent", "name": "Agent", "priceUsdMonthly": 49 }`. See [the tier matrix](/api-reference/tiers), [Pricing](/pricing) and [WebSocket plan limits](/websocket/limits).
+
+</Update>
+
 <Update label="October 21, 2026" tags={["MCP", "v0.17.6"]}>
 
 ## Connector v0.17.5–v0.17.6: clearer tool names

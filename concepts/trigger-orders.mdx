@@ -12,7 +12,7 @@ A **trigger order** is a conditional order that waits for a price — a **stop-l
 | `/market/book/triggers/{coin}` | `book_triggers` | Which stop-loss and take-profit orders are waiting on this market, and whose are they? |
 | `/pulse/trader/{address}/trigger-orders` | `pulse_trader_trigger_orders` | Which TP/SL orders does this wallet have pending, across every market or one (`coin`)? |
 
-For the **bucketed** view — how much stop and take-profit size sits at each distance from mid — use `/market/book/stops/{coin}` (`book_stop_map`) from the [L4 order book](/mcp/tools#l4-order-book-v0-12-0) tools. The trigger endpoints are the order-by-order detail behind that picture.
+For the **bucketed** view — how much stop and take-profit size sits at each distance from mid — use `/market/book/stops/{coin}` (`book_stop_map`, Agent and above) from the [L4 order book](/mcp/tools#l4-order-book-v0-12-0) tools. The trigger endpoints are the order-by-order detail behind that picture.
 
 ## What each order carries
 

@@ -3,7 +3,7 @@ title: "Tool catalog"
 description: "All 115 Coinversa Pulse MCP tools by category, with descriptions, required tiers, connector-side parameters and the interactive views."
 ---
 
-Every MCP tool is a thin wrapper around a public API endpoint, and each tool's tier is the tier of the endpoint behind it. There is no clean split by family: among the single-trader tools the lifecycle and compare tools are Starter and the drawdown curve is Pro; most HIP-4 tools are Free, with some at Starter and two at Pro; the live snapshot tools (cohort bias, liquidation heatmap, risk overview and coin snapshot, recent liquidations and their summary) are Starter while live history and the chart-layer tools are Pro, and `live_long_short_ratio` is Free; `market_price` and `market_orderbook` are Free, `market_recent_candles` is Starter and `market_historical_oi` is Pro; `book_summary` is Starter and the other book tools, including the trigger-order tools, are Pro; the four Sharpe tools are Starter; the archetype tools are split between Starter and Pro. Where a tier cell below links to the matrix, check the matrix for that tool's current tier. Check [the tier matrix](/api-reference/tiers) for the endpoint a tool wraps rather than inferring from its name.
+Every MCP tool is a thin wrapper around a public API endpoint, and each tool's tier is the tier of the endpoint behind it. There is no clean split by family: among the single-trader tools the lifecycle and compare tools are Starter and the drawdown curve is Pro; most HIP-4 tools are Free, with some at Starter and two at Pro; the live snapshot tools (cohort bias, liquidation heatmap, risk overview and coin snapshot, recent liquidations and their summary) are Starter, `live_positioning_by_entry` is Agent, live history and whale trades are Pro, and `live_long_short_ratio` is Free; `market_price` and `market_orderbook` are Free, `market_recent_candles` is Starter and `market_historical_oi` is Pro; `book_summary` is Starter, `book_stop_map` is Agent, and the other book tools, including the trigger-order tools, are Pro; the four Sharpe tools are Starter; the archetype tools are split between Starter and Pro. Where a tier cell below links to the matrix, check the matrix for that tool's current tier. Check [the tier matrix](/api-reference/tiers) for the endpoint a tool wraps rather than inferring from its name.
 
 The connector registers **115 tools**; `builder_heatmap` is withheld while its hourly rollup backfills, so clients see 114.
 
@@ -168,14 +168,14 @@ Cohorts labelled by last-30-day tier (`pnl_tier_recent` / `size_tier_recent`) �
 
 ## Live — real-time market + risk
 
-`live_long_short_ratio` is Free. The snapshot tools (what is true right now) are Starter. History and the chart-layer tools are Pro.
+`live_long_short_ratio` is Free. The snapshot tools (what is true right now) are Starter. `live_positioning_by_entry` is Agent. History and whale trades are Pro.
 
 | Tool | Description |
 |------|-------------|
 | `live_long_short_ratio`        | Long/short ratio by wallet count and notional: exchange-wide with a per-coin breakdown, one coin (`coin`, with its top 5 longs and shorts), or an hourly history (`hours`, up to 168). |
 | `live_cohort_bias`             | Per-cohort bias for one coin. **Starter.** |
 | `live_cohort_bias_history`     | **Pro.** Hourly cohort bias for one coin, up to 90 days. `tiers` fetches several series at once (e.g. Apex and Crowd); `format: "layer"` returns the chart envelope; `tierType` takes `pnl`, `pnl_recent` or `size`. |
-| `live_positioning_by_entry`    | **Pro.** Open positions bucketed by entry price, long vs short and by cohort, with each cohort's average entry, leverage and in-profit vs underwater split. |
+| `live_positioning_by_entry`    | **Agent.** Open positions bucketed by entry price, long vs short and by cohort, with each cohort's average entry, leverage and in-profit vs underwater split. |
 | `live_whale_trades`            | **Pro.** Largest fills by USD notional in the last 24h at most, with both counterparties' cohorts. |
 | `live_oi_history`              | Open interest time series. **Pro.** |
 | `live_official_oi`             | OI sourced from Hyperliquid's official feed. **Free** for the last 24 hours; **Pro** for the 7-day default and up to 30 days. |
@@ -207,7 +207,7 @@ In MCP Apps clients, `live_cohort_bias` renders a long-vs-short-by-tier view and
 
 ### v0.14.0: price charts and bounded candle history
 
-Use **`market_recent_candles`** for a price chart; use `market_price` for a quick mark/index/funding/OI lookup. Candles require **Starter**; the chart's Coinversa layers (entry profile, average entries, Apex vs Crowd history, biggest trades) are **Pro**, and on a Starter key the chart marks them with an upgrade link instead of failing. An MCP Apps client can render candlesticks, dollar volume, moving averages (EMA 21, SMA 20/50), VWAP, Bollinger Bands, RSI, RSI zone markers, MACD and Stochastic. Text-only clients retain the candle result; `indicators` selects the initial chart layers without changing those rows.
+Use **`market_recent_candles`** for a price chart; use `market_price` for a quick mark/index/funding/OI lookup. Candles require **Starter**; of the chart's Coinversa layers, the entry profile and average entries are **Agent** and Apex vs Crowd history and biggest trades are **Pro**, and on a lower plan the chart marks the gated layers with an upgrade link instead of failing. An MCP Apps client can render candlesticks, dollar volume, moving averages (EMA 21, SMA 20/50), VWAP, Bollinger Bands, RSI, RSI zone markers, MACD and Stochastic. Text-only clients retain the candle result; `indicators` selects the initial chart layers without changing those rows.
 
 | Input or result | Behavior |
 |---|---|
@@ -236,7 +236,7 @@ The chart now draws what only Coinversa has: where open positions got in, who ho
 
 | Tool | Tier | What it answers |
 |---|---|---|
-| `live_positioning_by_entry` | Pro | Where did the money that is open right now get in? Equal-width entry-price bins (`buckets` 1–200, default 60, across `range` 1–100% of the mark, default 30), long vs short and by cohort, plus one row per cohort and side with average entry, average leverage, in-profit / underwater / flat notional and notional within 5% of liquidation. `tierType` is `pnl`, `pnl_recent` (last 30 days of PnL — who is winning now) or `size`. Empty bins are dropped unless `includeEmptyBins` is set (`binsOmitted` says how many). Profit splits and liquidation distance use Hyperliquid's live mark (`markMethod: live_mark`), or the newest stored position mark when the feed is unavailable; `markDivergencePct` shows how far the stored marks are from it, and a note flags more than 1% |
+| `live_positioning_by_entry` | Agent | Where did the money that is open right now get in? Equal-width entry-price bins (`buckets` 1–200, default 60, across `range` 1–100% of the mark, default 30), long vs short and by cohort, plus one row per cohort and side with average entry, average leverage, in-profit / underwater / flat notional and notional within 5% of liquidation. `tierType` is `pnl`, `pnl_recent` (last 30 days of PnL — who is winning now) or `size`. Empty bins are dropped unless `includeEmptyBins` is set (`binsOmitted` says how many). Profit splits and liquidation distance use Hyperliquid's live mark (`markMethod: live_mark`), or the newest stored position mark when the feed is unavailable; `markDivergencePct` shows how far the stored marks are from it, and a note flags more than 1% |
 | `live_whale_trades` | Pro | What were the biggest fills? Largest first by USD notional, over `since` up to **24h** (default `6h`), `minNotional` default $1M with a $100K floor, `limit` up to 200 (default 50) — with both counterparties' cohorts and what the fill did to each position. `sourceCount` / `sourceTruncated` are the API's own figures; `count` / `totalCount` / `truncated` describe the rows in this response |
 
 `live_cohort_bias_history` gains `tiers` (up to 8, either vocabulary — not together with `tier`), `format: "layer"` (the API's chart envelope with a −1..1 `netBias`, per-series `hoursPresent` and provenance, returned unpaged), `tierType: "pnl_recent"` and `hours` up to **2160** (90 days). A `format: "layer"` answer can be up to 2,160 points per series — pass `maxResponseTokens` or a shorter `hours` when reading it as text; a shortened answer says so in `_responseLimit`, and partial data should never be read as complete. `format: "layer"` requires `tier` or `tiers`. `tierType: "pnl_recent"` snapshots begin 2026-05-14, so no earlier hours are returned.
@@ -313,7 +313,9 @@ Every gated tool's description ends with its plan (`Plan: Starter ($29/month) or
 }
 ```
 
-`partialAnswer` is present only when the key's plan includes a tool that answers part of the question. Examples: the current price and long/short ratio for the same coin, the Starter cohort-bias snapshot for a Pro positioning layer, or `book_summary` for a Pro book tool. Agents should state the plan and price, share `upgradeUrl` once, use the partial answer (and say which tool it came from), and not retry the gated tool. Revoked or invalid keys are still reported as errors. On REST, the same denial is the `403` described in [Authentication](/authentication).
+`partialAnswer` is present only when the key's plan includes a tool that answers part of the question. Examples: the current price and long/short ratio for the same coin, the Starter cohort-bias snapshot for the Agent positioning-by-entry layer, or `book_summary` for a gated book tool. Agents should state the plan and price, share `upgradeUrl` once, use the partial answer (and say which tool it came from), and not retry the gated tool. Revoked or invalid keys are still reported as errors. On REST, the same denial is the `403` described in [Authentication](/authentication).
+
+`requiredPlan` is the lowest plan that includes the tool. Plans rank `free` < `starter` < `agent` < `pro` < `enterprise`, so `requiredPlan.tier` can be `starter`, `agent`, `pro` or `enterprise` — for `live_positioning_by_entry` and `book_stop_map` it is `{ "tier": "agent", "name": "Agent", "priceUsdMonthly": 49 }`. In ChatGPT and other OpenAI clients the result is neutral: `message` says the tool is not available on the current plan, and `requiredPlan` and `upgradeUrl` are left out.
 
 ## HIP-4 — outcome contracts
 
@@ -334,12 +336,12 @@ Every gated tool's description ends with its plan (`Plan: Starter ($29/month) or
 
 ## L4 order book (v0.12.0)
 
-Four tools over the **order-level** book — every resting order with the wallet behind it — each shaped around a question rather than returning a book to parse yourself. `book_summary` is **Starter**; the other three are **Pro**.
+Four tools over the **order-level** book — every resting order with the wallet behind it — each shaped around a question rather than returning a book to parse yourself. `book_summary` is **Starter**, `book_stop_map` is **Agent**, and `book_whales` and `book_levels` are **Pro**.
 
 | Tool | Tier | What it answers |
 |---|---|---|
 | `book_summary` | Starter | How deep and how lopsided is this book right now? Touch prices, spread in bps, and per side the size / order count / distinct-wallet count within 0.5, 1, 2, 5 and 10% of mid — plus near- and far-band imbalance and the age of orders at the touch. |
-| `book_stop_map` | Pro | Where are the stops, and how much size fires if price gets there? Every untriggered stop and take-profit bucketed by distance from mid in 0.25% steps, with the reduce-only share and the stop/TP split per bucket. |
+| `book_stop_map` | Agent | Where are the stops, and how much size fires if price gets there? Every untriggered stop and take-profit bucketed by distance from mid in 0.25% steps, with the reduce-only share and the stop/TP split per bucket. |
 | `book_whales` | Pro | Who is sitting on this book, and where? The largest resting orders with wallet, price, size, distance from mid and how long they have rested — plus the biggest wallets per side by total resting size. |
 | `book_levels` | Pro | What does the depth ladder look like, with the detail L2 throws away? Top levels per side, each with total size, order count, **distinct wallet count** and the age of its oldest order. |
 
@@ -363,7 +365,7 @@ For the live order-by-order stream rather than a rollup, see the [`l4Book` webso
 
 ## TP/SL trigger orders (v0.17.4)
 
-Both tools are **Pro**. `book_stop_map` buckets stop and take-profit size by distance from mid; these two tools return the **individual orders** behind it, with the wallet on each. See [TP/SL trigger orders](/concepts/trigger-orders).
+Both tools are **Pro**. `book_stop_map` (Agent) buckets stop and take-profit size by distance from mid; these two tools return the **individual orders** behind it, with the wallet on each. See [TP/SL trigger orders](/concepts/trigger-orders).
 
 | Tool | Tier | What it answers |
 |---|---|---|

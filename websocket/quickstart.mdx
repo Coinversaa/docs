@@ -600,7 +600,7 @@ func main() {
 
 ## Following a list of wallets
 
-The generated clients subscribe to two coins, but the change to follow a set of wallets is one frame. The [five `…ByUsers` feeds](/websocket/feeds#multi-wallet-subscriptions) take a `users` **JSON array of strings** — never a comma-separated string — of up to 1,000 distinct wallets, and the whole list counts as **one** subscription against your cap. `tradesByUsers` and `twapSliceFillsByUsers` are Starter and above; the liquidation, leverage and TWAP-order lists are Pro.
+The generated clients subscribe to two coins, but the change to follow a set of wallets is one frame. The [five `…ByUsers` feeds](/websocket/feeds#multi-wallet-subscriptions) take a `users` **JSON array of strings** — never a comma-separated string — of up to 1,000 distinct wallets, and the whole list counts as **one** subscription against your cap. `tradesByUsers` and `twapSliceFillsByUsers` are Starter and above, `liquidationsByUsers` is Agent and above, and the leverage and TWAP-order lists are Pro.
 
 ```json
 {"method":"subscribe","subscription":{"type":"tradesByUsers","users":["0x9bad…1f07","0x28f0…4c19"]}}

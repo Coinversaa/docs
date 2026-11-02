@@ -11,9 +11,9 @@ Twenty-four raw feeds today: four stream fills, three stream liquidations, three
 | `tradesByCoin` | `coin` | Fills for one market. Takes native tickers (`BTC`, `HYPE`) and builder-dex symbols (`xyz:GOLD`, `cash:TSLA`) alike — see [Markets & symbols](/concepts/markets). | Every plan |
 | `tradesByUser` | `user` | Fills for one address — **any** address on Hyperliquid, not only wallets you control. | Every plan |
 | `tradesByUsers` | `users` | Fills for **a list of up to 1,000 addresses** on one subscription — the same pairs `tradesByUser` carries, filtered to any wallet in the set. [Below](#multi-wallet-subscriptions). | Starter and above |
-| `liquidations` | — | **Every liquidation**, as it happens — the liquidated account, the coin, the penalty fee and the realized loss. [Below](#liquidations). | Pro and above |
-| `liquidationsByUser` | `user` | Liquidations of one account. The filter is the **liquidated** side only. | Pro and above |
-| `liquidationsByUsers` | `users` | Liquidations of any account in a list of up to 1,000. Filtered on the **liquidated** side, as the singular feed is. [Below](#multi-wallet-subscriptions). | Pro and above |
+| `liquidations` | — | **Every liquidation**, as it happens — the liquidated account, the coin, the penalty fee and the realized loss. [Below](#liquidations). | Agent and above |
+| `liquidationsByUser` | `user` | Liquidations of one account. The filter is the **liquidated** side only. | Agent and above |
+| `liquidationsByUsers` | `users` | Liquidations of any account in a list of up to 1,000. Filtered on the **liquidated** side, as the singular feed is. [Below](#multi-wallet-subscriptions). | Agent and above |
 | `leverageUpdates` | — | **Accepted leverage and isolated-margin changes** — who moved their leverage, on what market, to what. [Below](#leverage-and-margin). | Pro and above |
 | `leverageUpdatesByUser` | `user` | Leverage and margin changes for one account. | Pro and above |
 | `leverageUpdatesByUsers` | `users` | Leverage and margin changes for any account in a list of up to 1,000. [Below](#multi-wallet-subscriptions). | Pro and above |
@@ -60,7 +60,7 @@ Send only the arguments a type declares: an unrecognised extra field is **refuse
 Re-subscribing to something you already hold is idempotent for an **identical** subscription object — the same `id` comes back, no second stream starts, and nothing is charged against your cap.
 
 <Note>
-`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser`, `twapOrdersByUser` and `twapStatusesByUser` accept any address, and so do the five `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` answer `feed not in tier` below Starter, and the liquidation, leverage, TWAP-order, TWAP-status and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
+`tradesByUser`, `liquidationsByUser`, `leverageUpdatesByUser`, `twapSliceFillsByUser`, `twapOrdersByUser` and `twapStatusesByUser` accept any address, and so do the five `…ByUsers` list variants. So does Hyperliquid's own websocket — it has no authentication at all — but it allows **at most ten unique users across every user-specific subscription per IP**, and that ceiling is the thing these feeds exist to lift: here one subscription follows [up to 1,000 wallets](#multi-wallet-subscriptions). `trades`, `tradesByUsers`, `allCandles`, `twapSliceFills`, `twapSliceFillsByUsers` and `l2Book` answer `feed not in tier` below Starter, the three liquidation feeds answer it below Agent, and the leverage, TWAP-order, TWAP-status and `l4Book` feeds — list variants included — answer it below Pro. Check `connected.data.limits.feeds` for what your key may subscribe to.
 </Note>
 
 ## Data frames
@@ -294,7 +294,7 @@ Five of the six by-user feeds have a **list variant** that follows a set of wall
 |---|---|---|
 | `tradesByUser` | `tradesByUsers` | Starter and above |
 | `twapSliceFillsByUser` | `twapSliceFillsByUsers` | Starter and above |
-| `liquidationsByUser` | `liquidationsByUsers` | Pro and above |
+| `liquidationsByUser` | `liquidationsByUsers` | Agent and above |
 | `leverageUpdatesByUser` | `leverageUpdatesByUsers` | Pro and above |
 | `twapOrdersByUser` | `twapOrdersByUsers` | Pro and above |
 | `twapStatusesByUser` | **none — there is no `twapStatusesByUsers`** | — |
@@ -327,7 +327,7 @@ You cannot. A data frame carries `channel`, `seq` and `data` and **no subscripti
 
 A list holds at most **1,000 distinct wallets**, on every plan. Deduplication happens before the cap is checked, so repeated entries do not count against it.
 
-**One subscription of 1,000 wallets is one subscription against your per-connection cap.** That is the point of these feeds: the 1,000-wallet ceiling is the same on every tier, so a plan buys you more *lists*, not longer ones. The per-connection subscription cap is not the same on every tier — it is 2 on Free, 25 on Starter and 100 on Pro; on Enterprise it is set per account (100 unless your contract says otherwise), and the [`connected` frame](/websocket/overview#the-first-frame) reports yours; see [plan limits](/websocket/limits). Each list variant sits at or above the tier of the unfiltered firehose it filters, so a list never delivers a client more than its tier could already stream.
+**One subscription of 1,000 wallets is one subscription against your per-connection cap.** That is the point of these feeds: the 1,000-wallet ceiling is the same on every tier, so a plan buys you more *lists*, not longer ones. The per-connection subscription cap is not the same on every tier — it is 2 on Free, 25 on Starter, 50 on Agent and 100 on Pro; on Enterprise it is set per account (100 unless your contract says otherwise), and the [`connected` frame](/websocket/overview#the-first-frame) reports yours; see [plan limits](/websocket/limits). Each list variant sits at or above the tier of the unfiltered firehose it filters, so a list never delivers a client more than its tier could already stream.
 
 A wallet has to be listed in the form the feed matches on — the fill's wallet for `tradesByUsers` and `twapSliceFillsByUsers`, the liquidated account for `liquidationsByUsers`, and the accepted response's `user` for `leverageUpdatesByUsers` and `twapOrdersByUsers` — exactly as on the singular feeds. Nothing validates that an entry is an address; an entry matching no wallet simply never matches.
 
