@@ -1,0 +1,293 @@
+---
+title: "Webhooks API"
+description: "REST reference for Coinversa Pulse webhooks at backend.coinversa.ai/api/v1/webhooks — endpoints, signing-secret rotation, test-send, delivery log and replay, alert rules, the event inbox, the event-type catalogue, plan usage, and the error codes."
+---
+
+Every route on this page is relative to one base URL and authenticated with your API key:
+
+```text
+https://backend.coinversa.ai/api/v1/webhooks
+X-API-Key: YOUR_API_KEY
+```
+
+The same operations are available in the developer portal's **Webhooks** page, and the everyday ones — reading the inbox, watching a wallet, listing and removing rules, checking endpoint health — through the [MCP tools](/webhooks/agents#the-five-tools). All three act on the same endpoints, rules and inbox; `createdVia` on an endpoint or rule records which one created it (`portal`, `api`, `mcp`, `telegram` or `system`).
+
+<Note>
+This API is served by `backend.coinversa.ai`, not the data API at `api.coinversa.ai`, and its errors have their own shape — see [Errors](#errors). It is not in the data API's OpenAPI spec.
+</Note>
+
+## Summary
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/endpoints` | List endpoints |
+| `POST` | `/endpoints` | Create an endpoint; returns the signing secret once |
+| `GET` | `/endpoints/{id}` | Get one endpoint |
+| `PATCH` | `/endpoints/{id}` | Update `url`, `description`, `status` or `allowInsecure` |
+| `DELETE` | `/endpoints/{id}` | Delete an endpoint and detach it from every rule |
+| `POST` | `/endpoints/{id}/rotate-secret` | Rotate the signing secret; the old one stays valid 24 h |
+| `POST` | `/endpoints/{id}/test` | Send a signed test event |
+| `GET` | `/endpoints/{id}/deliveries` | The endpoint's delivery log |
+| `POST` | `/deliveries/{id}/replay` | Deliver the same event again |
+| `GET` | `/rules` | List rules on every channel |
+| `POST` | `/rules` | Create a rule |
+| `PATCH` | `/rules/{id}` | Update a rule |
+| `DELETE` | `/rules/{id}` | Delete a rule |
+| `GET` | `/events` | The event inbox |
+| `GET` | `/events/{id}` | One event |
+| `GET` | `/event-types` | The event catalogue (no key needed) |
+| `GET` | `/plan` | Your plan's webhook limits and current usage |
+
+Ids: endpoints are `whe_` + a 26-character ULID, events `evt_` + ULID, deliveries `dlv_` + ULID, rules a 24-character hex id. A resource that belongs to another account answers `404`, never `403`.
+
+## Endpoints
+
+An **endpoint** is a URL we POST signed events to.
+
+**EndpointView** — what every endpoint route returns. The signing secret is never in it.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | `whe_…` |
+| `url` | string | |
+| `description` | string | |
+| `status` | string | `active`, `paused` (you stopped it) or `disabled` (we stopped it — see `disabledReason`) |
+| `allowInsecure` | boolean | `http://` dev-tunnel URL allowed (Agent and above) |
+| `consecutiveFailures` | number | Dead deliveries since the last success |
+| `lastSuccessAt`, `lastFailureAt` | string or null | ISO 8601 |
+| `disabledReason`, `disabledAt` | string or null | Set when we disabled it |
+| `createdAt`, `updatedAt` | string | ISO 8601 |
+| `createdVia` | string | `portal`, `api`, `mcp`, `telegram`, `system` |
+| `health` | object, optional | Over your retention window: `delivered`, `failed`, `dead`, `p50Ms`, `p95Ms` |
+
+### List endpoints
+
+`GET /endpoints` → `200 { "endpoints": EndpointView[] }`
+
+### Create an endpoint
+
+`POST /endpoints`
+
+| Body field | Type | Required | Notes |
+|---|---|---|---|
+| `url` | string | yes | Public `https` URL, up to 2,048 characters |
+| `description` | string | no | Up to 200 characters |
+| `allowInsecure` | boolean | no | Default `false`. Agent and above |
+
+```json
+{ "url": "https://example.com/hooks/coinversa", "description": "Production receiver" }
+```
+
+→ `201 { "endpoint": EndpointView, "secret": "whsec_…" }`. The `secret` is returned **only here** (and by rotation). Errors: `400` (`invalid_request`, `url_rejected`) and `402` (`plan_limit` when you are at your endpoint count, `plan_required` when your plan has no webhook channel).
+
+### Get an endpoint
+
+`GET /endpoints/{id}` → `200 { "endpoint": EndpointView }`, or `404`.
+
+### Update an endpoint
+
+`PATCH /endpoints/{id}` with any of:
+
+| Body field | Type | Notes |
+|---|---|---|
+| `url` | string | Re-validated on save |
+| `description` | string | |
+| `status` | string | `active` or `paused`. Setting `active` re-enables a `disabled` endpoint; missed events are not replayed |
+| `allowInsecure` | boolean | Agent and above |
+
+→ `200 { "endpoint": EndpointView }`, or `404`.
+
+### Delete an endpoint
+
+`DELETE /endpoints/{id}` → `204`. The endpoint is removed from every rule's channels.
+
+### Rotate the signing secret
+
+`POST /endpoints/{id}/rotate-secret` → `200`:
+
+```json
+{ "secret": "whsec_…", "previousSecretExpiresAt": "2026-11-04T14:00:00.000Z" }
+```
+
+Both secrets sign every delivery until `previousSecretExpiresAt`, 24 hours later — see [rotating the secret](/webhooks/signatures#rotating-the-secret).
+
+### Send a test event
+
+`POST /endpoints/{id}/test`, optional body:
+
+```json
+{ "type": "wallet.liquidated" }
+```
+
+→ `202 { "deliveryId": "dlv_…", "eventId": "evt_…" }`. Without a body the endpoint receives a [`webhook.test`](/webhooks/events) event signed with the live secret. With `type`, it is still a `webhook.test`, with `data.sampleOf` set to that type and `data.sample` carrying a realistic `data` block for it.
+
+### List deliveries
+
+`GET /endpoints/{id}/deliveries`
+
+| Query | Notes |
+|---|---|
+| `status` | `pending`, `in_flight`, `succeeded`, `failed` or `dead` |
+| `before` | Delivery id cursor, exclusive; pages back in time |
+| `limit` | Default 50, max 200 |
+
+→ `200 { "deliveries": DeliveryView[], "nextCursor": "dlv_…" | null, "hasMore": boolean }`, newest first; pass `nextCursor` as `before` for the next (older) page. Each delivery:
+
+| Field | Type | Notes |
+|---|---|---|
+| `id`, `endpointId`, `eventId` | string | |
+| `eventType` | string | |
+| `attempt` | number | The attempt in progress, or the last one made once finished |
+| `status` | string | `pending`, `in_flight`, `succeeded`, `failed`, `dead` |
+| `nextAttemptAt`, `requestedAt` | string or null | ISO 8601 |
+| `responseStatus`, `responseMs` | number or null | Your endpoint's HTTP status and latency |
+| `responseSnippet` | string or null | The first 1 KB of your response body |
+| `error` | string or null | e.g. `timeout`, `dns`, `connect`, `ssrf_rejected`, `http_410` |
+| `replayOf` | string or null | The original delivery id, on a replay |
+| `isTest` | boolean | |
+| `createdAt`, `completedAt` | string / string or null | ISO 8601 |
+
+### Replay a delivery
+
+`POST /deliveries/{id}/replay` → `202 { "deliveryId": "dlv_…" }`. The same event is delivered again under a new delivery id, with `Coinversa-Attempt: 1` and `Coinversa-Replay: true`. Only deliveries inside your plan's retention window can be replayed. A delivery can be replayed once; to replay again, replay the newer delivery (`409` otherwise). A disabled endpoint answers `409` with code `endpoint_disabled`.
+
+## Rules
+
+A **rule** matches events and sends them to one or more channels. Rules on every channel — webhook, inbox, Telegram — are listed here. Webhook and inbox channels are created here; a Telegram channel is listed when it exists but cannot yet be attached through the API (the alerts bot keeps its own activation flow), so a new `telegram` channel answers `400`.
+
+**RuleView**
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | 24-character hex |
+| `label` | string or null | |
+| `active` | boolean | A one-shot rule (`cooldownMin: 0`) turns `false` after it fires |
+| `eventTypes` | string[] | Subscribable [event types](/webhooks/events) |
+| `filters` | object | `wallets`, `coins`, `minNotionalUsd`, `thresholdPct`, `price` — see [rule filters](/webhooks/events#rule-filters) |
+| `channels` | object[] | `{"kind":"webhook","endpointId":"whe_…"}`, `{"kind":"telegram","chatId":"…"}`, `{"kind":"inbox"}` |
+| `cooldownMin` | number | Minutes between fires; `0` = fire once, then deactivate |
+| `lastFiredAt` | string or null | |
+| `firedCount` | number | |
+| `createdAt` | string | |
+| `createdVia` | string | |
+
+### List rules
+
+`GET /rules` → `200 { "rules": RuleView[] }`
+
+### Create a rule
+
+`POST /rules`
+
+| Body field | Type | Required | Notes |
+|---|---|---|---|
+| `eventTypes` | string[] | yes | At least one; `webhook.*` types are not subscribable |
+| `channels` | object[] | yes | At least one |
+| `filters` | object | no | `wallets` is required for `wallet.*` types (max 500); `price` for `market.price.crossed` |
+| `label` | string | no | Up to 80 characters |
+| `cooldownMin` | integer | no | Default `0` — fire once, then deactivate |
+
+→ `201 { "rule": RuleView }`. Errors: `400` (`invalid_request`) and `402` (`plan_limit` for the rule or watched-wallet count, `plan_required` for an event type or channel your plan does not include).
+
+### Update a rule
+
+`PATCH /rules/{id}` with any field of the create body plus `active` (boolean) → `200 { "rule": RuleView }`, or `404`.
+
+### Delete a rule
+
+`DELETE /rules/{id}` → `204`, or `404`.
+
+## Events
+
+### List events
+
+`GET /events` — the **inbox**: every event your rules matched, whatever their channels, for your plan's retention window.
+
+| Query | Notes |
+|---|---|
+| `since` | Event id cursor, exclusive. Ids sort by time. Default: the start of the last 24 hours |
+| `types` | Comma-separated event types |
+| `wallet` | One address |
+| `limit` | Default 50, max 200 |
+
+→ `200`:
+
+```json
+{
+  "events": [ /* PulseEventEnvelope, see the event catalogue */ ],
+  "nextCursor": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "hasMore": false,
+  "deliveryStatus": { "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9": "delivered" }
+}
+```
+
+`nextCursor` is where to resume: the last event id in the page, or your `since` echoed back when the page is empty, so a poller that saves it never restarts from older events. Pass it back as `since`. `hasMore` says whether another page is ready now. `deliveryStatus` maps each event id to what happened to it:
+
+| Value | Meaning |
+|---|---|
+| `delivered` | POSTed and acknowledged with `2xx` |
+| `pending` | Webhook delivery in progress or awaiting retry |
+| `failed` | Webhook delivery exhausted its retries |
+| `inbox_only` | Recorded in the inbox only — no webhook channel on the rule, or its endpoint is disabled |
+| `over_quota` | Past the plan's monthly event budget; not POSTed |
+| `rate_limited` | Past the plan's per-minute delivery cap; not POSTed |
+
+### Get an event
+
+`GET /events/{id}` → `200 { "event": PulseEventEnvelope }`, or `404`.
+
+### List event types
+
+`GET /event-types` — **no key needed** → `200 { "eventTypes": EventTypeInfo[] }`, each with `type`, `description`, `requiredTier`, `subscribable`, `freshness`, `filters`, `phase` and a full `sample` envelope. It is the source of the [event catalogue](/webhooks/events).
+
+## Plan
+
+`GET /plan` → `200`:
+
+```json
+{
+  "tier": "agent",
+  "limits": {
+    "webhookEndpoints": 3,
+    "alertRules": 25,
+    "watchedWallets": 50,
+    "webhookEventsMonthly": 25000,
+    "webhookBurstPerMin": 60,
+    "webhookRetentionDays": 7,
+    "webhookAllowInsecure": true
+  },
+  "usage": { "endpoints": 1, "rules": 4, "watchedWallets": 12, "eventsThisMonth": 1873 }
+}
+```
+
+The numbers per plan are on [Plan limits](/webhooks/limits).
+
+## Errors
+
+Every `4xx` from this API has the same body:
+
+```json
+{
+  "success": false,
+  "error": "Your plan allows 3 webhook endpoints.",
+  "code": "plan_limit",
+  "limit": 3,
+  "current": 3,
+  "upgrade_url": "https://coinversa.ai/developers#pricing"
+}
+```
+
+`error` is a human sentence (the one above is an example); branch on `code`. `required_tier`, `current_tier`, `limit`, `current` and `upgrade_url` appear when they apply.
+
+| `code` | Status | Meaning |
+|---|---|---|
+| `invalid_request` | `400` | The body or query failed validation |
+| `not_found` | `404` | No such resource on your account |
+| `plan_limit` | `402` | A count limit (endpoints, rules, watched wallets) is reached — `limit` and `current` say which numbers |
+| `plan_required` | `402` | The event type, channel or option needs a higher plan — `required_tier` names it |
+| `url_rejected` | `400` | The endpoint URL failed the HTTPS or public-address checks |
+| `endpoint_disabled` | `409` | The endpoint is disabled; re-enable it first |
+| `rate_limited` | `429` | Too many write requests (30 per minute per account); back off and retry |
+| `forbidden` | `403` | The key or account may not perform this operation |
+
+A `503` with `invalid_request` means the server's secret storage is not configured; nothing you send can fix it, so retry later.

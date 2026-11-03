@@ -82,6 +82,23 @@
         ]
       },
       {
+        "tab": "Webhooks",
+        "groups": [
+          {
+            "group": "Webhooks",
+            "pages": [
+              "webhooks/overview",
+              "webhooks/quickstart",
+              "webhooks/events",
+              "webhooks/signatures",
+              "webhooks/api",
+              "webhooks/agents",
+              "webhooks/limits"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Changelog",
         "groups": [
           {

@@ -1,0 +1,38 @@
+---
+title: "Webhook plan limits"
+description: "Coinversa Pulse webhook limits by plan — endpoints, alert rules, watched wallets, events per month, deliveries per minute, inbox and replay retention, http dev-tunnel URLs — and which webhook event types Free, Starter, Agent, Pro and Enterprise unlock."
+---
+
+Webhook limits are separate from REST request quotas and WebSocket capacity — receiving an event never draws down your API calls. `GET /plan` returns your plan's numbers and your current usage ([reference](/webhooks/api#plan)).
+
+## Limits
+
+| | Free | Starter | Agent | Pro | Enterprise |
+|---|---:|---:|---:|---:|---:|
+| Webhook endpoints | 0 | 1 | 3 | 10 | 10 |
+| Active alert rules (every channel) | 3 | 5 | 25 | 100 | 100 |
+| Watched wallets (distinct, across rules) | 3 | 5 | 50 | 500 | 500 |
+| Events / month (webhook + inbox) | 0 | 2,000 | 25,000 | 250,000 | 250,000 |
+| Deliveries / minute | — | 20 | 60 | 300 | 300 |
+| Inbox, replay and delivery-log window | — | 1 day | 7 days | 30 days | 30 days |
+| `http://` dev-tunnel URLs (`allowInsecure`) | no | no | yes | yes | yes |
+
+- **Free** has no webhook channel and no inbox: its three rules deliver to **Telegram** through the existing alerts bot, which keeps its own activation flow (a Telegram channel cannot yet be attached to a rule from the API, portal or MCP).
+- **Events / month** counts every event your rules match into the webhook or inbox channels. Past the budget, events are still recorded in the inbox as `over_quota` but are not POSTed.
+- **Deliveries / minute** is per account. The excess in a minute is not POSTed; it is recorded as `rate_limited`, and you get one [`webhook.rate_limited`](/webhooks/events) event for that window.
+- A single rule watches at most **500** wallets on any plan.
+- **Enterprise** starts at Pro's numbers; email [chat@coinversa.ai](mailto:chat@coinversa.ai) to raise them.
+
+## Event types by plan
+
+Each plan includes the event types of the plans below it.
+
+| Plan | Event types it adds |
+|---|---|
+| Free | `wallet.position.opened`, `wallet.position.closed`, `wallet.position.flipped`, `wallet.position.increased`, `wallet.position.decreased`, `wallet.position.reconciled`, `wallet.liquidated`, `wallet.liquidation_risk` — on Telegram |
+| Starter | The same `wallet.*` types on the inbox and webhook channels, plus `market.price.crossed`. Your endpoints also receive `webhook.test` and `webhook.rate_limited` |
+| Agent | `market.liquidation.large` — every liquidation on the exchange above your notional threshold |
+| Pro | No additional event type today; Pro raises the limits above |
+| Enterprise | Everything in Pro |
+
+A rule asking for a type or channel your plan does not include is refused with `402` and code `plan_required`, naming the `required_tier`; a rule that would exceed a count is refused with `plan_limit`. See [Errors](/webhooks/api#errors). Prices and the rest of each plan are on [Pricing](/pricing).

@@ -1,0 +1,68 @@
+---
+title: "Webhooks for agents"
+description: "Run an AI agent on Coinversa Pulse events without a server — the pullable event inbox, a scheduled Claude routine calling pulse_events every 15 minutes, one-call pulse_watch_wallet setup, and how an LLM should use summary, suggestedTools and freshness."
+---
+
+An agent does not need a public URL to act on events. Every event your rules match is kept in an **inbox** you can pull with a cursor — `pulse_events` in the [MCP server](/mcp/setup), `GET /events` over [REST](/webhooks/api#list-events). A scheduled agent that wakes up, pulls what is new and reports on it is the simplest "agent on events" loop there is, and it needs nothing but your API key.
+
+<Note>
+The inbox and webhooks start on **Starter**. On Free, rules deliver to Telegram only — see [Plan limits](/webhooks/limits).
+</Note>
+
+## The loop: a scheduled routine
+
+Set up a Claude routine (or any scheduler that runs an agent with the Coinversa MCP server connected) to run **every 15 minutes** with a prompt like:
+
+```text
+Call pulse_events with since set to the last event id you reported (none on the first run).
+For each event, say what happened using its summary. If an event matters for what I am
+tracking, call one of its context.suggestedTools to add detail. Note each event's
+freshness. Remember the newest event id for the next run. If there are no events, say nothing.
+```
+
+Without `since`, `pulse_events` returns the last 24 hours, up to 50 events, so a routine that cannot keep state still works — it re-reads a day's events and should skip ids it has already reported. Fifteen minutes is well inside every paid plan's retention window (one day on Starter, seven on Agent, thirty on Pro), so nothing ages out between runs.
+
+## Set up a watch in one call
+
+`pulse_watch_wallet` creates a rule from chat. Ask Claude to "watch 0x28f0…9bad for position changes on BTC" and it calls:
+
+```json
+{
+  "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+  "label": "Whale 0x28f0",
+  "coins": ["BTC"]
+}
+```
+
+`deliver` defaults to **`inbox`**, so the watch works with no endpoint and no other setup; the tool's answer says what rule it created and how to read the results. Pass `deliver: "webhook"` with an `endpointId` to post to an endpoint you already created. Telegram delivery is not configurable from the tool yet. The tool is idempotent — repeating the same request does not create a second rule — and it is bound by your plan's rule and watched-wallet counts.
+
+## Reading an event as an LLM
+
+Each envelope is built so a model can act on it without parsing `data`:
+
+| Field | How to use it |
+|---|---|
+| `summary` | One factual sentence — quote or paraphrase it. It describes; it never recommends, and your answer should not turn it into a trade call |
+| `type` | Stable, so branch on it rather than on the wording of `summary` |
+| `context.suggestedTools` | MCP calls with arguments already filled in (for a wallet event: `pulse_trader_position_summary` for the wallet, `live_liquidation_heatmap` for the coin). Call one when the user wants more than the headline |
+| `freshness` | Say how fresh it is. A `fills_stream` event is typically half a second behind the chain; a `wallet.liquidation_risk` event comes from a 30-second poll; a `wallet.position.reconciled` event reports a corrected state after a stream gap, not the fills that were missed |
+| `occurredAt` / `observedAt` | When it happened versus when we saw it. Report the event as of `occurredAt` |
+| `disclaimer` | Market data, not advice. Keep that framing in what you tell the user |
+
+`data` carries exact numbers — sizes and prices as decimal strings, notional and PnL as USD numbers — for when the answer needs them. Every field is in the [event catalogue](/webhooks/events).
+
+## The five tools
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `pulse_events` | Read-only | The inbox: `since?`, `types?`, `wallet?`, `limit?`. Defaults to the last 24 hours, 50 events |
+| `pulse_watch_wallet` | Creates a rule (idempotent) | `address`, `label?`, `events?`, `coins?`, `minNotionalUsd?`, `deliver?` (`inbox` or `webhook`; default `inbox`), `endpointId?` |
+| `pulse_alert_rules` | Read-only | Lists your rules on every channel |
+| `pulse_remove_rule` | Destructive | Deletes one rule, by the id `pulse_alert_rules` returns |
+| `pulse_webhook_endpoints` | Read-only | Lists your endpoints with their health, so Claude can tell you an endpoint has been failing and since when |
+
+The connector still never touches an exchange account, never signs and never trades. `pulse_watch_wallet` and `pulse_remove_rule` are its only tools that change anything, and what they change is your Coinversa alert settings.
+
+## Endpoints are created in the portal or over REST
+
+There is no MCP tool that creates, edits or rotates a webhook endpoint. Creating one returns a **signing secret**, and a secret should not pass through a chat transcript. Create endpoints in the [developer portal](https://developers.coinversa.ai) or with [`POST /endpoints`](/webhooks/api#create-an-endpoint); then an agent can route a watch to one with `deliver: "webhook"`.

@@ -3,6 +3,21 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="November 3, 2026" tags={["Webhooks", "MCP", "Pricing"]}>
+
+## Webhooks, an event inbox and alert rules
+
+**Webhooks** push Coinversa Pulse events to you instead of making you poll. Write a rule — a watched wallet, a coin, a price level, a notional threshold — and every match arrives as one signed JSON event with a one-sentence `summary`, typed `data`, an honest `freshness` stamp and the MCP tools that answer the next question.
+
+- **Ten subscribable event types**: a watched wallet's position opened, closed, flipped, increased, decreased or reconciled, its liquidation and its liquidation risk; exchange-wide large liquidations (`market.liquidation.large`, Agent); and price crossings (`market.price.crossed`). See the [event catalogue](/webhooks/events).
+- **Three ways to receive**: a signed HTTPS POST (HMAC-SHA256, Stripe-style retries over about 7 hours, replay from the delivery log), a pullable **event inbox** with a cursor, or Telegram.
+- **Agents without a server**: five new MCP tools — `pulse_events`, `pulse_watch_wallet`, `pulse_alert_rules`, `pulse_remove_rule`, `pulse_webhook_endpoints`. A scheduled Claude routine that calls `pulse_events` every 15 minutes is an agent running on events. See [Webhooks for agents](/webhooks/agents).
+- **Plans**: Starter gets 1 endpoint and 2,000 events a month, Agent 3 endpoints, 25,000 events and `http://` dev tunnels, Pro 10 endpoints and 250,000 events. Free keeps 3 Telegram rules. See [Webhook plan limits](/webhooks/limits).
+
+Manage it all in the [developer portal](https://developers.coinversa.ai), over [REST](/webhooks/api) at `backend.coinversa.ai/api/v1/webhooks`, or from chat. Start with the [quickstart](/webhooks/quickstart).
+
+</Update>
+
 <Update label="October 29, 2026" tags={["Pricing", "API", "MCP", "WebSocket"]}>
 
 ## New plan: Agent ($49/month)

@@ -1,0 +1,735 @@
+---
+title: "Event catalogue"
+description: "Every Coinversa Pulse webhook event type — wallet position opened, closed, flipped, increased, decreased and reconciled, wallet liquidated and liquidation risk, large market liquidations, price crossings and test events — with plan, freshness, rule filters and a full sample envelope."
+---
+
+Twelve event types, in the order the API lists them. Ten are **subscribable** in a rule; `webhook.test` and `webhook.rate_limited` are sent by us. The machine-readable version of this page — same descriptions, plans, filters and samples — is `GET https://backend.coinversa.ai/api/v1/webhooks/event-types`, which needs no key.
+
+Sample payloads are illustrative: addresses, hashes and amounts are made up, and every sample shares one `id` and timestamp pair.
+
+## The envelope
+
+Every event, on every channel — webhook body, inbox row, MCP result — has the same shape:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | `evt_` + a ULID; time-sortable; also the `Coinversa-Event-Id` header |
+| `type` | string | One of the types below |
+| `version` | number | Schema version, `1` |
+| `occurredAt` | ISO 8601 | The chain time of the fill or frame the event describes |
+| `observedAt` | ISO 8601 | When Coinversa saw it |
+| `freshness` | object | `source`, `typicalLagMs`, and `snapshotAt` for snapshot-based sources — see [freshness, per source](/webhooks/overview#freshness-per-source) |
+| `rule` | object or null | `{ "id", "label" }` of the rule that matched; `null` for `webhook.*` events |
+| `summary` | string | One descriptive sentence for an LLM or a human |
+| `data` | object | The per-type payload, for code |
+| `context` | object | `hyperliquidUrl` (when the event is about one coin) and `suggestedTools` — MCP tool calls, with arguments filled in, that answer the obvious next question |
+| `disclaimer` | string | Always `"Descriptive market data from public on-chain activity. Not investment advice."` |
+
+**Units.** Sizes and prices are decimal **strings** exactly as Hyperliquid emits them (`sz`, `px`, `avgPx`, `sizeBefore`); notional and PnL are **numbers** in USD (`notionalUsd`, `closedPnlUsd`). Sizes are signed where the field name says before/after — negative is short. Addresses are lowercase `0x` hex. Coins use the canonical form: `BTC` for Hyperliquid perps, `xyz:GOLD` for builder dexes.
+
+## Rule filters
+
+| Filter | Applies to | Meaning |
+|---|---|---|
+| `wallets` | every `wallet.*` type (required) | Lowercase addresses to watch; up to 500 per rule |
+| `coins` | `wallet.*`, `market.liquidation.large` | Canonical coins; omit for all |
+| `minNotionalUsd` | `wallet.position.increased` / `.decreased` (default $50,000), `market.liquidation.large` (default $250,000) | Minimum notional for the event to fire |
+| `thresholdPct` | `wallet.liquidation_risk` | Fire when the distance from mark to liquidation price is at or below this percentage |
+| `price` | `market.price.crossed` | `{ "symbol", "target", "direction": "above" or "below" }` |
+
+## Data fields
+
+**Position events** (`wallet.position.*`): `wallet`, `coin`, `dex` (`hl` or the builder dex prefix), `change`, `side` (after the change; `flat` when closed), `sizeBefore`, `sizeAfter`, `notionalUsd` (size change times `avgPx`), `avgPx` (size-weighted over the coalesced fills), `closedPnlUsd` (sum of the fills' closed PnL), `fills` (how many fills were coalesced — all of one wallet's fills in a coin in one block become one event), `block`, `txHash` (of the last fill), and on `reconciled` only, `expectedSize`.
+
+**Liquidation events** (`wallet.liquidated`, `market.liquidation.large`): `wallet` (the liquidated account), `liquidator`, `coin`, `side` (of the liquidated position), `sz`, `px`, `markPx`, `notionalUsd` (`px` times `sz`), `method`, `penaltyFeeUsd`, `closedPnlUsd`, `txHash`, `tid`. Fields Hyperliquid did not report are `null`.
+
+**Liquidation risk** (`wallet.liquidation_risk`): `wallet`, `coin`, `side`, `sz`, `entryPx`, `markPx`, `liquidationPx`, `distancePct` (from mark to liquidation price; positive means still open), `thresholdPct`, `leverage`, `positionValueUsd`.
+
+**Price crossed** (`market.price.crossed`): `symbol`, `direction`, `target`, `mid`, `prevMid`.
+
+## `wallet.position.opened`
+
+A watched wallet went from flat to a position in a coin (all fills in one block coalesced).
+
+| | |
+|---|---|
+| Plan | Free (Telegram); inbox and webhook delivery from Starter |
+| Freshness | `fills_stream` (fills stream), typical lag ~0.5 s |
+| Filters | `wallets`, `coins` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.position.opened",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "fills_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad opened a 12.5 BTC long (~$875k) at 70,000.5 on Hyperliquid.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "BTC",
+    "dex": "hl",
+    "change": "opened",
+    "side": "long",
+    "sizeBefore": "0",
+    "sizeAfter": "12.5",
+    "notionalUsd": 875006.25,
+    "avgPx": "70000.5",
+    "closedPnlUsd": 0,
+    "fills": 3,
+    "block": 928110001,
+    "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "live_liquidation_heatmap",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.position.closed`
+
+A watched wallet closed a position to flat; closedPnlUsd is the realised PnL of the closing fills.
+
+| | |
+|---|---|
+| Plan | Free (Telegram); inbox and webhook delivery from Starter |
+| Freshness | `fills_stream` (fills stream), typical lag ~0.5 s |
+| Filters | `wallets`, `coins` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.position.closed",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "fills_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad closed its 8.0 BTC long (~$560k) at 70,000.5, realising +$18,250.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "BTC",
+    "dex": "hl",
+    "change": "closed",
+    "side": "flat",
+    "sizeBefore": "8.0",
+    "sizeAfter": "0",
+    "notionalUsd": 560004,
+    "avgPx": "70000.5",
+    "closedPnlUsd": 18250.4,
+    "fills": 3,
+    "block": 928110001,
+    "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "live_liquidation_heatmap",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.position.flipped`
+
+A watched wallet reversed direction within one block (short to long or long to short).
+
+| | |
+|---|---|
+| Plan | Free (Telegram); inbox and webhook delivery from Starter |
+| Freshness | `fills_stream` (fills stream), typical lag ~0.5 s |
+| Filters | `wallets`, `coins` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.position.flipped",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "fills_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad flipped BTC from a 4.0 short to a 12.5 long (~$1.16M traded) at 70,000.5.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "BTC",
+    "dex": "hl",
+    "change": "flipped",
+    "side": "long",
+    "sizeBefore": "-4.0",
+    "sizeAfter": "12.5",
+    "notionalUsd": 1155008.25,
+    "avgPx": "70000.5",
+    "closedPnlUsd": 0,
+    "fills": 3,
+    "block": 928110001,
+    "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "live_liquidation_heatmap",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.position.increased`
+
+A watched wallet added to a position by at least minNotionalUsd (default $50k) in one block.
+
+| | |
+|---|---|
+| Plan | Free (Telegram); inbox and webhook delivery from Starter |
+| Freshness | `fills_stream` (fills stream), typical lag ~0.5 s |
+| Filters | `wallets`, `coins`, `minNotionalUsd` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.position.increased",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "fills_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad added 4.5 BTC (~$315k) to its long, now 12.5 BTC at 70,000.5.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "BTC",
+    "dex": "hl",
+    "change": "increased",
+    "side": "long",
+    "sizeBefore": "8.0",
+    "sizeAfter": "12.5",
+    "notionalUsd": 315002.25,
+    "avgPx": "70000.5",
+    "closedPnlUsd": 0,
+    "fills": 3,
+    "block": 928110001,
+    "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "live_liquidation_heatmap",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.position.decreased`
+
+A watched wallet reduced a position by at least minNotionalUsd (default $50k) in one block without closing it.
+
+| | |
+|---|---|
+| Plan | Free (Telegram); inbox and webhook delivery from Starter |
+| Freshness | `fills_stream` (fills stream), typical lag ~0.5 s |
+| Filters | `wallets`, `coins`, `minNotionalUsd` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.position.decreased",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "fills_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad trimmed 4.5 BTC (~$315k) from its long, now 8.0 BTC at 70,000.5.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "BTC",
+    "dex": "hl",
+    "change": "decreased",
+    "side": "long",
+    "sizeBefore": "12.5",
+    "sizeAfter": "8.0",
+    "notionalUsd": 315002.25,
+    "avgPx": "70000.5",
+    "closedPnlUsd": 0,
+    "fills": 3,
+    "block": 928110001,
+    "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "live_liquidation_heatmap",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.position.reconciled`
+
+After a stream reconnect, the wallet's position in live_positions differed from what we had derived; this reports the corrected state instead of guessing the missed events.
+
+| | |
+|---|---|
+| Plan | Free (Telegram); inbox and webhook delivery from Starter |
+| Freshness | `live_positions` (position reseed), typical lag ~5 s |
+| Filters | `wallets`, `coins` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.position.reconciled",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "live_positions",
+    "typicalLagMs": 5000
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad BTC position is 12.5 long after a stream gap; we expected 8.0.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "BTC",
+    "dex": "hl",
+    "change": "reconciled",
+    "side": "long",
+    "sizeBefore": "8.0",
+    "sizeAfter": "12.5",
+    "notionalUsd": 315002.25,
+    "avgPx": "70000.5",
+    "closedPnlUsd": 0,
+    "fills": 0,
+    "block": 928110001,
+    "txHash": null,
+    "expectedSize": "8.0"
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "live_liquidation_heatmap",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.liquidated`
+
+A watched wallet was liquidated in a coin.
+
+| | |
+|---|---|
+| Plan | Free (Telegram); inbox and webhook delivery from Starter |
+| Freshness | `liquidations_stream` (liquidations stream), typical lag ~0.5 s |
+| Filters | `wallets`, `coins` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.liquidated",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "liquidations_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x103c…7f9a was liquidated on a 21.0 ZRO long at 2.1027 (~$44), realising -$5.47.",
+  "data": {
+    "wallet": "0x103c5e7a9b1d3f5a7c9e1b3d5f7a9c1e3b5d7f9a",
+    "liquidator": "0x7c66a1b2c3d4e5f60718293a4b5c6d7e8f901234",
+    "coin": "ZRO",
+    "side": "long",
+    "sz": "21.0",
+    "px": "2.1027",
+    "markPx": "2.1023",
+    "notionalUsd": 44.16,
+    "method": "market",
+    "penaltyFeeUsd": 0.019075,
+    "closedPnlUsd": -5.4747,
+    "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
+    "tid": 111
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/ZRO",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x103c5e7a9b1d3f5a7c9e1b3d5f7a9c1e3b5d7f9a"
+        }
+      },
+      {
+        "tool": "live_recent_liquidations",
+        "args": {
+          "coin": "ZRO"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.liquidation_risk`
+
+A watched wallet's distance to its liquidation price fell to or below thresholdPct (polled every 30 s).
+
+| | |
+|---|---|
+| Plan | Free (Telegram); inbox and webhook delivery from Starter |
+| Freshness | `info_api_poll` (Hyperliquid Info API poll), typical lag ~30 s |
+| Filters | `wallets`, `coins`, `thresholdPct` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.liquidation_risk",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "info_api_poll",
+    "typicalLagMs": 30000
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad ETH long (120 ETH, 20x) is 4.4% from liquidation at 3,105.7 (mark 3,250.0).",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "ETH",
+    "side": "long",
+    "sz": "120.0",
+    "entryPx": "3410.2",
+    "markPx": "3250.0",
+    "liquidationPx": "3105.7",
+    "distancePct": 4.44,
+    "thresholdPct": 5,
+    "leverage": 20,
+    "positionValueUsd": 390000
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/ETH",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "live_liquidation_heatmap",
+        "args": {
+          "coin": "ETH"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `market.liquidation.large`
+
+Any liquidation on the exchange with notional at or above minNotionalUsd (default $250k), optionally filtered by coin.
+
+| | |
+|---|---|
+| Plan | Agent and above |
+| Freshness | `liquidations_stream` (liquidations stream), typical lag ~0.5 s |
+| Filters | `coins`, `minNotionalUsd` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "market.liquidation.large",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "liquidations_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "A 6.2 BTC long (~$427k) was liquidated at 68,950.0; realised -$41,205.",
+  "data": {
+    "wallet": "0x103c5e7a9b1d3f5a7c9e1b3d5f7a9c1e3b5d7f9a",
+    "liquidator": "0x7c66a1b2c3d4e5f60718293a4b5c6d7e8f901234",
+    "coin": "BTC",
+    "side": "long",
+    "sz": "6.2",
+    "px": "68950.0",
+    "markPx": "68960.5",
+    "notionalUsd": 427490,
+    "method": "market",
+    "penaltyFeeUsd": 1282.47,
+    "closedPnlUsd": -41205.3,
+    "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
+    "tid": 112
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "live_liquidation_summary",
+        "args": {
+          "coin": "BTC"
+        }
+      },
+      {
+        "tool": "live_cohort_bias",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `market.price.crossed`
+
+The mid price of a symbol crossed the rule's target in the given direction (evaluated on every ~1 s mids tick).
+
+| | |
+|---|---|
+| Plan | Starter and above |
+| Freshness | `mids_feed` (mid-price feed), typical lag ~1 s |
+| Filters | `price` |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "market.price.crossed",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "mids_feed",
+    "typicalLagMs": 1000
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "BTC crossed above 70,000 (mid 70,012.5, previous tick 69,988.0).",
+  "data": {
+    "symbol": "BTC",
+    "direction": "above",
+    "target": 70000,
+    "mid": 70012.5,
+    "prevMid": 69988
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "market_price",
+        "args": {
+          "symbol": "BTC"
+        }
+      },
+      {
+        "tool": "live_liquidation_heatmap",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `webhook.test`
+
+Sent by POST /webhooks/endpoints/:id/test. Signed with the live secret so a receiver can verify end to end.
+
+| | |
+|---|---|
+| Plan | Starter — sent by us, not subscribable |
+| Freshness | `synthetic` (synthetic), typical lag none |
+| Filters | none |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "webhook.test",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "synthetic",
+    "typicalLagMs": 0
+  },
+  "rule": null,
+  "summary": "Test event for endpoint whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9. If you can read this, signature verification works.",
+  "data": {
+    "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+    "message": "This is a test event from Coinversa Pulse."
+  },
+  "context": {
+    "suggestedTools": []
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `webhook.rate_limited`
+
+Sent once per window when an owner's rules produced more events than the plan's burst or monthly cap; the dropped events are still visible in the inbox as rate_limited / over_quota.
+
+| | |
+|---|---|
+| Plan | Starter — sent by us, not subscribable |
+| Freshness | `synthetic` (synthetic), typical lag none |
+| Filters | none |
+
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "webhook.rate_limited",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "synthetic",
+    "typicalLagMs": 0
+  },
+  "rule": null,
+  "summary": "Your rules produced more events than the plan delivers per minute (60); 143 were not delivered.",
+  "data": {
+    "window": "minute",
+    "limit": 60,
+    "dropped": 143,
+    "until": "2026-11-03T14:22:00.000Z"
+  },
+  "context": {
+    "suggestedTools": [
+      {
+        "tool": "pulse_events",
+        "args": {}
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+

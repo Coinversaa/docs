@@ -48,6 +48,18 @@ These are **REST** limits. The [WebSocket](/websocket/overview) is metered on ca
 
 Enterprise websocket numbers are per-account overrides reported in the `connected` frame — see [WebSocket plan limits](/websocket/limits).
 
+[Webhooks](/webhooks/overview) are metered on their own too — endpoints, rules, watched wallets and matched events; receiving an event never draws down the request counts above. They are managed at `https://backend.coinversa.ai/api/v1/webhooks`, which has its own [error shape](/webhooks/api#errors) rather than the `TIER_GATE` problem details above:
+
+| Tier | Webhook endpoints | Alert rules | Watched wallets | Events / month | Deliveries / min | Inbox and replay window | Event types added |
+|------|---:|---:|---:|---:|---:|---:|---|
+| Free       | 0  | 3 (Telegram only) | 3   | —       | —   | —       | `wallet.*` position, liquidation and liquidation-risk events, on Telegram |
+| Starter    | 1  | 5   | 5   | 2,000   | 20  | 1 day   | `wallet.*` on the inbox and webhooks, `market.price.crossed` |
+| Agent      | 3  | 25  | 50  | 25,000  | 60  | 7 days  | `market.liquidation.large`; `http://` dev-tunnel endpoints |
+| Pro        | 10 | 100 | 500 | 250,000 | 300 | 30 days | — (higher limits) |
+| Enterprise | 10+ | 100+ | 500+ | 250,000+ | 300+ | 30 days | — |
+
+See [Webhook plan limits](/webhooks/limits).
+
 ## Endpoints by tier
 
 <AccordionGroup>

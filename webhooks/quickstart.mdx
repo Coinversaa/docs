@@ -1,0 +1,249 @@
+---
+title: "Webhooks quickstart"
+description: "Set up Coinversa Pulse webhooks in five steps — create a signed HTTPS endpoint, write a watched-wallet rule, send a test event, verify the Coinversa-Signature header, and read the event inbox — with real request and response bodies."
+---
+
+Five steps: an endpoint, a rule, a test event, a signature check, and the inbox. You need a **Starter** plan or above for the webhook channel and an API key from [developers.coinversa.ai](https://developers.coinversa.ai). Every request below goes to `https://backend.coinversa.ai/api/v1/webhooks` with your key in the `X-API-Key` header.
+
+<Note>
+No server? Skip the endpoint: write the rule with `{"kind":"inbox"}` and go straight to [step 5](#5-read-the-inbox), or let an agent do it — see [Webhooks for agents](/webhooks/agents).
+</Note>
+
+## 1. Create an endpoint
+
+In the portal, open **Webhooks → Endpoints → Add endpoint**. Over REST:
+
+```bash
+curl -X POST https://backend.coinversa.ai/api/v1/webhooks/endpoints \
+  -H "X-API-Key: $COINVERSA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com/hooks/coinversa","description":"Production receiver"}'
+```
+
+`201 Created`:
+
+```json
+{
+  "endpoint": {
+    "id": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+    "url": "https://example.com/hooks/coinversa",
+    "description": "Production receiver",
+    "status": "active",
+    "allowInsecure": false,
+    "consecutiveFailures": 0,
+    "lastSuccessAt": null,
+    "lastFailureAt": null,
+    "disabledReason": null,
+    "disabledAt": null,
+    "createdAt": "2026-11-03T14:00:00.000Z",
+    "updatedAt": "2026-11-03T14:00:00.000Z",
+    "createdVia": "api"
+  },
+  "secret": "whsec_q3T9vL2xN8bR5mK1pW7sY4zA6cE0gH2jU8fD5nQ7rXo"
+}
+```
+
+<Warning>
+The `secret` is shown **once**. Store it now — in your receiver's secret store, not in source control. If you lose it, [rotate](/webhooks/api#rotate-the-signing-secret) to get a new one.
+</Warning>
+
+The URL must be public `https`. Private, loopback and link-local addresses are refused with `url_rejected`, and redirects are never followed. For local development on **Agent** and above, set `"allowInsecure": true` to register an `http://` dev-tunnel URL (ngrok, localtunnel, Cloudflare quick tunnels).
+
+## 2. Create a rule
+
+A rule says which events you want and where they go. This one watches one wallet's BTC and ETH positions and its liquidations, and posts to the endpoint from step 1:
+
+```bash
+curl -X POST https://backend.coinversa.ai/api/v1/webhooks/rules \
+  -H "X-API-Key: $COINVERSA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "label": "Whale 0x28f0 (BTC/ETH)",
+    "eventTypes": ["wallet.position.opened", "wallet.position.closed", "wallet.position.flipped", "wallet.liquidated"],
+    "filters": {
+      "wallets": ["0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"],
+      "coins": ["BTC", "ETH"]
+    },
+    "channels": [{ "kind": "webhook", "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9" }],
+    "cooldownMin": 1
+  }'
+```
+
+`201 Created`:
+
+```json
+{
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)",
+    "active": true,
+    "eventTypes": ["wallet.position.opened", "wallet.position.closed", "wallet.position.flipped", "wallet.liquidated"],
+    "filters": {
+      "wallets": ["0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"],
+      "coins": ["BTC", "ETH"]
+    },
+    "channels": [{ "kind": "webhook", "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9" }],
+    "cooldownMin": 1,
+    "lastFiredAt": null,
+    "firedCount": 0,
+    "createdAt": "2026-11-03T14:01:00.000Z",
+    "createdVia": "api"
+  }
+}
+```
+
+<Warning>
+`cooldownMin` defaults to **0, which means fire once, then deactivate** — the behaviour of the original Telegram alerts. For a watch that keeps firing, set `cooldownMin` to the minimum number of minutes between fires.
+</Warning>
+
+Wallets are lowercase `0x` addresses, up to 500 per rule (your plan caps the total across rules). Coins use the canonical form — `BTC` for Hyperliquid perps, `xyz:GOLD` for builder dexes; omit `coins` for every coin. Each event type's filters are listed in the [event catalogue](/webhooks/events).
+
+## 3. Send a test event
+
+```bash
+curl -X POST https://backend.coinversa.ai/api/v1/webhooks/endpoints/whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9/test \
+  -H "X-API-Key: $COINVERSA_API_KEY"
+```
+
+`202 Accepted`:
+
+```json
+{ "deliveryId": "dlv_01JC4QX2B7N4K8M3P6R9S2T5V8", "eventId": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9" }
+```
+
+Your endpoint receives a `webhook.test` event, signed with the live secret:
+
+```json
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "webhook.test",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "synthetic",
+    "typicalLagMs": 0
+  },
+  "rule": null,
+  "summary": "Test event for endpoint whe_01JC4Q…Q8R9. If you can read this, signature verification works.",
+  "data": {
+    "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+    "message": "This is a test event from Coinversa Pulse."
+  },
+  "context": {
+    "suggestedTools": []
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+To exercise your handler with a realistic payload, send `{"type":"wallet.liquidated"}` (or any other type) as the body. The event is still a `webhook.test`; `data.sampleOf` names the type it imitates and `data.sample` carries that type's `data`. Check the result in the portal's activity log or with `GET /endpoints/{id}/deliveries`.
+
+## 4. Verify the signature
+
+Every POST carries `Coinversa-Signature: t=<unix seconds>,v1=<hex>`. Recompute HMAC-SHA256 over `t + "." + rawBody` with your secret and compare in constant time. Verify against the **raw** request body — parsing and re-serialising the JSON changes the bytes.
+
+```javascript Node (Express)
+import express from "express";
+import { verifyCoinversaSignature } from "./verify.js"; // from the Signatures page
+
+const app = express();
+
+app.post("/hooks/coinversa", express.raw({ type: "application/json" }), (req, res) => {
+  const rawBody = req.body.toString("utf8");
+  if (!verifyCoinversaSignature(req.get("Coinversa-Signature") ?? "", rawBody, process.env.COINVERSA_WEBHOOK_SECRET)) {
+    return res.status(400).send("bad signature");
+  }
+  const event = JSON.parse(rawBody);
+  // Deduplicate on event.id (also the Coinversa-Event-Id header), then hand off to a queue.
+  res.sendStatus(200);
+});
+```
+
+The verifier itself, in Node, Python and Go, is on [Signatures and delivery](/webhooks/signatures#verify-a-signature). Answer quickly: anything slower than **5 seconds** counts as a failure and is retried.
+
+## 5. Read the inbox
+
+Every matched event is also kept in your inbox for your plan's retention window, whatever its channels:
+
+```bash
+curl "https://backend.coinversa.ai/api/v1/webhooks/events?limit=50" \
+  -H "X-API-Key: $COINVERSA_API_KEY"
+```
+
+```json
+{
+  "events": [
+    {
+      "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+      "type": "wallet.position.opened",
+      "version": 1,
+      "occurredAt": "2026-11-03T14:21:07.890Z",
+      "observedAt": "2026-11-03T14:21:08.412Z",
+      "freshness": {
+        "source": "fills_stream",
+        "typicalLagMs": 500
+      },
+      "rule": {
+        "id": "672f3b8e9d1c2a4b5e6f7a8b",
+        "label": "Whale 0x28f0 (BTC/ETH)"
+      },
+      "summary": "0x28f0…9bad opened a 12.5 BTC long (~$875k) at 70,000.5 on Hyperliquid.",
+      "data": {
+        "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+        "coin": "BTC",
+        "dex": "hl",
+        "change": "opened",
+        "side": "long",
+        "sizeBefore": "0",
+        "sizeAfter": "12.5",
+        "notionalUsd": 875006.25,
+        "avgPx": "70000.5",
+        "closedPnlUsd": 0,
+        "fills": 3,
+        "block": 928110001,
+        "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+      },
+      "context": {
+        "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+        "suggestedTools": [
+          {
+            "tool": "pulse_trader_position_summary",
+            "args": {
+              "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+            }
+          },
+          {
+            "tool": "live_liquidation_heatmap",
+            "args": {
+              "coin": "BTC"
+            }
+          }
+        ]
+      },
+      "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+    }
+  ],
+  "nextCursor": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "deliveryStatus": { "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9": "delivered" }
+}
+```
+
+Event ids are ULIDs and sort by time. Save `nextCursor` and pass it back as `since` on the next call to get only newer events; `hasMore` says whether another page is ready now. Without `since`, the first call returns the last 24 hours. Filter with `types` (comma-separated) and `wallet`.
+
+## What's next
+
+<Columns cols={2}>
+  <Card title="Event catalogue" icon="list" href="/webhooks/events">
+    Every event type, its plan, filters, freshness and sample payload.
+  </Card>
+  <Card title="Signatures and delivery" icon="shield-check" href="/webhooks/signatures">
+    Verifiers in Node, Python and Go; retries, replay and auto-disable.
+  </Card>
+  <Card title="API reference" icon="terminal" href="/webhooks/api">
+    Every route, body and error code.
+  </Card>
+  <Card title="Plan limits" icon="gauge" href="/webhooks/limits">
+    Endpoints, rules, wallets and events per plan.
+  </Card>
+</Columns>
