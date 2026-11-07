@@ -11,7 +11,7 @@ Start from what you see. Each section names the likely causes in the order worth
 2. **Is the rule active?** `GET /rules`. A rule created without `cooldownMin` defaults to `0` — **fire once, then deactivate** — so it shows `active: false` after its first event. Set `cooldownMin` to keep it firing.
 3. **Do the filters match?** Wallets must be lowercase `0x` addresses; coins use the canonical form (`BTC`, `xyz:GOLD`); `minNotionalUsd` defaults to $50,000 on increases and decreases and $250,000 on large liquidations and trades, so small moves do not fire. `wallet.liquidation_risk` comes from a 30-second poll and `cohort.bias_flipped` from a 60-second one, so give them a minute.
 4. **Does the rule have a webhook channel?** An event with `deliveryStatus: "inbox_only"` had no webhook channel on its rule, or its endpoint is disabled.
-5. **What does the delivery log say?** `error` names the failure: `timeout` (you took longer than 5 s), `dns`, `connect`, `ssrf_rejected` (the host resolved to a private, loopback or metadata address), or an HTTP status in `responseStatus`. A `3xx` is a failure — register the final URL.
+5. **What does the delivery log say?** `error` names the failure: `timeout` (the attempt, DNS lookup included, took longer than 5 s), `dns` (the lookup failed or took more than 3 s), `connect`, `ssrf_rejected` (the host resolved to a private, loopback or metadata address), `redirect`, or `http_<status>` with the status in `responseStatus`. A `3xx` (`redirect`) is a failure and is **not retried** — the delivery is dead after one attempt and the redirect is never followed. Fix the URL: register the final one.
 6. **Is the plan right?** The webhook channel and the inbox start on Starter; some event types need Agent. A rule your plan cannot carry is refused at creation with `402 plan_required`, never silently ignored.
 7. **Did you hit a cap?** See [over quota](#events-stopped-mid-month-or-mid-burst).
 
@@ -40,7 +40,7 @@ Check your verifier against the [known-answer test vector](/webhooks/signatures#
 4. **Hex instead of base64.** Signatures are standard base64 with padding, after the `v1,` prefix.
 5. **Only the first entry checked.** During a rotation `webhook-signature` has two space-separated entries; a request is authentic when **any** matches.
 6. **Clock skew.** `webhook-timestamp` must be within 300 seconds of your clock. Run NTP.
-7. **Wrong secret.** After a rotation the old secret stops signing at `previousSecretExpiresAt`. A secret containing `-` or `_` dates from before Standard Webhooks; it still verifies by hand, but the `standardwebhooks` libraries reject it — rotate once.
+7. **Wrong secret.** After a rotation the old secret stops signing at `previousSecretExpiresAt`. A secret is `whsec_` plus padded standard base64; one containing `-` or `_` is not valid and is not used to sign (its deliveries fail with `secret_unavailable`) — rotate it.
 
 ## Duplicate events
 
@@ -58,7 +58,9 @@ The wallet is in **digest mode** for that rule: it produced more than 120 `walle
 
 ## The inbox says `gap: true`
 
-Your `since` cursor is older than your plan's retention window (one day on Starter, seven on Agent, thirty on Pro), or older than the oldest event still stored for your account. Events between the cursor and the page you got **may be missing** — aged out, or dropped at a cap. Do not try to reconstruct them: re-read the current state you depend on (the wallet's positions, the coin's price), then continue from the new `nextCursor`. To stop it recurring, poll more often than the retention window and keep rules under your caps. See [the inbox gap flag](/webhooks/limits#the-inbox-gap-flag).
+Your `since` cursor is older than your plan's retention window (one day on Starter, seven on Agent, thirty on Pro), or older than the oldest event still stored for your account. Events between the cursor and the page you got **may be missing** — aged out, or dropped at a cap. Do not try to reconstruct them: re-read the current state you depend on (the wallet's positions, the coin's price), then continue from the new `nextCursor`.
+
+**It comes back on every call with no events.** Your account is quiet: no event has arrived for longer than the retention window, so your cursor has aged past it, and `nextCursor` (your `since` echoed back) cannot move until a new event is stored. Polling more often does not clear it. Nothing new is missing on those repeat calls — resynchronise once for that cursor, remember that you did, and ignore the flag while the cursor stays the same. A poller that keeps the cursor it resynchronised for is in [Cursor and gap, in code](/webhooks/agents#cursor-and-gap-in-code). See [the inbox gap flag](/webhooks/limits#the-inbox-gap-flag).
 
 ## Still stuck
 

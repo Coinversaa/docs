@@ -32,7 +32,7 @@ Every event, on every channel — webhook body, inbox row, MCP result — has th
 | Filter | Applies to | Meaning |
 |---|---|---|
 | `wallets` | every `wallet.*` type (required) | Lowercase addresses to watch; up to 1,000 per rule |
-| `coins` | `wallet.*`, `market.liquidation.large`, `market.trade.large`, `cohort.bias_flipped` | Canonical coins; omit for all (up to 100) |
+| `coins` | `wallet.*`, `market.liquidation.large`, `market.trade.large`, `cohort.bias_flipped` (required) | Canonical coins, up to 100. Omit for all coins, except on `cohort.bias_flipped`, which needs it: those are the coins polled |
 | `minNotionalUsd` | `wallet.position.increased` / `.decreased` (default $50,000), `market.liquidation.large` (default $250,000), `market.trade.large` (default $250,000) | Minimum notional for the event to fire |
 | `thresholdPct` | `wallet.liquidation_risk` | Fire when the distance from mark to liquidation price is at or below this percentage (0–100, default 10) |
 | `price` | `market.price.crossed` | `{ "symbol", "target", "direction" }` — `direction` is `above`, `below` or `both` |
@@ -678,12 +678,12 @@ An `{"error": "<reason>"}` status from Hyperliquid becomes `status: "error"` wit
 
 ## `wallet.activity.digest`
 
-A summary that replaces a noisy wallet's individual events. When one wallet produces more than **120** `wallet.*` events for one rule within an hour, it goes into **digest mode** for the rest of that hour: its individual `wallet.*` events for that rule are no longer stored or delivered, and every **5 minutes** the rule gets one `wallet.activity.digest` for that wallet instead. See [noisy wallets and digest mode](/webhooks/limits#noisy-wallets-and-digest-mode).
+A summary that replaces a noisy wallet's individual events on a rule with an inbox or webhook channel. When one wallet produces more than **120** `wallet.*` events for one rule within an hour, it goes into **digest mode** for the rest of that hour: its individual `wallet.*` events for that rule are no longer stored or delivered, and every **5 minutes** the rule gets one `wallet.activity.digest` for that wallet instead. See [noisy wallets and digest mode](/webhooks/limits#noisy-wallets-and-digest-mode).
 
 | | |
 |---|---|
-| Plan | Free and above — on whatever channels the rule already has |
-| Freshness | Emitted every 5 minutes while the wallet is in digest mode; `data.from` / `data.to` bound the window it covers |
+| Plan | Starter and above — rules with an inbox or webhook channel, on the channels the rule already has. A Telegram-only rule (every Free rule) is never digested and gets every event |
+| Freshness | Emitted every 5 minutes while the wallet is in digest mode; `data.from` / `data.to` bound the window it covers. A window open when we restart is emitted at shutdown with `data.to` set to that moment, so it can be shorter than 5 minutes |
 | Filters | `wallets` |
 
 A digest says **how much** happened, not **what**: when you need the individual fills, read the wallet's state with the calls in `context.suggestedTools`.
@@ -919,13 +919,13 @@ The mid price of a symbol crossed the rule's target in the given direction (eval
 
 ## `cohort.bias_flipped`
 
-A PnL cohort's net positioning in a coin changed sign — from net long to net short or the other way — between two polls of the live cohort bias.
+A PnL cohort's net positioning in a coin changed sign — from net long to net short or the other way — between two polls of the live cohort bias. A rule of this type must name its coins in `filters.coins` — those are the coins we poll — or it is refused with `400 invalid_request`.
 
 | | |
 |---|---|
 | Plan | Agent and above |
 | Freshness | A poll of the live cohort bias every **60 s** for each coin named in an active rule of this type — the event can be up to a poll interval late |
-| Filters | `coins` |
+| Filters | `coins` (required: the coins to poll) |
 
 `previousBias` and `bias` are the cohort's net bias at the two polls; the event fires on the sign change, not on its size, so a cohort hovering around flat can flip back and forth. The cohorts are the PnL tiers described in [Cohorts](/concepts/cohorts); `cohort` is the slug the live cohort-bias endpoint, `/live/cohort-bias/{coin}`, returns.
 
@@ -1001,7 +1001,7 @@ Sent by POST /webhooks/endpoints/:id/test. Signed with the live secret so a rece
   "summary": "Test event for endpoint whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9. If you can read this, signature verification works.",
   "data": {
     "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
-    "message": "This is a test event from Coinversa Pulse."
+    "message": "This is a test event from Coinversa Pulse. Verify it with the Standard Webhooks headers webhook-id, webhook-timestamp and webhook-signature."
   },
   "context": {
     "suggestedTools": []
@@ -1012,7 +1012,7 @@ Sent by POST /webhooks/endpoints/:id/test. Signed with the live secret so a rece
 
 ## `webhook.rate_limited`
 
-Your rules matched more events than the plan's per-minute burst or monthly budget allows. Events past either cap are **dropped — not stored, not delivered** — and instead of one notice per dropped event you get **one `webhook.rate_limited` event per hour**, kept up to date while the hour lasts: `data.dropped` counts what was dropped in that hour and `data.until` says how long the drop lasts. See [Plan limits](/webhooks/limits).
+Your rules matched more events than the plan's per-minute burst or monthly budget allows. Events past either cap are **dropped — not stored, not delivered and not in the inbox** — and instead of one notice per dropped event you get **one `webhook.rate_limited` event per UTC hour**, kept up to date while drops continue: `data.dropped` counts what was dropped in that hour and `data.until` says when the cap resets. See [Plan limits](/webhooks/limits).
 
 | | |
 |---|---|
@@ -1033,10 +1033,10 @@ Your rules matched more events than the plan's per-minute burst or monthly budge
     "typicalLagMs": 0
   },
   "rule": null,
-  "summary": "Your rules produced more events than the plan delivers per minute (60); 143 were not delivered.",
+  "summary": "Your rules produced more events than the plan delivers per minute (30); 143 were not delivered.",
   "data": {
     "window": "minute",
-    "limit": 60,
+    "limit": 30,
     "dropped": 143,
     "until": "2026-11-03T14:22:00.000Z"
   },

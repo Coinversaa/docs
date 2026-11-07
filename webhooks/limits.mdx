@@ -21,6 +21,7 @@ Webhook limits are separate from REST request quotas and WebSocket capacity — 
 - **Events / month** counts every event your rules match into the webhook or inbox channels, per calendar month.
 - **Burst** is per account and counts matched events on the webhook **and** inbox channels — an inbox-only rule is capped too.
 - A single rule watches at most **1,000** wallets on any plan; your plan's watched-wallet count is the ceiling across all your rules.
+- **Webhook endpoints** counts disabled endpoints until you delete them, because a recovery probe can re-activate one. At the limit with a disabled endpoint, delete it or re-enable it; the `402 plan_limit` message says how many are disabled.
 - **Enterprise** starts at Pro's numbers; email [chat@coinversa.ai](mailto:chat@coinversa.ai) to raise them.
 
 ## What happens at a cap
@@ -31,12 +32,13 @@ If you see one, a rule is matching more than your plan carries. Narrow it — fe
 
 ## Noisy wallets and digest mode
 
-Some wallets trade constantly — market makers and bots can produce hundreds of thousands of fills a day. One of those in a rule would spend the whole month's budget in hours and bury every other event. So each **(rule, wallet)** pair has a guard:
+Some wallets trade constantly — market makers and bots can produce hundreds of thousands of fills a day. One of those in a rule would spend the whole month's budget in hours and bury every other event. So on every rule with an **inbox or webhook channel** (Starter and above), each **(rule, wallet)** pair has a guard. A Telegram-only rule — every rule on Free — has no budget to protect and is never digested: it gets every event.
 
 - Above **120** `wallet.*` events for one rule within an hour, that wallet enters **digest mode** for that rule until the hour ends.
 - In digest mode its individual `wallet.*` events for that rule are **not stored and not delivered**.
 - Instead, every **5 minutes**, the rule gets one [`wallet.activity.digest`](/webhooks/events#wallet-activity-digest) event for the wallet: the window it covers (`from`, `to`), how many events it folded (`suppressed`), the count per type (`byType`) and the summed `notionalUsd`.
 - When the hour ends, individual events resume.
+- A digest window that is open when we restart is emitted at shutdown, with `to` set to that moment, so a digest can cover less than 5 minutes.
 
 Other wallets in the same rule, and the same wallet in your other rules, are not affected. A digest tells you that a wallet is busy and roughly how; when you need the detail, read its current positions rather than replaying fills.
 
@@ -48,11 +50,11 @@ Other wallets in the same rule, and the same wallet in your other rules, are not
 { "estimate": { "eventsPerDay": 1840, "basis": "24h_observed", "knownWallets": 3, "unknownWallets": 1 } }
 ```
 
-- `eventsPerDay` is projected from the **last 24 hours** of wallet events we observed for the rule's wallets (`basis: "24h_observed"`).
-- Only wallets some rule already watches have history: `knownWallets` counts those, `unknownWallets` the rest. The estimate covers the known wallets only, so read it as a floor when `unknownWallets` is not zero.
-- `eventsPerDay` is `null` when there is nothing to base it on.
+- `eventsPerDay` is projected from the **last 24 hours** of matched `wallet.*` events we counted for the rule's wallets (`basis: "24h_observed"`), from hourly counts at most a minute behind.
+- A wallet is **known** only when we counted at least one matched `wallet.*` event for it in the last 24 hours — in practice, a wallet some rule already watches and that has traded. `knownWallets` counts those, `unknownWallets` the rest: a watched wallet with no counted event is unknown, not zero. The estimate covers the known wallets only, so read it as a floor when `unknownWallets` is not zero.
+- `eventsPerDay` is `null` when none of the rule's wallets is known.
 
-A real create is refused with **`400 estimate_too_high`** when `eventsPerDay` is known and is more than **10 × your monthly budget ÷ 30** — a rule that would burn through roughly ten days of budget in one day:
+A real create is refused with **`400 estimate_too_high`** when `eventsPerDay` is known and is more than **10 × your monthly budget ÷ 30** — a rule that would burn through roughly ten days of budget in one day. A `PATCH` that changes the rule's event types or wallets is held to the same ceiling; a change to its label, channels or cooldown is not re-estimated:
 
 | | Starter | Agent | Pro |
 |---|---:|---:|---:|
@@ -62,7 +64,9 @@ Drop the busiest wallets, add a `coins` or `minNotionalUsd` filter, and try the 
 
 ## The inbox gap flag
 
-`GET /events` answers `gap: true` when the `since` cursor you passed is older than your plan's retention window, or older than the oldest event still stored for your account ([reference](/webhooks/api#list-events)). Either way, events between your cursor and the first one returned **may be missing** — aged out, or dropped at a cap. Do not treat the page as complete: re-read the state you care about (the wallet's positions, the coin's price) and carry on from the new cursor. A poller that runs well inside the retention window and stays under its caps never sees it.
+`GET /events` answers `gap: true` when the `since` cursor you passed is older than your plan's retention window, or older than the oldest event still stored for your account ([reference](/webhooks/api#list-events)). Either way, events between your cursor and the first one returned **may be missing** — aged out, or dropped at a cap. Do not treat the page as complete: re-read the state you care about (the wallet's positions, the coin's price) and carry on from the new cursor.
+
+Polling often does not keep the flag away on a **quiet** account. Your cursor is the id of the last event you received; when no new event arrives for longer than your retention window (a day on Starter), the cursor ages past the window, and from then on every call returns an empty page with `gap: true` and the same `nextCursor` — it cannot move past what is stored — until the next event arrives. Nothing new is missing on those repeat calls, so resynchronise **once per cursor value**: remember the cursor you last resynchronised for, and skip the resync while `nextCursor` is still that value.
 
 ## Event types by plan
 
@@ -70,8 +74,8 @@ Each plan includes the event types of the plans below it.
 
 | Plan | Event types it adds |
 |---|---|
-| Free | `wallet.position.opened`, `wallet.position.closed`, `wallet.position.flipped`, `wallet.position.increased`, `wallet.position.decreased`, `wallet.position.reconciled`, `wallet.liquidated`, `wallet.liquidation_risk`, `wallet.activity.digest` — on Telegram |
-| Starter | The same `wallet.*` types on the inbox and webhook channels, plus `wallet.twap.filled` and `market.price.crossed`. Your endpoints also receive `webhook.test` and `webhook.rate_limited` |
+| Free | `wallet.position.opened`, `wallet.position.closed`, `wallet.position.flipped`, `wallet.position.increased`, `wallet.position.decreased`, `wallet.position.reconciled`, `wallet.liquidated`, `wallet.liquidation_risk` — on Telegram, every event (a Telegram-only rule is never digested) |
+| Starter | The same `wallet.*` types on the inbox and webhook channels, plus `wallet.twap.filled` and `market.price.crossed`. Noisy wallets on those rules switch to `wallet.activity.digest` ([digest mode](#noisy-wallets-and-digest-mode)). Your endpoints also receive `webhook.test` and `webhook.rate_limited` |
 | Agent | `market.liquidation.large` and `market.trade.large` — every liquidation and every block's trading by one wallet in one coin on the exchange above your notional threshold — plus `wallet.twap.status` and `cohort.bias_flipped` |
 | Pro | No additional event type today; Pro raises the limits above |
 | Enterprise | Everything in Pro |

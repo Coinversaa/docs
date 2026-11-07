@@ -15,9 +15,12 @@ Set up a Claude routine (or any scheduler that runs an agent with the Coinversa 
 
 ```text
 Call pulse_events with since set to the last event id you reported (none on the first run).
-If the result says gap: true, events may be missing: before anything else, re-read the
-current state of every wallet I track with pulse_trader_position_summary and tell me
-the state, not a reconstruction of what was missed.
+If the result says gap: true and the since you passed is not the cursor you last resynced
+for, events may be missing: before anything else, re-read the current state of every
+wallet I track with pulse_trader_position_summary, tell me the state, not a
+reconstruction of what was missed, and remember that since as the cursor you resynced
+for. If gap: true comes back for the cursor you already resynced for, nothing new is
+missing: do not resync or mention the gap again.
 For each event, say what happened using its summary. If an event matters for what I am
 tracking, call one of its context.suggestedTools to add detail. Note each event's
 freshness. A wallet.activity.digest means the wallet was too busy for individual events:
@@ -25,7 +28,7 @@ report the counts, not trades. Remember nextCursor for the next run. If there ar
 events and no gap, say nothing.
 ```
 
-Without `since`, `pulse_events` returns the last 24 hours, up to 50 events, so a routine that cannot keep state still works — it re-reads a day's events and should skip ids it has already reported. Fifteen minutes is well inside every paid plan's retention window (one day on Starter, seven on Agent, thirty on Pro), so nothing ages out between runs.
+Without `since`, `pulse_events` returns the last 24 hours, up to 50 events, so a routine that cannot keep state still works — it re-reads a day's events and should skip ids it has already reported. Fifteen minutes is well inside every paid plan's retention window (one day on Starter, seven on Agent, thirty on Pro), so nothing ages out between runs. On a quiet account, though, the cursor itself ages out: after a retention window with no new event, every run gets an empty page with `gap: true` and the same `nextCursor` until the next event arrives. That is why the routine resyncs once per cursor value rather than on every gap.
 
 ### Cursor and gap, in code
 
@@ -34,8 +37,9 @@ The same routine without an LLM — a poller that keeps its cursor, drains every
 ```javascript Node
 const BASE = "https://backend.coinversa.ai/api/v1/webhooks";
 
-export async function pollInbox({ loadCursor, saveCursor, handle, resync }) {
-  let cursor = await loadCursor(); // null on the first run
+export async function pollInbox({ loadState, saveState, handle, resync }) {
+  // { cursor, resyncedFor }: both null on the first run
+  let { cursor = null, resyncedFor = null } = (await loadState()) ?? {};
   for (;;) {
     const url = new URL(`${BASE}/events`);
     url.searchParams.set("limit", "200");
@@ -45,16 +49,21 @@ export async function pollInbox({ loadCursor, saveCursor, handle, resync }) {
     if (!res.ok) throw new Error(`inbox ${res.status}: ${await res.text()}`);
     const page = await res.json();
 
-    if (page.gap) await resync(); // events may be missing: re-read the state you track
+    // Events may be missing: re-read the state you track. Once per cursor value, because on a
+    // quiet account the flag repeats on every empty page until a new event moves the cursor.
+    if (page.gap && cursor !== resyncedFor) {
+      await resync();
+      resyncedFor = cursor;
+    }
     for (const event of page.events) await handle(event); // deduplicate on event.id
     cursor = page.nextCursor;
-    await saveCursor(cursor);
+    await saveState({ cursor, resyncedFor });
     if (!page.hasMore) return;
   }
 }
 ```
 
-`nextCursor` is your `since` echoed back when a page is empty, so saving it unconditionally never moves you backwards. `gap: true` means your cursor is older than your plan's retention window or than the oldest event still stored for your account — what lies between may be gone. Re-read the state, do not try to reconstruct the missing events. See [the inbox gap flag](/webhooks/limits#the-inbox-gap-flag).
+`nextCursor` is your `since` echoed back when a page is empty, so saving it unconditionally never moves you backwards. `gap: true` means your cursor is older than your plan's retention window or than the oldest event still stored for your account — what lies between may be gone. Re-read the state, do not try to reconstruct the missing events. The flag stays up on every empty page until a new event arrives, so `resyncedFor` keeps a quiet account from resyncing on every run. See [the inbox gap flag](/webhooks/limits#the-inbox-gap-flag).
 
 ## Discover the event types first
 
@@ -72,7 +81,7 @@ export async function pollInbox({ loadCursor, saveCursor, handle, resync }) {
 }
 ```
 
-`deliver` defaults to **`inbox`**, so the watch works with no endpoint and no other setup. Before it saves anything the tool runs the rule as a [dry run](/webhooks/limits#estimate-a-rule-before-you-save-it); when the wallet has history, its answer includes the estimate — "about 40 events a day" — next to the rule it created and how to read the results. A wallet busy enough to blow through your plan is refused with `estimate_too_high` rather than saved. `events` accepts every `wallet.*` type your plan includes, `wallet.twap.filled` and `wallet.twap.status` among them. Pass `deliver: "webhook"` with an `endpointId` to post to an endpoint you already created. Telegram delivery is not configurable from the tool yet. The tool is idempotent — repeating the same request does not create a second rule — and it is bound by your plan's rule and watched-wallet counts.
+`deliver` defaults to **`inbox`**, so the watch works with no endpoint and no other setup. Before it saves anything the tool runs the rule as a [dry run](/webhooks/limits#estimate-a-rule-before-you-save-it); when the wallet has history, its answer includes the estimate — "about 40 events a day" — next to the rule it created and how to read the results. A wallet busy enough to blow through your plan is refused with `estimate_too_high` rather than saved. `events` accepts every subscribable `wallet.*` type your plan includes, `wallet.twap.filled` and `wallet.twap.status` among them; `wallet.activity.digest` is not one of them — the backend emits it on its own when a watched wallet goes over 120 events an hour. Pass `deliver: "webhook"` with an `endpointId` to post to an endpoint you already created. Telegram delivery is not configurable from the tool yet. The tool is idempotent — repeating the same request does not create a second rule — and it is bound by your plan's rule and watched-wallet counts.
 
 ## Reading an event as an LLM
 
@@ -93,12 +102,12 @@ Each envelope is built so a model can act on it without parsing `data`:
 
 | Tool | Kind | What it does |
 |---|---|---|
-| `pulse_events` | Read-only | The inbox: `since?`, `types?`, `wallet?`, `limit?`. Defaults to the last 24 hours, 50 events. Reports `gap` when events may be missing |
+| `pulse_events` | Read-only | The inbox: `since?`, `types?`, `wallet?`, `limit?`. Defaults to the last 24 hours, 50 events. Reports `gap` when events may be missing; on a quiet account it repeats on every empty page until a new event arrives |
 | `pulse_event_types` | Read-only | The event catalogue with `filterDefinitions`, for discovering types and filters before writing a rule |
 | `pulse_watch_wallet` | Creates a rule (idempotent) | `address`, `label?`, `events?`, `coins?`, `minNotionalUsd?`, `deliver?` (`inbox` or `webhook`; default `inbox`), `endpointId?`. Dry-runs first and reports the events-per-day estimate |
 | `pulse_alert_rules` | Read-only | Lists your rules on every channel |
 | `pulse_remove_rule` | Destructive | Deletes one rule, by the id `pulse_alert_rules` returns |
-| `pulse_webhook_endpoints` | Read-only | Lists your endpoints with their health, so Claude can tell you an endpoint has been failing and since when |
+| `pulse_webhook_endpoints` | Read-only | Lists your endpoints with their health, `probeAt` and `probeCount`, so Claude can tell you an endpoint has been failing and since when — and, for one disabled for repeated failures, when the next recovery probe goes out and how many have been sent |
 
 The connector still never touches an exchange account, never signs and never trades. `pulse_watch_wallet` and `pulse_remove_rule` are its only tools that change anything, and what they change is your Coinversa alert settings.
 

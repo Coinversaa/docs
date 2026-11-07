@@ -49,7 +49,7 @@ A request is authentic when:
 2. **any** `v1,` entry in `webhook-signature` equals the signature you computed, compared in **constant time**.
 
 <Note>
-Secrets created before the switch to Standard Webhooks were encoded with the base64**url** alphabet — you can tell by a `-` or `_` after `whsec_`. They still sign and verify; the manual verifiers below decode either alphabet. The `standardwebhooks` libraries expect standard base64, so if your secret contains `-` or `_`, [rotate it](#rotating-the-secret) once before switching to a library.
+A secret is always `whsec_` followed by **padded standard base64** — the encoding the `standardwebhooks` libraries decode. A secret with `-` or `_` after `whsec_`, or without its `=` padding, is not valid and is never used to sign: deliveries to that endpoint fail with `secret_unavailable` until you [rotate it](#rotating-the-secret).
 </Note>
 
 ### Known-answer test vector
@@ -151,8 +151,7 @@ const TOLERANCE_S = 300;
 
 function secretKey(secret) {
   const encoded = secret.startsWith("whsec_") ? secret.slice(6) : secret;
-  // Older secrets used the base64url alphabet; new ones are standard base64.
-  return Buffer.from(encoded, /[-_]/.test(encoded) ? "base64url" : "base64");
+  return Buffer.from(encoded, "base64"); // padded standard base64
 }
 
 export function verifyCoinversaSignature(headers, rawBody, secret, nowS = Math.floor(Date.now() / 1000)) {
@@ -200,10 +199,7 @@ TOLERANCE_S = 300
 
 def _secret_key(secret: str) -> bytes:
     encoded = secret[len("whsec_"):] if secret.startswith("whsec_") else secret
-    # Older secrets used the base64url alphabet; new ones are standard base64.
-    if "-" in encoded or "_" in encoded:
-        return base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
-    return base64.b64decode(encoded, validate=True)
+    return base64.b64decode(encoded, validate=True)  # padded standard base64
 
 
 def verify_coinversa_signature(headers: dict, raw_body: bytes, secret: str, now_s: Optional[int] = None) -> bool:
@@ -260,7 +256,7 @@ A receiver holding either secret verifies, because a request is authentic when *
 
 ## Success, failure and retries
 
-A delivery **succeeds** on any `2xx` response within the timeout. Everything else is a failure: another status code, a timeout, a DNS failure, a refused connection, a redirect, or a URL that fails the address checks at send time.
+A delivery **succeeds** on any `2xx` response within the timeout. Everything else is a failure: another status code, a timeout, a DNS failure, a refused connection, a redirect, or a URL that fails the address checks at send time. Failures are retried on the schedule below, with one exception: a **`3xx`** is not retried. The delivery is dead after attempt 1 with `error: "redirect"` (the `Location` header is never followed) and counts toward `consecutiveFailures` like any dead delivery, but does not disable the endpoint by itself. Fix the URL.
 
 | Attempt | Sent |
 |---:|---|
@@ -273,7 +269,7 @@ A delivery **succeeds** on any `2xx` response within the timeout. Everything els
 
 After the sixth failure — about 7 h 15 min after the first try — the delivery is **dead**. It stays in the delivery log for your plan's retention window, where you can replay it.
 
-**One delivery per endpoint is in flight at a time**, so a slow endpoint only delays its own queue. Do not rely on order across events; sort by `occurredAt` (or by the time-sortable ULID in `id`) if order matters.
+**One delivery per endpoint is in flight at a time**, so a slow endpoint only delays its own queue. As soon as one attempt finishes the next one starts, so an endpoint's throughput is set by how fast it answers. Do not rely on order across events; sort by `occurredAt` (or by the time-sortable ULID in `id`) if order matters.
 
 ## Idempotency, retries and replays
 
@@ -284,9 +280,9 @@ Delivery is **at least once**: a timeout on our side after your handler succeede
 
 ## Timeouts and transport rules
 
-- **5-second timeout** for connect plus response. Answer first, then process — push the event onto your own queue and return `200`.
+- **5-second timeout** for the whole attempt: DNS lookup, connect and response. The lookup gets at most 3 seconds (past that the attempt fails with `dns`) and the request gets the rest. Answer first, then process — push the event onto your own queue and return `200`.
 - Only the first 1 KB of your response body is kept in the delivery log; there is no reason to send more.
-- **No redirects.** A `3xx` is a failure; register the final URL.
+- **No redirects.** A `3xx` is a failure that is **not retried** (`error: "redirect"`); register the final URL.
 - **HTTPS only.** On **Agent** and above an endpoint can set `allowInsecure` to use `http://` on a dev-tunnel host (ngrok, localtunnel, Cloudflare quick tunnels) for local development. Free and Starter cannot set it.
 - The URL's host must resolve to public addresses only — loopback, private, link-local and cloud-metadata addresses are refused when you save the endpoint and before every attempt. The address we check is the address we connect to: the hostname is resolved once per attempt, every returned address must be public, and the connection goes to one of those checked addresses while TLS still verifies your hostname's certificate. A DNS answer that changes between the check and the connection cannot redirect a delivery to a private address; such an attempt fails with `ssrf_rejected`.
 

@@ -15,7 +15,7 @@ Events describe public on-chain activity. They are **data, not advice**: a `summ
 | Watched-wallet liquidations | `wallet.liquidated`, `wallet.liquidation_risk` | Free (Telegram); inbox and webhook from Starter |
 | Watched-wallet TWAP fills | `wallet.twap.filled` | Starter |
 | Watched-wallet TWAP status | `wallet.twap.status` | Agent |
-| Busy watched wallets | `wallet.activity.digest` — one summary every 5 min in place of a noisy wallet's individual events | Free; on the rule's own channels |
+| Busy watched wallets | `wallet.activity.digest` — one summary every 5 min in place of a noisy wallet's individual events | Starter, on rules with an inbox or webhook channel (and the rule's other channels); Telegram-only rules get every event |
 | Price levels | `market.price.crossed` (`above`, `below` or `both`) | Starter |
 | Exchange-wide flow | `market.liquidation.large`, `market.trade.large` | Agent |
 | Cohort positioning | `cohort.bias_flipped` | Agent |
@@ -53,7 +53,7 @@ Each envelope's `freshness.source` names where the event came from and `freshnes
 
 ## Delivery model
 
-Delivery works the way Stripe's does, signed the **[Standard Webhooks](https://www.standardwebhooks.com)** way. Each POST carries `webhook-id`, `webhook-timestamp` and `webhook-signature` (HMAC-SHA256 over the id, the timestamp and the raw body), so an off-the-shelf `standardwebhooks` library verifies it; any **2xx within 5 seconds** is success, and anything else is retried on a fixed schedule — immediately, then after 30 s, 2 min, 10 min, 1 h and 6 h — before the delivery is marked dead and kept in the log for **replay**. Delivery is **at least once**, so deduplicate on `webhook-id` (also `id` in the body). A `410 Gone` disables the endpoint at once; 20 consecutive dead deliveries or 72 hours of failures disable it automatically, events keep landing in the inbox meanwhile, and a **recovery probe** re-enables it on its own once it answers again. The details are on [Signatures and delivery](/webhooks/signatures).
+Delivery works the way Stripe's does, signed the **[Standard Webhooks](https://www.standardwebhooks.com)** way. Each POST carries `webhook-id`, `webhook-timestamp` and `webhook-signature` (HMAC-SHA256 over the id, the timestamp and the raw body), so an off-the-shelf `standardwebhooks` library verifies it; any **2xx within 5 seconds** is success, a `3xx` is a failure that is never followed or retried, and anything else is retried on a fixed schedule — immediately, then after 30 s, 2 min, 10 min, 1 h and 6 h — before the delivery is marked dead and kept in the log for **replay**. Delivery is **at least once**, so deduplicate on `webhook-id` (also `id` in the body). A `410 Gone` disables the endpoint at once; 20 consecutive dead deliveries or 72 hours of failures disable it automatically, events keep landing in the inbox meanwhile, and a **recovery probe** re-enables it on its own once it answers again. The details are on [Signatures and delivery](/webhooks/signatures).
 
 Storage is guarded so one noisy rule cannot bury the rest: events past your monthly budget or per-minute burst are dropped and counted in one hourly `webhook.rate_limited` event, a wallet producing more than 120 events an hour for a rule is folded into 5-minute digests, and `POST /rules?dryRun=1` estimates a rule's events per day before you save it. See [Plan limits](/webhooks/limits).
 

@@ -36,6 +36,7 @@ curl -X POST https://backend.coinversa.ai/api/v1/webhooks/endpoints \
     "disabledReason": null,
     "disabledAt": null,
     "probeAt": null,
+    "probeCount": 0,
     "createdAt": "2026-11-03T14:00:00.000Z",
     "updatedAt": "2026-11-03T14:00:00.000Z",
     "createdVia": "api"
@@ -97,7 +98,7 @@ curl -X POST https://backend.coinversa.ai/api/v1/webhooks/rules \
 `cooldownMin` defaults to **0, which means fire once, then deactivate** — the behaviour of the original Telegram alerts. For a watch that keeps firing, set `cooldownMin` to the minimum number of minutes between fires.
 </Warning>
 
-Wallets are lowercase `0x` addresses, up to 1,000 per rule (your plan caps the total across rules). Not sure how busy a wallet is? Send the same body to `POST /rules?dryRun=1` first: it validates the rule and returns `estimate.eventsPerDay` without saving anything, and a rule that would far outrun your plan is refused with `estimate_too_high` — see [estimate a rule before you save it](/webhooks/limits#estimate-a-rule-before-you-save-it). Coins use the canonical form — `BTC` for Hyperliquid perps, `xyz:GOLD` for builder dexes; omit `coins` for every coin. Each event type's filters are listed in the [event catalogue](/webhooks/events).
+Wallets are lowercase `0x` addresses, up to 1,000 per rule (your plan caps the total across rules). Retrying a create with the same body is safe: once the first attempt has saved the rule, the retry answers `409` with its `existing_rule_id` instead of creating a second one ([duplicates](/webhooks/api#create-a-rule)). Not sure how busy a wallet is? Send the same body to `POST /rules?dryRun=1` first: it validates the rule and returns `estimate.eventsPerDay` without saving anything, and a rule that would far outrun your plan is refused with `estimate_too_high` — see [estimate a rule before you save it](/webhooks/limits#estimate-a-rule-before-you-save-it). Coins use the canonical form — `BTC` for Hyperliquid perps, `xyz:GOLD` for builder dexes; omit `coins` for every coin. Each event type's filters are listed in the [event catalogue](/webhooks/events).
 
 ## 3. Send a test event
 
@@ -126,10 +127,10 @@ Your endpoint receives a `webhook.test` event, signed with the live secret:
     "typicalLagMs": 0
   },
   "rule": null,
-  "summary": "Test event for endpoint whe_01JC4Q…Q8R9. If you can read this, signature verification works.",
+  "summary": "Test event for endpoint whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9. If you can read this, signature verification works.",
   "data": {
     "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
-    "message": "This is a test event from Coinversa Pulse."
+    "message": "This is a test event from Coinversa Pulse. Verify it with the Standard Webhooks headers webhook-id, webhook-timestamp and webhook-signature."
   },
   "context": {
     "suggestedTools": []

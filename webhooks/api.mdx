@@ -57,10 +57,10 @@ An **endpoint** is a URL we POST signed events to.
 | `lastSuccessAt`, `lastFailureAt` | string or null | ISO 8601 |
 | `disabledReason`, `disabledAt` | string or null | Set when we disabled it |
 | `probeAt` | string or null | ISO 8601. On an endpoint disabled for repeated failures, when the next [recovery probe](/webhooks/signatures#auto-disable-and-recovery-probes) may go out; `null` otherwise |
-| `probeCount` | number, optional | Recovery probes sent since it was disabled |
+| `probeCount` | number | Recovery probes sent since it was last disabled |
 | `createdAt`, `updatedAt` | string | ISO 8601 |
 | `createdVia` | string | `portal`, `api`, `mcp`, `telegram`, `system` |
-| `health` | object, optional | `delivered`, `failed`, `dead` over your retention window; `p50Ms`, `p95Ms` — measured delivery latency over the endpoint's last 100 deliveries |
+| `health` | object, optional | On list and get only. All five fields are over the endpoint's **last 100 deliveries**, not a time window: `delivered` (succeeded), `failed` (still retrying after a failed attempt), `dead` (gave up), and `p50Ms`, `p95Ms` — delivery latency of the succeeded originals among them (replays and test sends excluded), `null` when there are none |
 
 ### List endpoints
 
@@ -80,7 +80,7 @@ An **endpoint** is a URL we POST signed events to.
 { "url": "https://example.com/hooks/coinversa", "description": "Production receiver" }
 ```
 
-→ `201 { "endpoint": EndpointView, "secret": "whsec_…" }`. The `secret` is returned **only here** (and by rotation). Errors: `400` (`invalid_request`, `url_rejected`) and `402` (`plan_limit` when you are at your endpoint count, `plan_required` when your plan has no webhook channel).
+→ `201 { "endpoint": EndpointView, "secret": "whsec_…" }`. The `secret` is returned **only here** (and by rotation). Errors: `400` (`invalid_request`, `url_rejected`) and `402` (`plan_limit` when you are at your endpoint count, `plan_required` when your plan has no webhook channel). A **disabled** endpoint still counts toward your endpoint limit until you delete it, because a recovery probe can re-activate it; when that is why you are at the limit, the `402` message says how many of your endpoints are disabled and to delete or re-enable them.
 
 ### Get an endpoint
 
@@ -144,7 +144,7 @@ Both secrets sign every delivery until `previousSecretExpiresAt`, 24 hours later
 | `nextAttemptAt`, `requestedAt` | string or null | ISO 8601 |
 | `responseStatus`, `responseMs` | number or null | Your endpoint's HTTP status and latency |
 | `responseSnippet` | string or null | The first 1 KB of your response body |
-| `error` | string or null | e.g. `timeout`, `dns`, `connect`, `ssrf_rejected`, `http_410` |
+| `error` | string or null | Why the attempt failed: `http_<status>`, `timeout` (no answer within 5 s, DNS lookup included), `connect`, `dns` (the lookup failed or took more than 3 s), `ssrf_rejected`, `http_410` (the endpoint was disabled), `redirect` (a `3xx`: never followed and not retried, the delivery is dead at once), `endpoint_disabled`, `event_expired`, `secret_unavailable` (ours; retried, never counted against your endpoint) |
 | `replayOf` | string or null | The original delivery id, on a replay |
 | `isTest` | boolean | |
 | `createdAt`, `completedAt` | string / string or null | ISO 8601 |
@@ -167,9 +167,9 @@ A **rule** matches events and sends them to one or more channels. Rules on every
 | `eventTypes` | string[] | Subscribable [event types](/webhooks/events) |
 | `filters` | object | `wallets`, `coins`, `minNotionalUsd`, `thresholdPct`, `price` — see [rule filters](/webhooks/events#rule-filters) |
 | `channels` | object[] | `{"kind":"webhook","endpointId":"whe_…"}`, `{"kind":"telegram","chatId":"…"}`, `{"kind":"inbox"}` |
-| `cooldownMin` | number | Minutes between fires; `0` = fire once, then deactivate |
-| `lastFiredAt` | string or null | |
-| `firedCount` | number | |
+| `cooldownMin` | number | Minutes between fires; `0` = fire once, then deactivate; `-1` = every match, no cooldown |
+| `lastFiredAt` | string or null | On a rule with `cooldownMin: -1`, can lag the latest fire by up to 5 s |
+| `firedCount` | number | On a rule with `cooldownMin: -1`, can lag by up to 5 s |
 | `createdAt` | string | |
 | `createdVia` | string | |
 
@@ -185,7 +185,7 @@ A **rule** matches events and sends them to one or more channels. Rules on every
 |---|---|---|---|
 | `eventTypes` | string[] | yes | At least one; `webhook.*` types are not subscribable |
 | `channels` | object[] | yes | At least one |
-| `filters` | object | no | `wallets` is required for `wallet.*` types (max 1,000); `price` for `market.price.crossed`. Types and bounds are in [`filterDefinitions`](#list-event-types) |
+| `filters` | object | no | `wallets` is required for `wallet.*` types (max 1,000); `price` for `market.price.crossed`; `coins` for `cohort.bias_flipped` (the coins to poll). Types and bounds are in [`filterDefinitions`](#list-event-types) |
 | `label` | string | no | Up to 80 characters |
 | `cooldownMin` | integer | no | Default `0` — fire once, then deactivate |
 
@@ -193,9 +193,22 @@ A **rule** matches events and sends them to one or more channels. Rules on every
 |---|---|
 | `dryRun` | `1` to validate and estimate the rule without saving it |
 
-→ `201 { "rule": RuleView }`. Errors: `400` (`invalid_request`, `estimate_too_high`) and `402` (`plan_limit` for the rule or watched-wallet count, `plan_required` for an event type or channel your plan does not include).
+→ `201 { "rule": RuleView }`. Errors: `400` (`invalid_request`, `estimate_too_high`), `402` (`plan_limit` for the rule or watched-wallet count, `plan_required` for an event type or channel your plan does not include) and `409`.
 
-**Dry run.** `POST /rules?dryRun=1` with the same body runs the same validation — the same `400` and `402` errors — and, when the body passes, returns the estimate instead of creating anything:
+**Duplicates.** A create is refused with `409`, code `invalid_request`, when you already have an **active** rule with the same `label`, `eventTypes`, filters and channels. Wallets are compared lowercased and deduplicated, the order of any list does not matter, and `cooldownMin` is not compared. The body carries `existing_rule_id`, the rule that already exists, and nothing is saved:
+
+```json
+{
+  "success": false,
+  "error": "An identical active rule already exists (672f3b8e9d1c2a4b5e6f7a8b): same label, event types, filters and channels. Use that rule, or give this one a different label.",
+  "code": "invalid_request",
+  "existing_rule_id": "672f3b8e9d1c2a4b5e6f7a8b"
+}
+```
+
+So a retried create that sends the same body cannot double your deliveries. Two rules that differ only in `label` are allowed — give each its own label when you want a second rule on the same wallets.
+
+**Dry run.** `POST /rules?dryRun=1` with the same body runs the same validation — the same `400`, `402` and `409` errors — and, when the body passes, returns the estimate instead of creating anything:
 
 ```json
 {
@@ -210,16 +223,20 @@ A **rule** matches events and sends them to one or more channels. Rules on every
 
 | Field | Type | Notes |
 |---|---|---|
-| `eventsPerDay` | number or null | Projected from the last 24 hours of wallet events observed for the rule's wallets; `null` when there is no basis for an estimate |
+| `eventsPerDay` | number or null | Projected from the last 24 hours of matched `wallet.*` events counted for the rule's known wallets (hourly counts, at most a minute behind); `null` when none of its wallets is known |
 | `basis` | string | `24h_observed` |
-| `knownWallets` | number | Rule wallets with observed history — wallets some rule already watches |
-| `unknownWallets` | number | Rule wallets with none; the estimate does not cover them |
+| `knownWallets` | number | Rule wallets for which we counted at least one matched `wallet.*` event in the last 24 hours |
+| `unknownWallets` | number | Rule wallets with no counted event in the last 24 hours — unknown, not zero; the estimate does not cover them |
 
 A real create answers `400` with code `estimate_too_high` when `eventsPerDay` is known and exceeds 10 × your monthly event budget ÷ 30. The thresholds per plan, and what to change, are on [Plan limits](/webhooks/limits#estimate-a-rule-before-you-save-it).
 
 ### Update a rule
 
-`PATCH /rules/{id}` with any field of the create body plus `active` (boolean) → `200 { "rule": RuleView }`, or `404`.
+`PATCH /rules/{id}` with any field of the create body plus `active` (boolean) → `200 { "rule": RuleView }`, or `404`. The update is validated as a create:
+
+- `400` `estimate_too_high`, on the same terms and with the same message as a create, when the update changes `eventTypes` or `filters.wallets` and the new estimate is above your ceiling. A change to the label, channels or cooldown is not re-estimated.
+- `402` when the result needs a higher plan or goes past a count limit.
+- `409` with `existing_rule_id`, as on [create](#create-a-rule), when the update would make the rule identical to another active rule — re-activating it with `active: true` included.
 
 ### Delete a rule
 
@@ -253,6 +270,8 @@ A real create answers `400` with code `estimate_too_high` when `eventsPerDay` is
 `nextCursor` is where to resume: the last event id in the page, or your `since` echoed back when the page is empty, so a poller that saves it never restarts from older events. Pass it back as `since`. `hasMore` says whether another page is ready now.
 
 `gap` is `true` when your `since` is older than your plan's retention window or older than the oldest event still stored for your account: events between your cursor and this page **may be missing**. Re-read the state you depend on before carrying on from `nextCursor` — see [the inbox gap flag](/webhooks/limits#the-inbox-gap-flag). It may be absent when there is no gap.
+
+On a quiet account the flag **repeats**: once your cursor has aged past the retention window, every call returns an empty page with `gap: true` and the same `nextCursor` (your `since` echoed back) until a new event arrives, because the cursor cannot move past what is stored. Resynchronise once per cursor value, not on every call.
 
 `deliveryStatus` maps each event id to what happened to it:
 
@@ -337,7 +356,12 @@ The values above illustrate the shape; read the live object rather than copying 
 }
 ```
 
-`latency` is **measured, not promised**: for each event type, over the last 1,000 events of that type the pipeline handled (across all accounts, not only yours), `ingest*` is the time from the on-chain moment (`occurredAt`) to when we saw it (`observedAt`), and `deliver*` is the time from `observedAt` to a successful delivery. Each value is a number of milliseconds and `n` is how many samples they rest on — treat a small `n` as noise. `freshness.typicalLagMs` on an event is a typical value; these are what was measured.
+`latency` is **measured, not promised**, from **your own** log, per event type:
+
+- `ingest*` is the time from the on-chain moment (`occurredAt`) to when we saw it (`observedAt`), over your last 1,000 rule events — all types together, so each type's samples are its share of those 1,000 and a rare type may rest on a handful. Test and rate-limit notices have no rule and are not counted.
+- `deliver*` is the time from `observedAt` to a successful delivery, over your last 1,000 successful original deliveries (not replays or test sends) to your current endpoints — your receiver's latency, not a platform benchmark. It is `null` for a type with no successful delivery in that sample.
+
+Values are nearest-rank percentiles in whole milliseconds, and `n` is the number of ingest samples — treat a small `n` as noise. A type with no samples is absent. `freshness.typicalLagMs` on an event is a typical value; these are what was measured for you.
 
 The numbers per plan are on [Plan limits](/webhooks/limits).
 
@@ -356,11 +380,12 @@ Every `4xx` from this API has the same body:
 }
 ```
 
-`error` is a human sentence (the one above is an example); branch on `code`. `required_tier`, `current_tier`, `limit`, `current` and `upgrade_url` appear when they apply.
+`error` is a human sentence (the one above is an example); branch on `code`. `required_tier`, `current_tier`, `limit`, `current`, `upgrade_url` and `existing_rule_id` appear when they apply.
 
 | `code` | Status | Meaning |
 |---|---|---|
 | `invalid_request` | `400` | The body or query failed validation |
+| `invalid_request` | `409` | On `POST /rules` (dry run included) and `PATCH /rules/{id}`: an identical active rule exists — `existing_rule_id` names it. See [duplicates](#create-a-rule) |
 | `not_found` | `404` | No such resource on your account |
 | `plan_limit` | `402` | A count limit (endpoints, rules, watched wallets) is reached — `limit` and `current` say which numbers |
 | `plan_required` | `402` | The event type, channel or option needs a higher plan — `required_tier` names it |
