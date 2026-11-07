@@ -1,6 +1,6 @@
 ---
 title: "Webhooks quickstart"
-description: "Set up Coinversa Pulse webhooks in five steps — create a signed HTTPS endpoint, write a watched-wallet rule, send a test event, verify the Coinversa-Signature header, and read the event inbox — with real request and response bodies."
+description: "Set up Coinversa Pulse webhooks in five steps — create a signed HTTPS endpoint, write a watched-wallet rule with a dry-run estimate, send a test event, verify the Standard Webhooks signature, and read the event inbox — with real request and response bodies and a pre-launch checklist."
 ---
 
 Five steps: an endpoint, a rule, a test event, a signature check, and the inbox. You need a **Starter** plan or above for the webhook channel and an API key from [developers.coinversa.ai](https://developers.coinversa.ai). Every request below goes to `https://backend.coinversa.ai/api/v1/webhooks` with your key in the `X-API-Key` header.
@@ -35,11 +35,12 @@ curl -X POST https://backend.coinversa.ai/api/v1/webhooks/endpoints \
     "lastFailureAt": null,
     "disabledReason": null,
     "disabledAt": null,
+    "probeAt": null,
     "createdAt": "2026-11-03T14:00:00.000Z",
     "updatedAt": "2026-11-03T14:00:00.000Z",
     "createdVia": "api"
   },
-  "secret": "whsec_q3T9vL2xN8bR5mK1pW7sY4zA6cE0gH2jU8fD5nQ7rXo"
+  "secret": "whsec_/Im5PpCWQIZhaF0jeVnH3fmypIqQXqimytj1x9BGQEc="
 }
 ```
 
@@ -96,7 +97,7 @@ curl -X POST https://backend.coinversa.ai/api/v1/webhooks/rules \
 `cooldownMin` defaults to **0, which means fire once, then deactivate** — the behaviour of the original Telegram alerts. For a watch that keeps firing, set `cooldownMin` to the minimum number of minutes between fires.
 </Warning>
 
-Wallets are lowercase `0x` addresses, up to 500 per rule (your plan caps the total across rules). Coins use the canonical form — `BTC` for Hyperliquid perps, `xyz:GOLD` for builder dexes; omit `coins` for every coin. Each event type's filters are listed in the [event catalogue](/webhooks/events).
+Wallets are lowercase `0x` addresses, up to 1,000 per rule (your plan caps the total across rules). Not sure how busy a wallet is? Send the same body to `POST /rules?dryRun=1` first: it validates the rule and returns `estimate.eventsPerDay` without saving anything, and a rule that would far outrun your plan is refused with `estimate_too_high` — see [estimate a rule before you save it](/webhooks/limits#estimate-a-rule-before-you-save-it). Coins use the canonical form — `BTC` for Hyperliquid perps, `xyz:GOLD` for builder dexes; omit `coins` for every coin. Each event type's filters are listed in the [event catalogue](/webhooks/events).
 
 ## 3. Send a test event
 
@@ -141,26 +142,28 @@ To exercise your handler with a realistic payload, send `{"type":"wallet.liquida
 
 ## 4. Verify the signature
 
-Every POST carries `Coinversa-Signature: t=<unix seconds>,v1=<hex>`. Recompute HMAC-SHA256 over `t + "." + rawBody` with your secret and compare in constant time. Verify against the **raw** request body — parsing and re-serialising the JSON changes the bytes.
+Deliveries are signed the [Standard Webhooks](https://www.standardwebhooks.com) way: every POST carries `webhook-id`, `webhook-timestamp` and `webhook-signature: v1,<base64>`, an HMAC-SHA256 over `webhook-id + "." + webhook-timestamp + "." + rawBody` keyed with your decoded secret. A `standardwebhooks` library checks all of it. Verify against the **raw** request body — parsing and re-serialising the JSON changes the bytes.
 
 ```javascript Node (Express)
 import express from "express";
-import { verifyCoinversaSignature } from "./verify.js"; // from the Signatures page
+import { Webhook } from "standardwebhooks"; // npm install standardwebhooks
 
 const app = express();
+const wh = new Webhook(process.env.COINVERSA_WEBHOOK_SECRET); // the whsec_… from step 1
 
 app.post("/hooks/coinversa", express.raw({ type: "application/json" }), (req, res) => {
-  const rawBody = req.body.toString("utf8");
-  if (!verifyCoinversaSignature(req.get("Coinversa-Signature") ?? "", rawBody, process.env.COINVERSA_WEBHOOK_SECRET)) {
+  let event;
+  try {
+    event = wh.verify(req.body.toString("utf8"), req.headers); // throws on a bad signature or stale timestamp
+  } catch (err) {
     return res.status(400).send("bad signature");
   }
-  const event = JSON.parse(rawBody);
-  // Deduplicate on event.id (also the Coinversa-Event-Id header), then hand off to a queue.
+  // Deduplicate on event.id (also the webhook-id header), then hand off to a queue.
   res.sendStatus(200);
 });
 ```
 
-The verifier itself, in Node, Python and Go, is on [Signatures and delivery](/webhooks/signatures#verify-a-signature). Answer quickly: anything slower than **5 seconds** counts as a failure and is retried.
+Python and Go libraries, dependency-free verifiers and a known-answer test vector are on [Signatures and delivery](/webhooks/signatures#verify-with-a-library). Answer quickly: anything slower than **5 seconds** counts as a failure and is retried.
 
 ## 5. Read the inbox
 
@@ -225,11 +228,32 @@ curl "https://backend.coinversa.ai/api/v1/webhooks/events?limit=50" \
     }
   ],
   "nextCursor": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "hasMore": false,
+  "gap": false,
   "deliveryStatus": { "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9": "delivered" }
 }
 ```
 
-Event ids are ULIDs and sort by time. Save `nextCursor` and pass it back as `since` on the next call to get only newer events; `hasMore` says whether another page is ready now. Without `since`, the first call returns the last 24 hours. Filter with `types` (comma-separated) and `wallet`.
+Event ids are ULIDs and sort by time. Save `nextCursor` and pass it back as `since` on the next call to get only newer events; `hasMore` says whether another page is ready now. Without `since`, the first call returns the last 24 hours. Filter with `types` (comma-separated) and `wallet`. If a response says `gap: true`, your cursor is older than what the inbox still holds — events may be missing, so re-read the state you depend on before carrying on ([the inbox gap flag](/webhooks/limits#the-inbox-gap-flag)).
+
+## Pre-launch checklist
+
+Before you point production traffic at a receiver, check each of these:
+
+1. **Signature verified against the test vector.** Your verifier returns true for the [known-answer vector](/webhooks/signatures#known-answer-test-vector) with a fixed clock, and false when you change one byte of the body.
+2. **Raw body.** The route reads the body as bytes before any JSON parser — `express.raw`, `request.body()`, `request.get_data()`, `io.ReadAll`.
+3. **Clock in sync.** The receiver runs NTP; a clock more than 300 seconds off rejects every genuine delivery.
+4. **Deduplicate on `webhook-id`.** Store processed ids for at least your retention window and skip repeats — retries and replays reuse the id.
+5. **Answer in under 5 seconds.** Return `2xx` as soon as the event is verified and queued; do the work afterwards.
+6. **Return `410` only on purpose.** It disables the endpoint at once and is never probed back.
+7. **Both secrets during a rotation.** Your deploy can hold the old and the new secret for the 24-hour overlap, or accepts that either one verifies.
+8. **Test every type you subscribe to.** `POST /endpoints/{id}/test` with `{"type":"…"}` for each, and check the delivery log shows `succeeded`.
+9. **Dry-run every rule.** `POST /rules?dryRun=1` and compare `estimate.eventsPerDay` with your plan's monthly budget ÷ 30.
+10. **Handle the notices.** Your code expects [`webhook.rate_limited`](/webhooks/events#webhook-rate_limited) and [`wallet.activity.digest`](/webhooks/events#wallet-activity-digest) and does not treat them as trades.
+11. **Inbox as a backstop.** A scheduled job pulls `GET /events` from a saved cursor and handles `gap: true`, so an outage on your side costs you nothing inside the retention window.
+12. **Watch endpoint health.** Alert on `status: "disabled"`, `disabledReason` and `probeAt` from `GET /endpoints`, or let `pulse_webhook_endpoints` tell you.
+
+When something does go wrong, [Troubleshooting](/webhooks/troubleshooting) is ordered by symptom.
 
 ## What's next
 
@@ -238,12 +262,15 @@ Event ids are ULIDs and sort by time. Save `nextCursor` and pass it back as `sin
     Every event type, its plan, filters, freshness and sample payload.
   </Card>
   <Card title="Signatures and delivery" icon="shield-check" href="/webhooks/signatures">
-    Verifiers in Node, Python and Go; retries, replay and auto-disable.
+    Standard Webhooks libraries and verifiers; retries, replay, auto-disable and probes.
   </Card>
   <Card title="API reference" icon="terminal" href="/webhooks/api">
     Every route, body and error code.
   </Card>
   <Card title="Plan limits" icon="gauge" href="/webhooks/limits">
-    Endpoints, rules, wallets and events per plan.
+    Endpoints, rules, wallets and events per plan; storage guards.
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/webhooks/troubleshooting">
+    Nothing arrives, signature mismatch, duplicates, quota, digests, gaps.
   </Card>
 </Columns>

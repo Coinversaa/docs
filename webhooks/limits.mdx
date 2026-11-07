@@ -1,6 +1,6 @@
 ---
 title: "Webhook plan limits"
-description: "Coinversa Pulse webhook limits by plan — endpoints, alert rules, watched wallets, events per month, deliveries per minute, inbox and replay retention, http dev-tunnel URLs — and which webhook event types Free, Starter, Agent, Pro and Enterprise unlock."
+description: "Coinversa Pulse webhook limits by plan — endpoints, alert rules, watched wallets, events per month, per-minute burst, inbox and replay retention, http dev-tunnel URLs — plus the storage guards: dropped events, noisy-wallet digest mode, rule dry-run estimates with estimate_too_high, and the inbox gap flag."
 ---
 
 Webhook limits are separate from REST request quotas and WebSocket capacity — receiving an event never draws down your API calls. `GET /plan` returns your plan's numbers and your current usage ([reference](/webhooks/api#plan)).
@@ -11,17 +11,58 @@ Webhook limits are separate from REST request quotas and WebSocket capacity — 
 |---|---:|---:|---:|---:|---:|
 | Webhook endpoints | 0 | 1 | 3 | 10 | 10 |
 | Active alert rules (every channel) | 3 | 5 | 25 | 100 | 100 |
-| Watched wallets (distinct, across rules) | 3 | 5 | 50 | 500 | 500 |
-| Events / month (webhook + inbox) | 0 | 2,000 | 25,000 | 250,000 | 250,000 |
-| Deliveries / minute | — | 20 | 60 | 300 | 300 |
+| Watched wallets (distinct, across rules) | 3 | 10 | 100 | 1,000 | 1,000 |
+| Events / month (webhook + inbox) | 0 | 10,000 | 100,000 | 1,000,000 | 1,000,000 |
+| Burst — events / minute | — | 30 | 120 | 600 | 600 |
 | Inbox, replay and delivery-log window | — | 1 day | 7 days | 30 days | 30 days |
 | `http://` dev-tunnel URLs (`allowInsecure`) | no | no | yes | yes | yes |
 
 - **Free** has no webhook channel and no inbox: its three rules deliver to **Telegram** through the existing alerts bot, which keeps its own activation flow (a Telegram channel cannot yet be attached to a rule from the API, portal or MCP).
-- **Events / month** counts every event your rules match into the webhook or inbox channels. Past the budget, events are still recorded in the inbox as `over_quota` but are not POSTed.
-- **Deliveries / minute** is per account. The excess in a minute is not POSTed; it is recorded as `rate_limited`, and you get one [`webhook.rate_limited`](/webhooks/events) event for that window.
-- A single rule watches at most **500** wallets on any plan.
+- **Events / month** counts every event your rules match into the webhook or inbox channels, per calendar month.
+- **Burst** is per account and counts matched events on the webhook **and** inbox channels — an inbox-only rule is capped too.
+- A single rule watches at most **1,000** wallets on any plan; your plan's watched-wallet count is the ceiling across all your rules.
 - **Enterprise** starts at Pro's numbers; email [chat@coinversa.ai](mailto:chat@coinversa.ai) to raise them.
+
+## What happens at a cap
+
+Past the monthly budget or the per-minute burst, events are **dropped**: they are not stored in the inbox and not POSTed. You are not sent one notice per dropped event. Instead your account gets **one [`webhook.rate_limited`](/webhooks/events#webhook-rate_limited) event per hour** that counts what was dropped in that hour (`data.dropped`). It is delivered like any other event, so it reaches the inbox and your endpoints.
+
+If you see one, a rule is matching more than your plan carries. Narrow it — fewer wallets, a `coins` filter, a higher `minNotionalUsd` — or move up a plan. The [inbox gap flag](#the-inbox-gap-flag) tells a poller when something it expected may be missing.
+
+## Noisy wallets and digest mode
+
+Some wallets trade constantly — market makers and bots can produce hundreds of thousands of fills a day. One of those in a rule would spend the whole month's budget in hours and bury every other event. So each **(rule, wallet)** pair has a guard:
+
+- Above **120** `wallet.*` events for one rule within an hour, that wallet enters **digest mode** for that rule until the hour ends.
+- In digest mode its individual `wallet.*` events for that rule are **not stored and not delivered**.
+- Instead, every **5 minutes**, the rule gets one [`wallet.activity.digest`](/webhooks/events#wallet-activity-digest) event for the wallet: the window it covers (`from`, `to`), how many events it folded (`suppressed`), the count per type (`byType`) and the summed `notionalUsd`.
+- When the hour ends, individual events resume.
+
+Other wallets in the same rule, and the same wallet in your other rules, are not affected. A digest tells you that a wallet is busy and roughly how; when you need the detail, read its current positions rather than replaying fills.
+
+## Estimate a rule before you save it
+
+`POST /rules?dryRun=1` validates a rule body exactly as a real create does and returns an estimate **without saving anything** ([reference](/webhooks/api#create-a-rule)):
+
+```json
+{ "estimate": { "eventsPerDay": 1840, "basis": "24h_observed", "knownWallets": 3, "unknownWallets": 1 } }
+```
+
+- `eventsPerDay` is projected from the **last 24 hours** of wallet events we observed for the rule's wallets (`basis: "24h_observed"`).
+- Only wallets some rule already watches have history: `knownWallets` counts those, `unknownWallets` the rest. The estimate covers the known wallets only, so read it as a floor when `unknownWallets` is not zero.
+- `eventsPerDay` is `null` when there is nothing to base it on.
+
+A real create is refused with **`400 estimate_too_high`** when `eventsPerDay` is known and is more than **10 × your monthly budget ÷ 30** — a rule that would burn through roughly ten days of budget in one day:
+
+| | Starter | Agent | Pro |
+|---|---:|---:|---:|
+| Refused above (events / day) | 3,333 | 33,333 | 333,333 |
+
+Drop the busiest wallets, add a `coins` or `minNotionalUsd` filter, and try the dry run again. The `pulse_watch_wallet` MCP tool runs the dry run for you and reports the estimate.
+
+## The inbox gap flag
+
+`GET /events` answers `gap: true` when the `since` cursor you passed is older than your plan's retention window, or older than the oldest event still stored for your account ([reference](/webhooks/api#list-events)). Either way, events between your cursor and the first one returned **may be missing** — aged out, or dropped at a cap. Do not treat the page as complete: re-read the state you care about (the wallet's positions, the coin's price) and carry on from the new cursor. A poller that runs well inside the retention window and stays under its caps never sees it.
 
 ## Event types by plan
 
@@ -29,9 +70,9 @@ Each plan includes the event types of the plans below it.
 
 | Plan | Event types it adds |
 |---|---|
-| Free | `wallet.position.opened`, `wallet.position.closed`, `wallet.position.flipped`, `wallet.position.increased`, `wallet.position.decreased`, `wallet.position.reconciled`, `wallet.liquidated`, `wallet.liquidation_risk` — on Telegram |
-| Starter | The same `wallet.*` types on the inbox and webhook channels, plus `market.price.crossed`. Your endpoints also receive `webhook.test` and `webhook.rate_limited` |
-| Agent | `market.liquidation.large` — every liquidation on the exchange above your notional threshold |
+| Free | `wallet.position.opened`, `wallet.position.closed`, `wallet.position.flipped`, `wallet.position.increased`, `wallet.position.decreased`, `wallet.position.reconciled`, `wallet.liquidated`, `wallet.liquidation_risk`, `wallet.activity.digest` — on Telegram |
+| Starter | The same `wallet.*` types on the inbox and webhook channels, plus `wallet.twap.filled` and `market.price.crossed`. Your endpoints also receive `webhook.test` and `webhook.rate_limited` |
+| Agent | `market.liquidation.large` and `market.trade.large` — every liquidation and every block's trading by one wallet in one coin on the exchange above your notional threshold — plus `wallet.twap.status` and `cohort.bias_flipped` |
 | Pro | No additional event type today; Pro raises the limits above |
 | Enterprise | Everything in Pro |
 

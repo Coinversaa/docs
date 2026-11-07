@@ -93,7 +93,8 @@
               "webhooks/signatures",
               "webhooks/api",
               "webhooks/agents",
-              "webhooks/limits"
+              "webhooks/limits",
+              "webhooks/troubleshooting"
             ]
           }
         ]

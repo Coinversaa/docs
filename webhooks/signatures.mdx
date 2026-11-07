@@ -1,9 +1,9 @@
 ---
 title: "Signatures and delivery"
-description: "How Coinversa Pulse signs and delivers webhooks — the Coinversa-Signature HMAC-SHA256 header with a 300-second tolerance, verifiers in Node, Python and Go, secret rotation, the retry schedule, at-least-once idempotency on Coinversa-Event-Id, replay, timeouts and auto-disable."
+description: "How Coinversa Pulse signs and delivers webhooks — Standard Webhooks headers (webhook-id, webhook-timestamp, webhook-signature), HMAC-SHA256 over id.timestamp.body with a 300-second tolerance, a known-answer test vector, the standardwebhooks libraries for Node, Python and Go, manual verifiers, secret rotation, retries, idempotency, replay, timeouts, auto-disable and recovery probes."
 ---
 
-Every webhook is a signed `POST` of one JSON event. Verify the signature, deduplicate on the event id, answer `2xx` within five seconds, and do the real work after you answer.
+Every webhook is a signed `POST` of one JSON event, signed the **[Standard Webhooks](https://www.standardwebhooks.com)** way — an open specification with verifiers for most languages, so an off-the-shelf `standardwebhooks` library verifies it in three lines. Verify the signature, deduplicate on `webhook-id`, answer `2xx` within five seconds, and do the real work after you answer.
 
 ## The request
 
@@ -11,137 +11,252 @@ Every webhook is a signed `POST` of one JSON event. Verify the signature, dedupl
 POST /hooks/coinversa HTTP/1.1
 Content-Type: application/json
 User-Agent: Coinversa-Webhooks/1.0 (+https://docs.coinversa.ai/webhooks)
-Coinversa-Event-Id: evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9
+webhook-id: evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9
+webhook-timestamp: 1762179668
+webhook-signature: v1,Hn1Yv8m2dQ4pX0k7Jf3sR9tW6bL5cE1aZ8uN2yG4oPs=
 Coinversa-Event-Type: wallet.position.opened
 Coinversa-Delivery-Id: dlv_01JC4QX2B7N4K8M3P6R9S2T5V8
 Coinversa-Attempt: 1
-Coinversa-Signature: t=1762179668,v1=5f3a…
 ```
 
 | Header | Meaning |
 |---|---|
-| `Coinversa-Signature` | `t=<unix seconds>,v1=<hex>` — the timestamp and one HMAC per active secret. During a [rotation](#rotating-the-secret) there are **two** `v1` values |
-| `Coinversa-Event-Id` | The event id, `evt_` + a ULID. Stable across retries and replays; equal to `id` in the body. **Your idempotency key** |
+| `webhook-id` | The event id, `evt_` + a ULID. Identical across retries and replays; equal to `id` in the body. **Your idempotency key** |
+| `webhook-timestamp` | Unix seconds when this attempt was signed. A retry is re-signed, so it carries a new timestamp |
+| `webhook-signature` | One or more `v1,<base64>` entries separated by a single space — one per active secret. During a [rotation](#rotating-the-secret) there are **two** |
 | `Coinversa-Event-Type` | The event type, equal to `type` in the body |
 | `Coinversa-Delivery-Id` | `dlv_` + a ULID identifying the delivery in your [delivery log](/webhooks/api#list-deliveries). A replay gets a new one |
 | `Coinversa-Attempt` | `1` to `6` — which attempt of this delivery this is |
 | `Coinversa-Replay` | `true` when you (or the portal) asked for this event to be sent again |
 
-The body is the [event envelope](/webhooks/events#the-envelope).
+The three lowercase `webhook-*` headers are the Standard Webhooks set; the `Coinversa-*` headers are ours and are not signed separately — they are routing hints, and the signed body carries the same `type`. The body is the [event envelope](/webhooks/events#the-envelope).
 
-## Verify a signature
-
-The signed content is the timestamp, a literal `.`, and the **raw request body** exactly as received:
+## What is signed
 
 ```text
-signed_content = t + "." + raw_body
-expected       = hex( HMAC-SHA256( key = your whsec_… secret, message = signed_content ) )
+signed_content = webhook-id + "." + webhook-timestamp + "." + raw_body
+key            = base64_decode( secret without its "whsec_" prefix )   // 32 bytes
+signature      = "v1," + base64( HMAC-SHA256( key, signed_content ) )
 ```
 
-The key is the full secret string, `whsec_` prefix included, as UTF-8. A request is authentic when:
+- The **key is the decoded bytes**, not the secret string: strip `whsec_` and base64-decode the rest (standard alphabet, with padding). New secrets are `whsec_` + the standard base64 of 32 random bytes.
+- The signature is **standard base64 with padding** (`+`, `/`, `=`), not hex.
+- `raw_body` is the request body **exactly as received**. Read it as bytes before any JSON parser touches it — parsing and re-serialising changes the bytes and the signature will not match.
 
-1. `t` is within **300 seconds** of your clock, in either direction — reject anything older to stop replayed captures, and
-2. **any** `v1` value equals `expected`, compared in **constant time**.
+A request is authentic when:
 
-Read the body as bytes before any JSON parser touches it; re-serialised JSON will not match.
+1. `webhook-timestamp` is within **300 seconds** of your clock, in either direction — reject anything outside it to stop replayed captures, and
+2. **any** `v1,` entry in `webhook-signature` equals the signature you computed, compared in **constant time**.
+
+<Note>
+Secrets created before the switch to Standard Webhooks were encoded with the base64**url** alphabet — you can tell by a `-` or `_` after `whsec_`. They still sign and verify; the manual verifiers below decode either alphabet. The `standardwebhooks` libraries expect standard base64, so if your secret contains `-` or `_`, [rotate it](#rotating-the-secret) once before switching to a library.
+</Note>
+
+### Known-answer test vector
+
+Check your verifier against these exact inputs before you point it at live traffic. The timestamp is in 2023, so a verifier that enforces the 300-second tolerance against the real clock will reject it — pass a fixed "now" of `1700000000` in your test.
+
+| Input | Value |
+|---|---|
+| Secret | `whsec_MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=` |
+| Decoded key (32 bytes, ASCII) | `12345678901234567890123456789012` |
+| `webhook-id` | `msg_p5jXN8AQM9LWL0o4reCVkeDbYk` |
+| `webhook-timestamp` | `1700000000` |
+| Body | `{"ok":true}` |
+| Signed content | `msg_p5jXN8AQM9LWL0o4reCVkeDbYk.1700000000.{"ok":true}` |
+| **`webhook-signature`** | **`v1,L3ItB2kRQK8HKNbwA+otrQh1dHwBG7Oe8kEGy3vmr8g=`** |
+
+Reproduce it from a shell:
+
+```bash
+printf '%s' 'msg_p5jXN8AQM9LWL0o4reCVkeDbYk.1700000000.{"ok":true}' \
+  | openssl dgst -sha256 -hmac '12345678901234567890123456789012' -binary | base64
+# L3ItB2kRQK8HKNbwA+otrQh1dHwBG7Oe8kEGy3vmr8g=
+```
+
+## Verify with a library
+
+The Standard Webhooks project publishes verifiers for most languages. Each takes the full `whsec_…` secret, the raw body and the request headers, checks the timestamp tolerance (five minutes) and every `v1` entry, and throws or returns an error on a mismatch.
+
+<CodeGroup>
+
+```javascript Node
+// npm install standardwebhooks
+import { Webhook } from "standardwebhooks";
+
+const wh = new Webhook(process.env.COINVERSA_WEBHOOK_SECRET); // "whsec_…"
+
+export function verifyCoinversaWebhook(rawBody, headers) {
+  // headers: an object with lowercase keys, e.g. Express req.headers
+  // Returns the parsed event, or throws WebhookVerificationError.
+  return wh.verify(rawBody, {
+    "webhook-id": headers["webhook-id"],
+    "webhook-timestamp": headers["webhook-timestamp"],
+    "webhook-signature": headers["webhook-signature"],
+  });
+}
+```
+
+```python Python
+# pip install standardwebhooks
+import os
+from typing import Optional
+
+from standardwebhooks.webhooks import Webhook, WebhookVerificationError
+
+wh = Webhook(os.environ["COINVERSA_WEBHOOK_SECRET"])  # "whsec_…"
+
+
+def verify_coinversa_webhook(raw_body: bytes, headers: dict) -> Optional[dict]:
+    try:
+        return wh.verify(raw_body, headers)  # the parsed event
+    except WebhookVerificationError:
+        return None
+```
+
+```go Go
+// go get github.com/standard-webhooks/standard-webhooks/libraries/go
+package webhooks
+
+import (
+	"net/http"
+
+	standardwebhooks "github.com/standard-webhooks/standard-webhooks/libraries/go"
+)
+
+func NewVerifier(secret string) (*standardwebhooks.Webhook, error) {
+	return standardwebhooks.NewWebhook(secret) // "whsec_…"
+}
+
+// VerifyCoinversaWebhook returns nil when the request is authentic.
+func VerifyCoinversaWebhook(wh *standardwebhooks.Webhook, rawBody []byte, h http.Header) error {
+	return wh.Verify(rawBody, h)
+}
+```
+
+</CodeGroup>
+
+Hand the library the raw bytes: `express.raw({ type: "application/json" })` on the webhook route in Express (as in the [quickstart](/webhooks/quickstart#4-verify-the-signature)), `await request.body()` in FastAPI/Starlette, `request.get_data()` in Flask, `io.ReadAll(r.Body)` in Go.
+
+## Verify by hand
+
+No dependency, same result. Both versions accept a fixed `now` so you can run them against the [test vector](#known-answer-test-vector).
 
 <CodeGroup>
 
 ```javascript Node
 import crypto from "node:crypto";
 
-export function verifyCoinversaSignature(header, rawBody, secret, toleranceS = 300) {
-  let t = null;
-  const sigs = [];
-  for (const part of header.split(",")) {
-    const [key, value] = part.trim().split("=");
-    if (key === "t") t = value;
-    else if (key === "v1") sigs.push(value);
-  }
-  if (!t || !/^\d+$/.test(t) || sigs.length === 0) return false;
-  if (Math.abs(Math.floor(Date.now() / 1000) - Number(t)) > toleranceS) return false;
-  const expected = crypto.createHmac("sha256", secret).update(`${t}.${rawBody}`).digest();
-  return sigs.some((sig) => {
-    const got = Buffer.from(sig, "hex");
+const TOLERANCE_S = 300;
+
+function secretKey(secret) {
+  const encoded = secret.startsWith("whsec_") ? secret.slice(6) : secret;
+  // Older secrets used the base64url alphabet; new ones are standard base64.
+  return Buffer.from(encoded, /[-_]/.test(encoded) ? "base64url" : "base64");
+}
+
+export function verifyCoinversaSignature(headers, rawBody, secret, nowS = Math.floor(Date.now() / 1000)) {
+  const id = headers["webhook-id"];
+  const timestamp = headers["webhook-timestamp"];
+  const signature = headers["webhook-signature"];
+  if (!id || !timestamp || !signature || !/^\d+$/.test(timestamp)) return false;
+  if (Math.abs(nowS - Number(timestamp)) > TOLERANCE_S) return false;
+
+  const expected = crypto
+    .createHmac("sha256", secretKey(secret))
+    .update(`${id}.${timestamp}.${rawBody}`)
+    .digest();
+
+  return signature.split(" ").some((entry) => {
+    const [version, value] = entry.split(",", 2);
+    if (version !== "v1" || !value) return false;
+    const got = Buffer.from(value, "base64");
     return got.length === expected.length && crypto.timingSafeEqual(got, expected);
   });
 }
+
+// Test vector: prints true
+console.log(verifyCoinversaSignature(
+  {
+    "webhook-id": "msg_p5jXN8AQM9LWL0o4reCVkeDbYk",
+    "webhook-timestamp": "1700000000",
+    "webhook-signature": "v1,L3ItB2kRQK8HKNbwA+otrQh1dHwBG7Oe8kEGy3vmr8g=",
+  },
+  '{"ok":true}',
+  "whsec_MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",
+  1700000000,
+));
 ```
 
 ```python Python
+import base64
 import hashlib
 import hmac
 import time
+from typing import Optional
+
+TOLERANCE_S = 300
 
 
-def verify_coinversa_signature(header: str, raw_body: bytes, secret: str, tolerance_s: int = 300) -> bool:
-    t, sigs = None, []
-    for part in header.split(","):
-        key, _, value = part.strip().partition("=")
-        if key == "t":
-            t = value
-        elif key == "v1":
-            sigs.append(value)
-    if not t or not t.isdigit() or not sigs:
+def _secret_key(secret: str) -> bytes:
+    encoded = secret[len("whsec_"):] if secret.startswith("whsec_") else secret
+    # Older secrets used the base64url alphabet; new ones are standard base64.
+    if "-" in encoded or "_" in encoded:
+        return base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+    return base64.b64decode(encoded, validate=True)
+
+
+def verify_coinversa_signature(headers: dict, raw_body: bytes, secret: str, now_s: Optional[int] = None) -> bool:
+    h = {k.lower(): v for k, v in headers.items()}
+    msg_id, timestamp, signature = h.get("webhook-id"), h.get("webhook-timestamp"), h.get("webhook-signature")
+    if not msg_id or not timestamp or not signature or not timestamp.isdigit():
         return False
-    if abs(int(time.time()) - int(t)) > tolerance_s:
+    now_s = int(time.time()) if now_s is None else now_s
+    if abs(now_s - int(timestamp)) > TOLERANCE_S:
         return False
-    expected = hmac.new(secret.encode(), t.encode() + b"." + raw_body, hashlib.sha256).hexdigest()
-    return any(hmac.compare_digest(expected, sig) for sig in sigs)
-```
 
-```go Go
-package webhooks
+    signed = msg_id.encode() + b"." + timestamp.encode() + b"." + raw_body
+    expected = hmac.new(_secret_key(secret), signed, hashlib.sha256).digest()
 
-import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
-	"strconv"
-	"strings"
-	"time"
-)
+    for entry in signature.split(" "):
+        version, _, value = entry.partition(",")
+        if version != "v1" or not value:
+            continue
+        try:
+            got = base64.b64decode(value, validate=True)
+        except ValueError:
+            continue
+        if hmac.compare_digest(got, expected):
+            return True
+    return False
 
-func VerifyCoinversaSignature(header string, rawBody []byte, secret string, tolerance time.Duration) bool {
-	var ts string
-	var sigs []string
-	for _, part := range strings.Split(header, ",") {
-		key, value, _ := strings.Cut(strings.TrimSpace(part), "=")
-		switch key {
-		case "t":
-			ts = value
-		case "v1":
-			sigs = append(sigs, value)
-		}
-	}
-	t, err := strconv.ParseInt(ts, 10, 64)
-	if err != nil || len(sigs) == 0 {
-		return false
-	}
-	if age := time.Since(time.Unix(t, 0)); age > tolerance || age < -tolerance {
-		return false
-	}
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(ts + "."))
-	mac.Write(rawBody)
-	expected := mac.Sum(nil)
-	for _, sig := range sigs {
-		got, err := hex.DecodeString(sig)
-		if err == nil && hmac.Equal(got, expected) {
-			return true
-		}
-	}
-	return false
-}
+
+# Test vector: prints True
+print(verify_coinversa_signature(
+    {
+        "webhook-id": "msg_p5jXN8AQM9LWL0o4reCVkeDbYk",
+        "webhook-timestamp": "1700000000",
+        "webhook-signature": "v1,L3ItB2kRQK8HKNbwA+otrQh1dHwBG7Oe8kEGy3vmr8g=",
+    },
+    b'{"ok":true}',
+    "whsec_MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=",
+    now_s=1700000000,
+))
 ```
 
 </CodeGroup>
 
-Call the Go version with `300*time.Second`. In Python frameworks, take the raw bytes (`await request.body()` in FastAPI/Starlette, `request.get_data()` in Flask); in Express, mount `express.raw({ type: "application/json" })` on the webhook route, as in the [quickstart](/webhooks/quickstart#4-verify-the-signature).
+Whichever you use, reject the request with a `4xx` when verification fails and never log the secret.
 
 ## Rotating the secret
 
-`POST /endpoints/{id}/rotate-secret` returns a new secret, shown once, and `previousSecretExpiresAt` — **24 hours** later. Until then every delivery is signed with **both** secrets, so the header carries two `v1` values and a receiver holding either secret verifies. Deploy the new secret, then let the old one expire. The verifiers above already accept any matching `v1`.
+`POST /endpoints/{id}/rotate-secret` returns a new secret, shown once, and `previousSecretExpiresAt` — **24 hours** later. Until then every delivery is signed with **both** secrets, so `webhook-signature` carries two space-separated entries:
+
+```http
+webhook-signature: v1,Hn1Yv8m2dQ4pX0k7Jf3sR9tW6bL5cE1aZ8uN2yG4oPs= v1,9cQe2LmT4xVb7Rn1Kp0sWz3Hf6Ya8Gd5Ju2Ei4Oo1Ns=
+```
+
+A receiver holding either secret verifies, because a request is authentic when **any** entry matches. Deploy the new secret, then let the old one expire. The libraries and the manual verifiers above already accept any matching entry.
 
 ## Success, failure and retries
 
@@ -162,10 +277,10 @@ After the sixth failure — about 7 h 15 min after the first try — the deliver
 
 ## Idempotency, retries and replays
 
-Delivery is **at least once**: a timeout on our side after your handler succeeded produces a retry of an event you already have. Store each `Coinversa-Event-Id` you process and skip a repeat.
+Delivery is **at least once**: a timeout on our side after your handler succeeded produces a retry of an event you already have. Store each `webhook-id` you process and skip a repeat.
 
-- A **retry** has the same event id and `Coinversa-Attempt` greater than `1`.
-- A **replay** — `POST /deliveries/{id}/replay`, or **Replay** in the portal's activity log — has the same event id, a **new** delivery id, `Coinversa-Attempt: 1` and `Coinversa-Replay: true`.
+- A **retry** has the same `webhook-id`, a new `webhook-timestamp` and `Coinversa-Attempt` greater than `1`.
+- A **replay** — `POST /deliveries/{id}/replay`, or **Replay** in the portal's activity log — has the same `webhook-id`, a **new** `Coinversa-Delivery-Id`, `Coinversa-Attempt: 1` and `Coinversa-Replay: true`.
 
 ## Timeouts and transport rules
 
@@ -173,15 +288,19 @@ Delivery is **at least once**: a timeout on our side after your handler succeede
 - Only the first 1 KB of your response body is kept in the delivery log; there is no reason to send more.
 - **No redirects.** A `3xx` is a failure; register the final URL.
 - **HTTPS only.** On **Agent** and above an endpoint can set `allowInsecure` to use `http://` on a dev-tunnel host (ngrok, localtunnel, Cloudflare quick tunnels) for local development. Free and Starter cannot set it.
-- The URL's host must resolve to public addresses only — loopback, private, link-local and cloud-metadata addresses are refused, both when you save the endpoint and before every attempt.
+- The URL's host must resolve to public addresses only — loopback, private, link-local and cloud-metadata addresses are refused when you save the endpoint and before every attempt. The address we check is the address we connect to: the hostname is resolved once per attempt, every returned address must be public, and the connection goes to one of those checked addresses while TLS still verifies your hostname's certificate. A DNS answer that changes between the check and the connection cannot redirect a delivery to a private address; such an attempt fails with `ssrf_rejected`.
 
-## Auto-disable
+## Auto-disable and recovery probes
 
 - A **`410 Gone`** response disables the endpoint immediately.
 - After **20 consecutive dead deliveries**, or **72 hours** of failures with no success, the endpoint is disabled automatically and the account owner gets one email.
 
-A disabled endpoint shows `status: "disabled"` with a `disabledReason`. Matching events keep landing in the [inbox](/webhooks/api#list-events) while it is off, so nothing is lost inside your retention window. Re-enable it with `PATCH /endpoints/{id}` and `{"status":"active"}` (or in the portal); re-enabling does **not** replay the missed events — pull them from the inbox or replay them one by one. To stop deliveries yourself without the failure count, set `{"status":"paused"}`.
+A disabled endpoint shows `status: "disabled"` with a `disabledReason`. Matching events keep landing in the [inbox](/webhooks/api#list-events) while it is off, so nothing is lost inside your retention window.
+
+**Recovery probes.** An endpoint disabled for repeated failures (not for a `410`, and not one you paused) is probed back to life on its own. Its `probeAt` is set 5 minutes after it was disabled; the first event your rules match for it after `probeAt` is sent as a single **probe** delivery. If the probe succeeds, the endpoint returns to `status: "active"` with its failure count cleared — no email, nothing for you to do. If it fails, the endpoint stays disabled and the next probe waits longer: 5, 10, 20 and 40 minutes, then every 60 minutes. A probe only goes out when an event matches, so a quiet rule probes rarely. `probeAt` and `probeCount` are on the [endpoint](/webhooks/api#endpoints), and the portal shows "retrying at" with the same time.
+
+To bring an endpoint back yourself, `PATCH /endpoints/{id}` with `{"status":"active"}` (or use the portal). Re-enabling, by hand or by a probe, does **not** replay the events matched while it was disabled — pull them from the inbox or replay them one by one. To stop deliveries yourself without the failure count, set `{"status":"paused"}`; a paused endpoint is never probed.
 
 ## Rate limits on delivery
 
-Your plan caps deliveries per minute and events per month ([Plan limits](/webhooks/limits)). Over the per-minute cap, the excess is not POSTed and you get one `webhook.rate_limited` event for that window; over the monthly budget, events are not POSTed either. In both cases the events remain in the inbox, marked `rate_limited` or `over_quota` in `deliveryStatus`.
+Your plan caps matched events per minute (the **burst**) and per month ([Plan limits](/webhooks/limits)). Events past either cap are **not stored and not POSTed**. Instead you get one [`webhook.rate_limited`](/webhooks/events#webhook-rate_limited) event per hour that counts what was dropped (`data.dropped`). The caps apply to inbox-only rules too.

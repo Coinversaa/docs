@@ -3,18 +3,20 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+{/* Draft for the feat/webhooks release: set the label to the day the backend ships, not before. */}
 <Update label="November 3, 2026" tags={["Webhooks", "MCP", "Pricing"]}>
 
 ## Webhooks, an event inbox and alert rules
 
 **Webhooks** push Coinversa Pulse events to you instead of making you poll. Write a rule — a watched wallet, a coin, a price level, a notional threshold — and every match arrives as one signed JSON event with a one-sentence `summary`, typed `data`, an honest `freshness` stamp and the MCP tools that answer the next question.
 
-- **Ten subscribable event types**: a watched wallet's position opened, closed, flipped, increased, decreased or reconciled, its liquidation and its liquidation risk; exchange-wide large liquidations (`market.liquidation.large`, Agent); and price crossings (`market.price.crossed`). See the [event catalogue](/webhooks/events).
-- **Three ways to receive**: a signed HTTPS POST (HMAC-SHA256, Stripe-style retries over about 7 hours, replay from the delivery log), a pullable **event inbox** with a cursor, or Telegram.
-- **Agents without a server**: five new MCP tools — `pulse_events`, `pulse_watch_wallet`, `pulse_alert_rules`, `pulse_remove_rule`, `pulse_webhook_endpoints`. A scheduled Claude routine that calls `pulse_events` every 15 minutes is an agent running on events. See [Webhooks for agents](/webhooks/agents).
-- **Plans**: Starter gets 1 endpoint and 2,000 events a month, Agent 3 endpoints, 25,000 events and `http://` dev tunnels, Pro 10 endpoints and 250,000 events. Free keeps 3 Telegram rules. See [Webhook plan limits](/webhooks/limits).
+- **Fourteen event types for rules**, plus activity digests for busy wallets: a watched wallet's position opened, closed, flipped, increased, decreased or reconciled, its liquidation and liquidation risk, its **TWAP fills and status**; exchange-wide **large trades** and large liquidations (`market.trade.large`, `market.liquidation.large`, Agent); **cohort bias flips** — a PnL cohort turning net long or net short in a coin (`cohort.bias_flipped`, Agent); and price crossings with `above`, `below` or `both` (`market.price.crossed`). See the [event catalogue](/webhooks/events).
+- **Three ways to receive**: a **Standard Webhooks**-signed HTTPS POST (`webhook-id`, `webhook-timestamp`, `webhook-signature` — an open spec, verified with the off-the-shelf `standardwebhooks` library for your language), Stripe-style retries over about 7 hours, replay from the delivery log and **self-healing endpoints** that a recovery probe re-enables once they answer again; a pullable **event inbox** with a cursor and a `gap` flag; or Telegram.
+- **Guarded storage**: events past a cap are dropped and counted in one hourly notice instead of piling up, a wallet that fires more than 120 events an hour folds into **5-minute digests**, and `POST /rules?dryRun=1` **estimates a rule's events per day** before you save it. See [Plan limits](/webhooks/limits).
+- **Agents without a server**: six MCP tools — `pulse_events`, `pulse_event_types`, `pulse_watch_wallet`, `pulse_alert_rules`, `pulse_remove_rule`, `pulse_webhook_endpoints` (122 in all). A scheduled Claude routine that calls `pulse_events` every 15 minutes is an agent running on events. See [Webhooks for agents](/webhooks/agents).
+- **Plans**: Starter gets 1 endpoint, 10 wallets and 10,000 events a month; Agent 3 endpoints, 100 wallets, 100,000 events and `http://` dev tunnels; Pro 10 endpoints, 1,000 wallets and 1,000,000 events. Free keeps 3 Telegram rules. See [Webhook plan limits](/webhooks/limits).
 
-Manage it all in the [developer portal](https://developers.coinversa.ai), over [REST](/webhooks/api) at `backend.coinversa.ai/api/v1/webhooks`, or from chat. Start with the [quickstart](/webhooks/quickstart).
+Manage it all in the [developer portal](https://developers.coinversa.ai), over [REST](/webhooks/api) at `backend.coinversa.ai/api/v1/webhooks`, or from chat. Start with the [quickstart](/webhooks/quickstart); [troubleshooting](/webhooks/troubleshooting) is ordered by symptom.
 
 </Update>
 

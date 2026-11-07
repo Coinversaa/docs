@@ -50,15 +50,15 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
 
 [Webhooks](/webhooks/overview) are metered on their own too — endpoints, rules, watched wallets and matched events; receiving an event never draws down the request counts above. They are managed at `https://backend.coinversa.ai/api/v1/webhooks`, which has its own [error shape](/webhooks/api#errors) rather than the `TIER_GATE` problem details above:
 
-| Tier | Webhook endpoints | Alert rules | Watched wallets | Events / month | Deliveries / min | Inbox and replay window | Event types added |
+| Tier | Webhook endpoints | Alert rules | Watched wallets | Events / month | Burst (events / min) | Inbox and replay window | Event types added |
 |------|---:|---:|---:|---:|---:|---:|---|
-| Free       | 0  | 3 (Telegram only) | 3   | —       | —   | —       | `wallet.*` position, liquidation and liquidation-risk events, on Telegram |
-| Starter    | 1  | 5   | 5   | 2,000   | 20  | 1 day   | `wallet.*` on the inbox and webhooks, `market.price.crossed` |
-| Agent      | 3  | 25  | 50  | 25,000  | 60  | 7 days  | `market.liquidation.large`; `http://` dev-tunnel endpoints |
-| Pro        | 10 | 100 | 500 | 250,000 | 300 | 30 days | — (higher limits) |
-| Enterprise | 10+ | 100+ | 500+ | 250,000+ | 300+ | 30 days | — |
+| Free       | 0  | 3 (Telegram only) | 3   | —       | —   | —       | `wallet.*` position, liquidation and liquidation-risk events and `wallet.activity.digest`, on Telegram |
+| Starter    | 1  | 5   | 10    | 10,000    | 30  | 1 day   | `wallet.*` on the inbox and webhooks, `wallet.twap.filled`, `market.price.crossed` |
+| Agent      | 3  | 25  | 100   | 100,000   | 120 | 7 days  | `market.liquidation.large`, `market.trade.large`, `wallet.twap.status`, `cohort.bias_flipped`; `http://` dev-tunnel endpoints |
+| Pro        | 10 | 100 | 1,000 | 1,000,000 | 600 | 30 days | — (higher limits) |
+| Enterprise | 10+ | 100+ | 1,000+ | 1,000,000+ | 600+ | 30 days | — |
 
-See [Webhook plan limits](/webhooks/limits).
+Past the monthly budget or the burst, events are dropped and counted in one hourly `webhook.rate_limited` event, and a rule whose dry-run estimate exceeds 10 × the monthly budget ÷ 30 events a day is refused with `estimate_too_high`. See [Webhook plan limits](/webhooks/limits).
 
 ## Endpoints by tier
 

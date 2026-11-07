@@ -1,9 +1,9 @@
 ---
 title: "Event catalogue"
-description: "Every Coinversa Pulse webhook event type — wallet position opened, closed, flipped, increased, decreased and reconciled, wallet liquidated and liquidation risk, large market liquidations, price crossings and test events — with plan, freshness, rule filters and a full sample envelope."
+description: "Every Coinversa Pulse webhook event type — wallet position opened, closed, flipped, increased, decreased and reconciled, wallet liquidations and liquidation risk, TWAP fills and status, noisy-wallet activity digests, large market trades and liquidations, price crossings, cohort bias flips and test events — with plan, freshness, rule filters and a full sample envelope."
 ---
 
-Twelve event types, in the order the API lists them. Ten are **subscribable** in a rule; `webhook.test` and `webhook.rate_limited` are sent by us. The machine-readable version of this page — same descriptions, plans, filters and samples — is `GET https://backend.coinversa.ai/api/v1/webhooks/event-types`, which needs no key.
+Seventeen event types. `webhook.test` and `webhook.rate_limited` are sent by us and cannot be put in a rule; `wallet.activity.digest` is what a rule receives instead of a wallet's individual events while that wallet is in [digest mode](/webhooks/limits#noisy-wallets-and-digest-mode). The machine-readable version of this page — same descriptions, plans, filters and samples, plus `filterDefinitions` describing every filter's type and bounds — is `GET https://backend.coinversa.ai/api/v1/webhooks/event-types`, which needs no key ([reference](/webhooks/api#list-event-types)). Its `subscribable` flag is authoritative for which types a rule may list.
 
 Sample payloads are illustrative: addresses, hashes and amounts are made up, and every sample shares one `id` and timestamp pair.
 
@@ -13,7 +13,7 @@ Every event, on every channel — webhook body, inbox row, MCP result — has th
 
 | Field | Type | Meaning |
 |---|---|---|
-| `id` | string | `evt_` + a ULID; time-sortable; also the `Coinversa-Event-Id` header |
+| `id` | string | `evt_` + a ULID; time-sortable; also the `webhook-id` header |
 | `type` | string | One of the types below |
 | `version` | number | Schema version, `1` |
 | `occurredAt` | ISO 8601 | The chain time of the fill or frame the event describes |
@@ -31,11 +31,13 @@ Every event, on every channel — webhook body, inbox row, MCP result — has th
 
 | Filter | Applies to | Meaning |
 |---|---|---|
-| `wallets` | every `wallet.*` type (required) | Lowercase addresses to watch; up to 500 per rule |
-| `coins` | `wallet.*`, `market.liquidation.large` | Canonical coins; omit for all |
-| `minNotionalUsd` | `wallet.position.increased` / `.decreased` (default $50,000), `market.liquidation.large` (default $250,000) | Minimum notional for the event to fire |
-| `thresholdPct` | `wallet.liquidation_risk` | Fire when the distance from mark to liquidation price is at or below this percentage |
-| `price` | `market.price.crossed` | `{ "symbol", "target", "direction": "above" or "below" }` |
+| `wallets` | every `wallet.*` type (required) | Lowercase addresses to watch; up to 1,000 per rule |
+| `coins` | `wallet.*`, `market.liquidation.large`, `market.trade.large`, `cohort.bias_flipped` | Canonical coins; omit for all (up to 100) |
+| `minNotionalUsd` | `wallet.position.increased` / `.decreased` (default $50,000), `market.liquidation.large` (default $250,000), `market.trade.large` (default $250,000) | Minimum notional for the event to fire |
+| `thresholdPct` | `wallet.liquidation_risk` | Fire when the distance from mark to liquidation price is at or below this percentage (0–100, default 10) |
+| `price` | `market.price.crossed` | `{ "symbol", "target", "direction" }` — `direction` is `above`, `below` or `both` |
+
+The same rules, as data, are the `filterDefinitions` object on [`GET /event-types`](/webhooks/api#list-event-types) — build a rule form or an agent prompt from it rather than from this table.
 
 ## Data fields
 
@@ -45,7 +47,17 @@ Every event, on every channel — webhook body, inbox row, MCP result — has th
 
 **Liquidation risk** (`wallet.liquidation_risk`): `wallet`, `coin`, `side`, `sz`, `entryPx`, `markPx`, `liquidationPx`, `distancePct` (from mark to liquidation price; positive means still open), `thresholdPct`, `leverage`, `positionValueUsd`.
 
-**Price crossed** (`market.price.crossed`): `symbol`, `direction`, `target`, `mid`, `prevMid`.
+**TWAP fills** (`wallet.twap.filled`): `wallet`, `coin`, `twapId` (the Hyperliquid TWAP id), `sizeBase` (size filled in this block, in the coin), `notionalUsd`, `avgPx`, `fills` (slice fills coalesced — one wallet's slices of one TWAP in one block become one event), `block`.
+
+**TWAP status** (`wallet.twap.status`): `wallet`, `coin`, `twapId`, `status` (as Hyperliquid reports it — `activated`, `waitingForTrigger`, `finished`, `terminated`, `stopped` — or `error`), `side`, `sizeBase` (the TWAP's total size), `executedSize`, `executedNotionalUsd`, `minutes`, `reduceOnly`, `randomize`, `description` (the node's reason when `status` is `error`).
+
+**Activity digest** (`wallet.activity.digest`): `wallet`, `from` and `to` (the five-minute window covered), `suppressed` (how many `wallet.*` events were folded into it), `byType` (the count per event type), `notionalUsd` (summed over the folded events).
+
+**Large trades** (`market.trade.large`): `wallet`, `coin`, `dex`, `side` (`buy` or `sell`), `positionEffect` (`open`, `increase`, `decrease`, `close` or `flip`, from the fills' direction), `sizeBase`, `notionalUsd` (Σ `px` × `sz` over the wallet's fills in the coin in that block), `avgPx`, `fills`, `block`, `txHash`.
+
+**Price crossed** (`market.price.crossed`): `symbol`, `direction` (which way it crossed — `above` or `below`, also when the rule asked for `both`), `target`, `mid`, `prevMid`.
+
+**Cohort bias flipped** (`cohort.bias_flipped`): `coin`, `cohort` (the PnL-tier slug, as `/live/cohort-bias/{coin}` returns it — see [cohorts](/concepts/cohorts)), `previousBias` and `bias` (net bias at the previous and the current poll; the sign changed between them), `longPct`, `shortPct`, `sampleSize`.
 
 ## `wallet.position.opened`
 
@@ -542,6 +554,190 @@ A watched wallet's distance to its liquidation price fell to or below thresholdP
 }
 ```
 
+## `wallet.twap.filled`
+
+A watched wallet's TWAP order filled slices in a block — all of one wallet's slice fills of one TWAP in one block become one event.
+
+| | |
+|---|---|
+| Plan | Starter and above |
+| Freshness | From the websocket TWAP slice-fill stream for watched wallets, coalesced per block; typically sub-second (the sample's `freshness` carries the exact source) |
+| Filters | `wallets`, `coins` |
+
+{/* sample:wallet.twap.filled */}
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.twap.filled",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "fills_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad TWAP 77738308 filled 12.5 ETH (~$41k) at 3,250.2.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "ETH",
+    "twapId": 77738308,
+    "sizeBase": "12.5",
+    "notionalUsd": 40627.5,
+    "avgPx": "3250.2",
+    "fills": 3,
+    "block": 928110001
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/ETH",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "pulse_trader_trades",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.twap.status`
+
+A watched wallet's TWAP order changed status — activated, waiting for its trigger, finished, terminated, stopped, or refused or ended by the node with an error. One event per status record; the state a stream delivers on (re)subscribe is not turned into events, so a reconnect does not re-announce TWAPs you already heard about.
+
+| | |
+|---|---|
+| Plan | Agent and above |
+| Freshness | From the websocket TWAP status stream for watched wallets; typically sub-second (the sample's `freshness` carries the exact source) |
+| Filters | `wallets`, `coins` |
+
+An `{"error": "<reason>"}` status from Hyperliquid becomes `status: "error"` with the node's reason in `description`. `finished`, `terminated`, `stopped` and `error` end the TWAP; `activated` and `waitingForTrigger` are live. Join a status to its fills on `twapId`.
+
+{/* sample:wallet.twap.status */}
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.twap.status",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "twap_status_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad TWAP 2241180 (buy 6.424 TAO over 58 min) is finished; executed 6.424 TAO (~$2k).",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "TAO",
+    "twapId": 2241180,
+    "status": "finished",
+    "side": "buy",
+    "sizeBase": "6.424",
+    "executedSize": "6.424",
+    "executedNotionalUsd": 2312.64,
+    "minutes": 58,
+    "reduceOnly": false,
+    "randomize": true,
+    "description": null
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/TAO",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "pulse_trader_trades",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
+## `wallet.activity.digest`
+
+A summary that replaces a noisy wallet's individual events. When one wallet produces more than **120** `wallet.*` events for one rule within an hour, it goes into **digest mode** for the rest of that hour: its individual `wallet.*` events for that rule are no longer stored or delivered, and every **5 minutes** the rule gets one `wallet.activity.digest` for that wallet instead. See [noisy wallets and digest mode](/webhooks/limits#noisy-wallets-and-digest-mode).
+
+| | |
+|---|---|
+| Plan | Free and above — on whatever channels the rule already has |
+| Freshness | Emitted every 5 minutes while the wallet is in digest mode; `data.from` / `data.to` bound the window it covers |
+| Filters | `wallets` |
+
+A digest says **how much** happened, not **what**: when you need the individual fills, read the wallet's state with the calls in `context.suggestedTools`.
+
+{/* sample:wallet.activity.digest */}
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "wallet.activity.digest",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "digest",
+    "typicalLagMs": 300000
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad produced 412 wallet events (~$18.4M) between 2026-11-03T14:15:00.000Z and 2026-11-03T14:20:00.000Z; they are summarised here instead of stored one by one.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "from": "2026-11-03T14:15:00.000Z",
+    "to": "2026-11-03T14:20:00.000Z",
+    "suppressed": 412,
+    "byType": {
+      "wallet.position.increased": 230,
+      "wallet.position.decreased": 170,
+      "wallet.position.opened": 6,
+      "wallet.position.closed": 6
+    },
+    "notionalUsd": 18400250
+  },
+  "context": {
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_trades",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
 ## `market.liquidation.large`
 
 Any liquidation on the exchange with notional at or above minNotionalUsd (default $250k), optionally filtered by coin.
@@ -604,9 +800,72 @@ Any liquidation on the exchange with notional at or above minNotionalUsd (defaul
 }
 ```
 
+## `market.trade.large`
+
+Any wallet's trading in one coin in one block, summed, at or above `minNotionalUsd` (default **$250k**) — the exchange-wide counterpart of the watched-wallet position events, from the full trade feed.
+
+| | |
+|---|---|
+| Plan | Agent and above |
+| Freshness | From the websocket `trades` feed (every fill on the exchange), aggregated per wallet, coin and block; typically sub-second (the sample's `freshness` carries the exact source) |
+| Filters | `coins`, `minNotionalUsd` |
+
+`notionalUsd` is Σ `px` × `sz` over that wallet's fills in the coin in that block, so a large order that sweeps several levels is one event, not one per fill. `positionEffect` comes from Hyperliquid's fill direction: `open`, `increase`, `decrease`, `close`, or `flip` when the block took the wallet through flat to the other side.
+
+{/* sample:market.trade.large */}
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "market.trade.large",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "fills_stream",
+    "typicalLagMs": 500
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "0x28f0…9bad bought 5.0 BTC (~$350k) at 70,000.5 on Hyperliquid, opening a position.",
+  "data": {
+    "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+    "coin": "BTC",
+    "dex": "hl",
+    "side": "buy",
+    "positionEffect": "open",
+    "sizeBase": "5.0",
+    "notionalUsd": 350002.5,
+    "avgPx": "70000.5",
+    "fills": 4,
+    "block": 928110001,
+    "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "pulse_trader_position_summary",
+        "args": {
+          "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
+        }
+      },
+      {
+        "tool": "live_whale_trades",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
 ## `market.price.crossed`
 
-The mid price of a symbol crossed the rule's target in the given direction (evaluated on every ~1 s mids tick).
+The mid price of a symbol crossed the rule's target in the given direction (evaluated on every ~1 s mids tick). A rule with `direction: "both"` fires on a crossing either way, and `data.direction` says which one it was — `above` or `below`.
 
 | | |
 |---|---|
@@ -658,6 +917,65 @@ The mid price of a symbol crossed the rule's target in the given direction (eval
 }
 ```
 
+## `cohort.bias_flipped`
+
+A PnL cohort's net positioning in a coin changed sign — from net long to net short or the other way — between two polls of the live cohort bias.
+
+| | |
+|---|---|
+| Plan | Agent and above |
+| Freshness | A poll of the live cohort bias every **60 s** for each coin named in an active rule of this type — the event can be up to a poll interval late |
+| Filters | `coins` |
+
+`previousBias` and `bias` are the cohort's net bias at the two polls; the event fires on the sign change, not on its size, so a cohort hovering around flat can flip back and forth. The cohorts are the PnL tiers described in [Cohorts](/concepts/cohorts); `cohort` is the slug the live cohort-bias endpoint, `/live/cohort-bias/{coin}`, returns.
+
+{/* sample:cohort.bias_flipped */}
+```json Sample
+{
+  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
+  "type": "cohort.bias_flipped",
+  "version": 1,
+  "occurredAt": "2026-11-03T14:21:07.890Z",
+  "observedAt": "2026-11-03T14:21:08.412Z",
+  "freshness": {
+    "source": "cohort_poll",
+    "typicalLagMs": 60000
+  },
+  "rule": {
+    "id": "672f3b8e9d1c2a4b5e6f7a8b",
+    "label": "Whale 0x28f0 (BTC/ETH)"
+  },
+  "summary": "The smart_money cohort on BTC flipped from net long (+0.172) to net short (-0.084); 45.8% of its open notional is long across 510 positions.",
+  "data": {
+    "coin": "BTC",
+    "cohort": "smart_money",
+    "previousBias": 0.172,
+    "bias": -0.0841,
+    "longPct": 45.8,
+    "shortPct": 54.2,
+    "sampleSize": 510
+  },
+  "context": {
+    "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
+    "suggestedTools": [
+      {
+        "tool": "live_cohort_bias",
+        "args": {
+          "coin": "BTC"
+        }
+      },
+      {
+        "tool": "live_cohort_bias_history",
+        "args": {
+          "coin": "BTC"
+        }
+      }
+    ]
+  },
+  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+}
+```
+
 ## `webhook.test`
 
 Sent by POST /webhooks/endpoints/:id/test. Signed with the live secret so a receiver can verify end to end.
@@ -694,7 +1012,7 @@ Sent by POST /webhooks/endpoints/:id/test. Signed with the live secret so a rece
 
 ## `webhook.rate_limited`
 
-Sent once per window when an owner's rules produced more events than the plan's burst or monthly cap; the dropped events are still visible in the inbox as rate_limited / over_quota.
+Your rules matched more events than the plan's per-minute burst or monthly budget allows. Events past either cap are **dropped — not stored, not delivered** — and instead of one notice per dropped event you get **one `webhook.rate_limited` event per hour**, kept up to date while the hour lasts: `data.dropped` counts what was dropped in that hour and `data.until` says how long the drop lasts. See [Plan limits](/webhooks/limits).
 
 | | |
 |---|---|
@@ -702,6 +1020,7 @@ Sent once per window when an owner's rules produced more events than the plan's 
 | Freshness | `synthetic` (synthetic), typical lag none |
 | Filters | none |
 
+{/* sample:webhook.rate_limited */}
 ```json Sample
 {
   "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
