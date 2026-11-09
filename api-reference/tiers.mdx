@@ -48,17 +48,17 @@ These are **REST** limits. The [WebSocket](/websocket/overview) is metered on ca
 
 Enterprise websocket numbers are per-account overrides reported in the `connected` frame — see [WebSocket plan limits](/websocket/limits).
 
-[Webhooks](/webhooks/overview) are metered on their own too — endpoints, rules, watched wallets and matched events; receiving an event never draws down the request counts above. They are managed at `https://backend.coinversa.ai/api/v1/webhooks`, which has its own [error shape](/webhooks/api#errors) rather than the `TIER_GATE` problem details above:
+[Webhooks](/webhooks/overview) are limited on their own too — a subscription allowance per account and, for inbox delivery, a pending-message limit; receiving a delivery never draws down the request counts above. They are managed at `https://webhook.coinversa.ai` with `Authorization: Bearer`, which has its own plain-text [errors](/webhooks/api#errors) rather than the `TIER_GATE` problem details above:
 
-| Tier | Webhook endpoints | Alert rules | Watched wallets | Events / month | Burst (events / min) | Inbox and replay window | Event types added |
-|------|---:|---:|---:|---:|---:|---:|---|
-| Free       | 0  | 3 (Telegram only) | 3   | —       | —   | —       | `wallet.*` position, liquidation and liquidation-risk events, on Telegram (every event; Telegram-only rules are never digested) |
-| Starter    | 1  | 5   | 10    | 10,000    | 30  | 1 day   | `wallet.*` on the inbox and webhooks, with `wallet.activity.digest` for noisy wallets; `wallet.twap.filled`, `market.price.crossed` |
-| Agent      | 3  | 25  | 100   | 100,000   | 120 | 7 days  | `market.liquidation.large`, `market.trade.large`, `wallet.twap.status`, `cohort.bias_flipped`; `http://` dev-tunnel endpoints |
-| Pro        | 10 | 100 | 1,000 | 1,000,000 | 600 | 30 days | — (higher limits) |
-| Enterprise | 10+ | 100+ | 1,000+ | 1,000,000+ | 600+ | 30 days | — |
+| Tier | Webhook subscriptions (tentative) | Types | Pending inbox messages |
+|------|---:|---|---:|
+| Free       | 0  | can read the definitions; `tradesByUser`, `twapSliceFillsByUser` and `priceCross` are Free-tier data | 0 — inbox subscriptions are `403` |
+| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` | 1,000 |
+| Agent      | 6  | Starter's plus `liquidations`, `liquidationsByUser` | 50,000 |
+| Pro        | 10 | Agent's plus `twapStatusesByUser` | 1,000,000 |
+| Enterprise | 20 | all six | 1,000,000 |
 
-Past the monthly budget or the burst, events are dropped and counted in one hourly `webhook.rate_limited` event, and a rule whose dry-run estimate exceeds 10 × the monthly budget ÷ 30 events a day is refused with `estimate_too_high`. See [Webhook plan limits](/webhooks/limits).
+Inbox messages are kept for 14 days under a 2 GiB compressed-payload cap per account, the oldest evicted on overflow. See [Webhook plan limits](/webhooks/limits) and [Inbox delivery](/webhooks/inbox).
 
 ## Endpoints by tier
 

@@ -120,6 +120,8 @@ Each subscription has **its own** signing secret, generated when it is created a
 
 If one receiver serves several subscriptions, look up the secret by the body's `subscriptionId` — or, simpler, give each subscription its own URL path.
 
+An [inbox](/webhooks/inbox) subscription has **no** secret: nothing is POSTed, so nothing is signed, and `GET /v1/subscriptions/{id}/secret` answers `400` for it. You read its messages over the authenticated API instead of verifying them.
+
 ## Acknowledgement and retries
 
 A delivery **succeeds** on any **2xx**. Anything else — another status, a timeout, a refused connection — is a failure and is retried on a bounded back-off, up to **nine attempts over about 76 hours**. A `Retry-After` header on your response is respected, up to 24 hours. When the attempts run out the delivery is dropped.
@@ -133,7 +135,6 @@ Delivery is **at least once**, and order across workers and retries is **not gua
 
 ## 410 disables the subscription
 
-{/* Depends on fix/webhook-enable-health being deployed: POST /v1/subscriptions/{id}/enable is 404 until then, and a disabled subscription still counts toward the allowance. */}
 
 A **`410 Gone`** response disables the subscription at once: deliveries stop and it shows `disabled: true` in `GET /v1/subscriptions`. Frames matched while it is disabled are not kept. Re-enable it with `POST /v1/subscriptions/{id}/enable`, which is idempotent and answers `429` if the account is already at its subscription allowance — a disabled subscription does not count toward the allowance, so enabling one can put you over it. Return `410` only when you mean to stop the subscription.
 

@@ -74,7 +74,7 @@ A few things to know about the body:
 - Numeric filter values are **decimal strings** (`"1"`, `"95000.5"`), compared with exact decimal arithmetic. The operators are `gt`, `gte`, `lt` and `lte`; an exact value is a plain string. All fields combine with AND.
 - Text matching is case-sensitive: `BTC` is not `btc`.
 - Impossible ranges (`"gt": "10", "lt": "5"`), unknown fields and unknown operators are refused with `400` before anything is saved.
-- The URL must be public HTTPS on port 443. Redirects and private or reserved addresses are refused.
+- The URL must be public HTTPS on port 443. Redirects and private or reserved addresses are refused. No server to point at? Send `"deliveryMode": "inbox"` and no `url` instead, and pull the matches from your account's [inbox](/webhooks/inbox).
 - To watch **many wallets** with one subscription, make `args.user` an array of 1 to 1,000 addresses. They are lowercased, sorted and deduplicated; a one-element array comes back as a string. An empty array, an invalid address or more than 1,000 entries is a `400`, and the body may not exceed 64 KiB. One array is one subscription against your allowance ([one wallet or many](/webhooks/events#one-wallet-or-many)).
 - The subscription is **immutable**. To change it, delete it and create it again.
 - If your plan does not include the type you get `403`; if you are at your plan's subscription cap, `429` ([Plan limits](/webhooks/limits)).
@@ -145,7 +145,6 @@ curl -X DELETE https://webhook.coinversa.ai/v1/subscriptions/$SUB_ID \
 
 Deleting removes the subscription and, for `priceCross`, its crossing baseline and any pending deliveries. `GET /v1/subscriptions` lists what you still have (without secrets); `DELETE /v1/subscriptions` removes them all.
 
-{/* Step 6 and the 410 line above depend on fix/webhook-enable-health being deployed: POST /v1/subscriptions/{id}/enable is 404 until then. */}
 
 ## Before production
 

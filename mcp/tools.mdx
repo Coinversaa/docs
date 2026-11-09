@@ -319,17 +319,17 @@ Every gated tool's description ends with its plan (`Plan: Starter ($29/month) or
 
 ## Webhooks
 
-Five tools for [webhook subscriptions](/webhooks/agents) — the WebSocket feeds' frames, filtered and pushed to a URL you own. Creating one takes **Starter** or above (Free can read the definitions but has no subscription allowance); the tentative subscription counts per plan are on [Webhook plan limits](/webhooks/limits).
+Five tools for [webhook subscriptions](/webhooks/agents) — the WebSocket feeds' frames, filtered, stored in your account's [inbox](/webhooks/inbox) for the agent to pull or pushed to a URL you own. Creating one takes **Starter** or above (Free can read the definitions but has no subscription allowance and no inbox); the tentative subscription counts per plan are on [Webhook plan limits](/webhooks/limits).
 
 | Tool | Kind | Description |
 |------|------|-------------|
 | `pulse_event_types`  | Read-only | The subscription types your plan may create — `GET /v1/subscriptions/definitions` — each with its `args`, `filters` (field, type, unit, exact or numeric operators) and `minTier`, so an agent can discover what a subscription may say before creating one. |
-| `pulse_watch_wallet` | Creates subscriptions | Takes `address`, optional `coins`, optional `liquidations: true` and `url`. Creates `tradesByUser` subscriptions for one wallet's fills, delivered to the URL you give it — one for all coins, or one per coin in `coins` with that coin as the filter; with `liquidations: true` on Agent and above, the wallet's liquidations (`liquidationsByUser`) as well. Sets no other filter. Refused with `403` for a type above the plan and `429` at the subscription cap. |
-| `pulse_alert_rules`  | Read-only | Your subscriptions — type, arguments, filters, URL and disabled status. Never the signing secrets. |
-| `pulse_remove_rule`  | Destructive | Delete one subscription by the id `pulse_alert_rules` returns. |
-| `pulse_events`       | Read-only | Reads matched events from the inbox, oldest first, with a `since` cursor. Today every call returns a clear error that says so — see [Webhooks for agents](/webhooks/agents). |
+| `pulse_watch_wallet` | Creates subscriptions | Takes `address`, optional `coins`, optional `liquidations: true` and an optional `url`. Creates `tradesByUser` subscriptions for one wallet's fills — to the **inbox** by default, or to the URL you give it — one for all coins, or one per coin in `coins` with that coin as the filter; with `liquidations: true` on Agent and above, the wallet's liquidations (`liquidationsByUser`) as well. Sets no other filter. Refused with `403` for a type above the plan or an inbox subscription on Free, and `429` at the subscription cap. |
+| `pulse_alert_rules`  | Read-only | Your subscriptions — type, arguments, filters, delivery mode, URL and disabled status. Never the signing secrets. |
+| `pulse_remove_rule`  | Destructive | Delete one subscription by the id `pulse_alert_rules` returns. Stored inbox messages are kept. |
+| `pulse_events`       | Reads and acknowledges | Drains pending inbox messages, oldest first — `POST /v1/inbox/drain` — and acknowledges exactly the ones it exposed with `POST /v1/inbox/ack`, so anything it left out stays pending. Returns the inbox `state` too. See [Webhooks for agents](/webhooks/agents#read-the-inbox). |
 
-`pulse_watch_wallet` and `pulse_remove_rule` change only your Coinversa webhook subscriptions — the connector still never touches an exchange account, signs or trades. Creating a subscription returns its signing secret, so a subscription created from chat has its secret in the transcript; create it over [REST](/webhooks/api#create-a-subscription) or in the [developer portal](https://developers.coinversa.ai) when that matters.
+`pulse_watch_wallet`, `pulse_remove_rule` and the ack half of `pulse_events` change only your Coinversa webhook subscriptions and inbox — the connector still never touches an exchange account, signs or trades. Creating an HTTP subscription returns its signing secret, so one created from chat with a `url` has its secret in the transcript; create it over [REST](/webhooks/api#create-a-subscription) or in the [developer portal](https://developers.coinversa.ai) when that matters. Inbox subscriptions have no secret.
 
 ## HIP-4 — outcome contracts
 

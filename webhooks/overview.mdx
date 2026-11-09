@@ -1,9 +1,9 @@
 ---
 title: "Webhooks overview"
-description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, or to a price crossing a level, and receive the raw frames as Standard Webhooks-signed HTTPS POSTs to your URL. Six subscription types, exact decimal filters, Bearer auth with your API key."
+description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, or to a price crossing a level, and receive the raw frames as Standard Webhooks-signed HTTPS POSTs to your URL, or store them in your account's inbox to pull later. Six subscription types, exact decimal filters, Bearer auth with your API key."
 ---
 
-**Webhooks** push the same data the [WebSocket](/websocket/overview) streams, to a URL you own, so you do not have to hold a socket open. You create a **subscription** — a **type** (which feed), its `args` (which wallet — or up to 1,000 wallets — or which market), optional `filters` (which frames you want) and the `url` to deliver to — and every matching frame is POSTed to that URL, signed with the subscription's own **signing secret**.
+**Webhooks** push the same data the [WebSocket](/websocket/overview) streams, to a URL you own, so you do not have to hold a socket open. You create a **subscription** — a **type** (which feed), its `args` (which wallet — or up to 1,000 wallets — or which market), optional `filters` (which frames you want) and the `url` to deliver to — and every matching frame is POSTed to that URL, signed with the subscription's own **signing secret**. A subscription with `"deliveryMode": "inbox"` and no URL stores its matches in your account's **[inbox](/webhooks/inbox)** instead, for you or an agent to pull.
 
 What arrives is the **raw source frame** — the same `channel`, `seq` and `data` the WebSocket sends — plus the `subscriptionId` it matched, with `data` cut down to the events that passed your filters. There is no envelope, no summary and no derived fields: a client that already reads the WebSocket feeds reads a webhook body unchanged.
 
@@ -11,7 +11,7 @@ What arrives is the **raw source frame** — the same `channel`, `seq` and `data
 
 - **Servers and bots** that would rather be called than poll or hold a connection — a Lambda, a Cloud Run service, a Zapier / Make / n8n catch hook.
 - **Alerting**: a wallet's fills above a size, a liquidation on a watched account, a price crossing a level.
-- **Agents** that manage subscriptions from chat through the [MCP tools](/webhooks/agents).
+- **Agents** that manage subscriptions from chat through the [MCP tools](/webhooks/agents) and read what they matched from the inbox, with no server at all.
 
 ## The six types
 
@@ -48,11 +48,15 @@ Each delivery is one `POST` to the subscription's `url`, signed the **[Standard 
 - A **410** from your URL disables the subscription until you re-enable it with `POST /v1/subscriptions/{id}/enable`.
 - The URL must be public **HTTPS on port 443**; redirects and private or reserved addresses are refused when you create the subscription.
 
-Nothing is stored after a delivery is acknowledged or gives up: there is no delivery history, no replay and no test send. If you need to see what your receiver got, log it on your side.
+Nothing is stored after an HTTP delivery is acknowledged or gives up: there is no delivery history, no replay and no test send. If you need to see what your receiver got, log it on your side.
+
+## Or pull from the inbox
+
+If you have no server to receive a POST, create the subscription with `"deliveryMode": "inbox"` and **no `url`**. The frames it matches are stored in your account's one **inbox** — the same envelope, plus an `inboxId` and the time it was received — and you read them with `POST /v1/inbox/drain`, which deletes nothing, then `POST /v1/inbox/ack` for the ones you have processed. An inbox subscription takes the same slot as an HTTP one and has no signing secret; pending messages are capped per plan (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000, Free none), kept for 14 days under a 2 GiB cap, with the oldest evicted on overflow. It is the delivery mode the [MCP tools](/webhooks/agents) use by default. See [Inbox delivery](/webhooks/inbox).
 
 ## Subscriptions are immutable
 
-A subscription's `type`, `args`, `filters` and `url` cannot be edited. To change one, delete it and create it again — which also resets a `priceCross` subscription's crossing baseline. Each subscription has one signing secret, returned once at creation and readable later with `GET /v1/subscriptions/{id}/secret`.
+A subscription's `type`, `args`, `filters`, `deliveryMode` and `url` cannot be edited. To change one, delete it and create it again — which also resets a `priceCross` subscription's crossing baseline. Each HTTP subscription has one signing secret, returned once at creation and readable later with `GET /v1/subscriptions/{id}/secret`; an inbox subscription has none.
 
 Subscriptions belong to your **account**, not to the API key that created them: any of your keys can list, delete or re-enable them. Your plan caps how many you can have — see [Plan limits](/webhooks/limits).
 
@@ -60,7 +64,7 @@ Subscriptions belong to your **account**, not to the API key that created them: 
 
 - The **developer portal** at [developers.coinversa.ai](https://developers.coinversa.ai).
 - The **REST API** at `https://webhook.coinversa.ai` with `Authorization: Bearer <your API key>` — see the [API reference](/webhooks/api).
-- The **MCP server** — tools to read the definitions and to create, list and delete subscriptions from chat; see [Webhooks for agents](/webhooks/agents).
+- The **MCP server** — tools to read the definitions, to create, list and delete subscriptions and to drain the inbox from chat; see [Webhooks for agents](/webhooks/agents).
 
 <Columns cols={2}>
   <Card title="Quickstart" icon="rocket" href="/webhooks/quickstart">

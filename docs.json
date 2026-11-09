@@ -97,6 +97,7 @@
               "webhooks/quickstart",
               "webhooks/events",
               "webhooks/signatures",
+              "webhooks/inbox",
               "webhooks/api",
               "webhooks/agents",
               "webhooks/limits",

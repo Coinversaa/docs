@@ -1,32 +1,49 @@
 ---
 title: "Webhooks API"
-description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with args.user as one address or an array of up to 1,000, list, delete one or all, re-enable, read the signing secret, the unauthenticated health route, and the 400, 401, 403, 429 and 503 errors."
+description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox and args.user as one address or an array of up to 1,000, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
 ---
 
-Every route on this page is relative to one base URL and authenticated with your API key as a Bearer token:
+Every route on this page is relative to one base URL and, except `/health`, authenticated:
 
 ```text
 https://webhook.coinversa.ai
 Authorization: Bearer YOUR_API_KEY
 ```
 
-It is the same key as REST and the WebSocket. Subscriptions belong to the **account**, not to a particular key: any of your keys sees and manages all of them. The same operations are in the developer portal's **Webhooks** page and, for creating, listing and deleting, in the [MCP tools](/webhooks/agents#the-tools).
+Subscriptions belong to the **account**, not to a particular key: any of your keys sees and manages all of them, and they share one allowance and one [inbox](/webhooks/inbox). The same operations are in the developer portal's **Webhooks** page and, for creating, listing, deleting and reading the inbox, in the [MCP tools](/webhooks/agents#the-tools).
 
 <Note>
 This API is served by `webhook.coinversa.ai`, not the data API at `api.coinversa.ai`. It takes `Authorization: Bearer`, not `X-API-Key`, and it is not in the data API's OpenAPI spec. REST auth failures are `403` on the data API; here a missing or invalid key is `401`.
 </Note>
 
+## Authentication
+
+One header, the same key as REST and the WebSocket:
+
+```text
+Authorization: Bearer <cvsa_ API key>
+```
+
+Subscriptions and the inbox belong to the account, not to one key: sibling keys on the same account see and manage the same subscriptions and share the allowance. Connections made through the hosted MCP connector are authenticated for you; nothing to configure.
+
+Missing or invalid credentials, and unknown, revoked or suspended keys, are `401`. An auth-backend outage is `503`, never anonymous access — treat a `503` as *temporarily unavailable* and retry, not as a bad key.
+
 ## Summary
+
+Every authenticated row takes the Bearer header above.
 
 | Method | Path | Auth | What it does |
 |---|---|---|---|
-| `GET` | `/v1/subscriptions/definitions` | Bearer | The types your plan may create, with `args`, `filters` and `minTier` |
-| `POST` | `/v1/subscriptions` | Bearer | Create a subscription; returns the signing secret |
-| `GET` | `/v1/subscriptions` | Bearer | List this account's subscriptions (no secrets) |
-| `DELETE` | `/v1/subscriptions` | Bearer | Delete **all** this account's subscriptions |
-| `DELETE` | `/v1/subscriptions/{id}` | Bearer | Delete one subscription |
-| `POST` | `/v1/subscriptions/{id}/enable` | Bearer | Re-enable a subscription a `410` disabled |
-| `GET` | `/v1/subscriptions/{id}/secret` | Bearer | Read the subscription's signing secret |
+| `GET` | `/v1/subscriptions/definitions` | yes | The types your plan may create, with `args`, `filters` and `minTier` |
+| `POST` | `/v1/subscriptions` | yes | Create a subscription with `deliveryMode` `http` (default, returns the signing secret) or `inbox` (no `url`, no secret) |
+| `GET` | `/v1/subscriptions` | yes | List this account's subscriptions with their `deliveryMode` (no secrets) |
+| `DELETE` | `/v1/subscriptions` | yes | Delete **all** this account's subscriptions |
+| `DELETE` | `/v1/subscriptions/{id}` | yes | Delete one subscription |
+| `POST` | `/v1/subscriptions/{id}/enable` | yes | Re-enable a subscription a `410` disabled |
+| `GET` | `/v1/subscriptions/{id}/secret` | yes | Read the subscription's signing secret (`400` on an inbox subscription) |
+| `GET` | `/v1/inbox` | yes | The account inbox's `state` |
+| `POST` | `/v1/inbox/drain` | yes | Read up to `count` pending inbox messages within `maxBytes`, oldest first, without deleting them |
+| `POST` | `/v1/inbox/ack` | yes | Delete inbox messages by batch prefix or by `inboxIds` |
 | `GET` | `/health` | none | Liveness: `200`, with service counts in the body |
 
 ## Definitions
@@ -68,7 +85,8 @@ The example omits the other trade fields for brevity. `minItems` and `maxItems` 
 | `type` | string | yes | One of the [six types](/webhooks/events) |
 | `args` | object | per type | `user` for the four by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`. Wallets are normalised to lowercase |
 | `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross` takes none |
-| `url` | string | yes | Public HTTPS on port 443. Redirects and private or reserved addresses are refused |
+| `deliveryMode` | string | no | `http` (default) delivers to `url`; `inbox` stores matches in the account [inbox](/webhooks/inbox) instead |
+| `url` | string | for `http` | Public HTTPS on port 443. Redirects and private or reserved addresses are refused. **Omit it** on an inbox subscription |
 
 ```json
 {
@@ -105,11 +123,24 @@ On the four by-user types `args.user` is **one address string or an array of 1 t
 - In create and list responses a one-element array — including one left after deduplication — is returned as a **string**; the legacy top-level `user` appears only for a single-wallet scope.
 - Matching events from every listed wallet in a source block arrive together, in source order, in one delivery's `data`, with the same filters applied to each. Non-wallet arguments stay single-valued.
 
-The response carries the subscription — `type`, the normalised `args`, the saved `filters`, its `id`, `url` and `disabled` status — and, **on creation only**, the `whsec_…` signing secret. List responses never include it; read it later with [`GET /v1/subscriptions/{id}/secret`](#read-the-signing-secret).
+The response carries the subscription — `type`, the normalised `args`, the saved `filters`, its `id`, `deliveryMode`, `url` and `disabled` status — and, **on creation of an `http` subscription only**, the `whsec_…` signing secret. List responses never include it; read it later with [`GET /v1/subscriptions/{id}/secret`](#read-the-signing-secret).
+
+### Inbox delivery
+
+Send `"deliveryMode": "inbox"` and no `url`, and matching frames are stored in your account's one inbox instead of being POSTed — the same types, `args` and `filters`, one of the same subscription slots, no signing secret, and `403` on Free. Read them with the three inbox routes [below](#inbox). The full contract is on [Inbox delivery](/webhooks/inbox).
+
+```json
+{
+  "type": "tradesByUser",
+  "args": {"user": "0x0123456789012345678901234567890123456789"},
+  "filters": {"coin": "BTC"},
+  "deliveryMode": "inbox"
+}
+```
 
 A subscription's configuration is **immutable**: delete and recreate to change it, which also resets `priceCross` crossing state. If activating the underlying feed fails, creation **rolls back** and answers `503` rather than leaving a saved subscription behind.
 
-Errors: `400` (invalid format, unknown type, argument, filter or operator, impossible range, an empty or over-1,000 `user` array or an invalid address in it, a body over 64 KiB — checked before anything is saved), `403` (the type is not permitted by your tier), `429` (your account is at its subscription allowance), `503` (auth, storage or feed unavailable).
+Errors: `400` (invalid format, unknown type, argument, filter or operator, impossible range, an empty or over-1,000 `user` array or an invalid address in it, a body over 64 KiB — checked before anything is saved), `403` (the type is not permitted by your tier, or an inbox subscription on Free), `429` (your account is at its subscription allowance), `503` (auth, storage or feed unavailable).
 
 | Type | `args` | Minimum plan |
 |---|---|---|
@@ -124,11 +155,11 @@ Tier checks are **creation-time** checks, not continuous re-authorisation of sav
 
 ## List subscriptions
 
-`GET /v1/subscriptions` → this account's subscriptions, each with its `type`, `args`, `filters`, `id`, `url` and `disabled` status. No secrets.
+`GET /v1/subscriptions` → this account's subscriptions, each with its `type`, `args`, `filters`, `id`, `deliveryMode` (`"http"` or `"inbox"`), `url` (HTTP subscriptions) and `disabled` status. No secrets.
 
 ## Delete a subscription
 
-`DELETE /v1/subscriptions/{id}` deletes one subscription you own. For `priceCross` it also removes the crossing baseline and any pending deliveries in the outbox.
+`DELETE /v1/subscriptions/{id}` deletes one subscription you own. For `priceCross` it also removes the crossing baseline and any pending deliveries in the outbox. Deleting an inbox subscription stops collection but **does not delete the messages it already stored** — acknowledge those on the [inbox](/webhooks/inbox#acknowledge).
 
 ## Delete all subscriptions
 
@@ -136,17 +167,27 @@ Tier checks are **creation-time** checks, not continuous re-authorisation of sav
 
 ## Re-enable a subscription
 
-{/* Depends on fix/webhook-enable-health being deployed: until then POST /v1/subscriptions/{id}/enable is 404 and disabled subscriptions still count toward the allowance. */}
 
 `POST /v1/subscriptions/{id}/enable` re-enables a subscription that a `410` from your URL disabled. It is idempotent. It answers `429` if the account is already at its subscription allowance — a disabled subscription does not count toward it, so enabling one is a creation-time check again.
 
 ## Read the signing secret
 
-`GET /v1/subscriptions/{id}/secret` returns the subscription's `whsec_…` signing secret — the one returned at creation. There is one secret per subscription and no rotation; see [Signatures and delivery](/webhooks/signatures#one-secret-per-subscription).
+`GET /v1/subscriptions/{id}/secret` returns the subscription's `whsec_…` signing secret — the one returned at creation. There is one secret per subscription and no rotation; see [Signatures and delivery](/webhooks/signatures#one-secret-per-subscription). An **inbox** subscription has no secret, and this route answers `400` for it.
+
+## Inbox
+
+Three routes read the account's one inbox; the semantics are on [Inbox delivery](/webhooks/inbox).
+
+| Route | Request | Response |
+|---|---|---|
+| `GET /v1/inbox` | — | `{"state": {pendingMessages, pendingBytes, maxMessages, maxStoredBytes, overflowDroppedTotal, expiredTotal}}` |
+| `POST /v1/inbox/drain?count=10&maxBytes=65536` | No body. `count` 1–1,000 (default 10); `maxBytes` 1,024–4,194,304 (default 65,536), a budget for the whole response | `{"batchId", "messages", "hasMore", "state"}` — oldest first, **nothing deleted**. `413` with `requiredMaxBytes` when the oldest message does not fit; an empty inbox returns an empty `batchId` |
+| `POST /v1/inbox/ack` | **One** of `{"batchId", "count"}` (an absolute prefix of that batch) or `{"inboxIds": [...]}` (1–1,000) | `{"acknowledged", "state"}` — `acknowledged` is what **this** request removed, so a retry returns `0`. Idempotent |
+
+A message is the delivery envelope plus `inboxId` (`msg_` + 32 hex) and `receivedAt` ([the message](/webhooks/inbox#the-message)).
 
 ## Health
 
-{/* The JSON body depends on fix/webhook-enable-health being deployed: the build live today answers 200 with an empty body. Keep "accept both" until it ships. */}
 
 `GET /health` needs **no key** and answers `200` while the service is up. The body is a JSON object of counts — `subscriptions` (saved subscriptions), `feeds` (active feed subscriptions), `queued` (fresh deliveries waiting), `retrying` (retries waiting) and `outbox` (pending outbox rows). Treat the status code as the health signal and the body as informative: a build may answer `200` with an empty body, so accept both. It does not check auth or feed readiness.
 
@@ -162,14 +203,14 @@ What a delivery looks like is on [Signatures and delivery](/webhooks/signatures)
 
 ## Errors
 
-{/* "Disabled subscriptions do not count" and 429 on /enable depend on fix/webhook-enable-health being deployed. */}
 
 | Status | Meaning |
 |---|---|
-| `400` | Invalid format; unknown type, argument, filter or operator; impossible range. Nothing is saved |
-| `401` | Missing or invalid API key |
-| `403` | The source type is not permitted by your account tier (checked at creation) |
+| `400` | Invalid format; unknown type, argument, filter or operator; impossible range. Nothing is saved. Also `/secret` on an inbox subscription, bad drain parameters and a bad or expired ack receipt |
+| `401` | Missing or invalid credentials, in either [authentication mode](#authentication) |
+| `403` | The source type is not permitted by your account tier (checked at creation); an inbox subscription on Free |
+| `413` | Drain: the oldest pending message does not fit `maxBytes`; the body carries `requiredMaxBytes` |
 | `429` | The account's subscription allowance is reached — on create and on `/enable`. Disabled subscriptions do not count toward it |
 | `503` | Auth, storage or feed unavailable. An unknown or missing auth tier fails closed. On create, the subscription was rolled back |
 
-The tentative subscription allowances per plan are on [Plan limits](/webhooks/limits).
+Error bodies are **plain text**, not JSON — `Unauthorized`, `unknown webhook type`, `endpoint must be a public HTTPS URL`, `invalid subscription JSON`, `filter "sz" has an impossible range` — so match on the status code and show the text. The tentative subscription allowances per plan are on [Plan limits](/webhooks/limits).

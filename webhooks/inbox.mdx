@@ -1,0 +1,197 @@
+---
+title: "Inbox delivery"
+description: "Coinversa Pulse webhook inbox — create a subscription with deliveryMode inbox and no URL, and the matching frames are stored for you to pull: GET /v1/inbox for the state, POST /v1/inbox/drain to read without deleting, POST /v1/inbox/ack by batch prefix or by inboxIds. One inbox per account, pending-message limits per plan (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000), 2 GiB compressed, 14-day expiry, overflow evicts the oldest."
+---
+
+An **inbox subscription** stores the frames it matches instead of POSTing them to a URL. You pull them later — from a script, a cron job or an [agent](/webhooks/agents) — with a **drain** that reads without deleting and an **ack** that deletes what you have processed. There is no receiver to host, no signature to verify and no `410` to worry about; what you give up is the push.
+
+Every account has **one implicit inbox**, shared by all its API keys and all its inbox subscriptions. Nothing creates it and nothing names it: the first inbox subscription starts filling it, and `GET /v1/inbox` reads it. Every request on this page goes to `https://webhook.coinversa.ai` with the same authentication as the rest of the [webhook API](/webhooks/api#authentication).
+
+## Create an inbox subscription
+
+Same types, same `args`, same `filters` as an HTTP subscription — set `"deliveryMode": "inbox"` and send **no `url`**:
+
+```bash
+curl -X POST https://webhook.coinversa.ai/v1/subscriptions \
+  -H "Authorization: Bearer $COINVERSA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "tradesByUser",
+    "args": {"user": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"},
+    "filters": {"coin": "BTC"},
+    "deliveryMode": "inbox"
+  }'
+```
+
+- `deliveryMode` is `http` by default — omitting it keeps the behaviour the rest of these pages describe, and then `url` is required. Create and list responses carry `deliveryMode` (`"http"` or `"inbox"`) on every subscription.
+- An inbox subscription takes **one of the same subscription slots** as an HTTP subscription ([Plan limits](/webhooks/limits#subscriptions-per-plan)).
+- It has **no signing secret**: the create response carries none, and `GET /v1/subscriptions/{id}/secret` answers `400` for it.
+- **Free** has no inbox: creating an inbox subscription on Free is `403`. Starter and above can.
+- Like every subscription it is immutable — delete and recreate to change it — and it is a creation-time tier check, not continuous re-authorisation.
+
+## The message
+
+Each stored **message** is one delivery envelope as [the delivered frame](/webhooks/events#the-delivered-frame) describes it — `channel`, `seq`, `subscriptionId` and the filtered `data` array — with two fields added **at the same level**, not in a wrapper:
+
+```json
+{
+  "inboxId": "msg_0123456789abcdef0123456789abcdef",
+  "receivedAt": "2026-11-09T12:00:00Z",
+  "channel": "tradesByUser",
+  "subscriptionId": "sub_0123456789abcdef0123456789abcdef",
+  "seq": 123456,
+  "data": [
+    ["0x0123456789abcdef0123456789abcdef01234567", {"coin": "BTC", "px": "95000", "sz": "0.1"}]
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `inboxId` | The stored message's id — `msg_` and 32 lowercase hex. Stable on every read; what you acknowledge by |
+| `receivedAt` | When the service **received** the frame, RFC 3339 — not the source event's time, which is inside `data` |
+| `channel`, `seq`, `subscriptionId`, `data` | Exactly what an HTTP delivery would have carried, filters already applied. `data` can hold several records or wallets |
+
+- Messages come back **oldest first by insertion**, not by `seq` and not by event time. `seq` values from different sources are not comparable ([sequence numbers](/websocket/protocol#sequence-numbers)).
+- Two subscriptions that match the same source record produce **two messages**, one per `subscriptionId`.
+- **Deleting a subscription stops collection but does not delete the messages it already stored.** They stay until you acknowledge them, they expire or overflow evicts them.
+- The sources are live-only: the inbox stores what the service saw while it was running. It is not a replay of frames missed during a service outage, and a `priceCross` crossing during an outage is not reconstructed.
+- The 1 MiB cap on one delivery applies to an inbox message too. Inbox messages bypass the HTTP workers, signing, retries and the `priceCross` outbox cap; a crossing's state change and its inbox append commit together.
+
+## State
+
+```bash
+curl https://webhook.coinversa.ai/v1/inbox \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
+```
+
+`GET /v1/inbox` → `{"state": {...}}`. Successful drain and ack responses carry the same snapshot under `state`:
+
+```json
+{
+  "state": {
+    "pendingMessages": 123,
+    "pendingBytes": 12345,
+    "maxMessages": 1000000,
+    "maxStoredBytes": 2147483648,
+    "overflowDroppedTotal": 45,
+    "expiredTotal": 67
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `pendingMessages` | Messages stored and not yet acknowledged |
+| `pendingBytes` | Their **compressed** payload bytes — not indexes, metadata or file size |
+| `maxMessages` | Your plan's pending-message limit ([below](#limits)) |
+| `maxStoredBytes` | The compressed-payload cap per account, 2 GiB |
+| `overflowDroppedTotal` | Messages evicted because a limit was hit — **cumulative**, never reset |
+| `expiredTotal` | Messages deleted at 14 days — **cumulative**, never reset |
+
+The two counters are account-wide and persistent, and reading does not reset them: keep your last snapshot and compare to see whether you lost anything since. Expiry and overflow are counted separately.
+
+## Drain: read without deleting
+
+```bash
+curl -X POST "https://webhook.coinversa.ai/v1/inbox/drain?count=10&maxBytes=65536" \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
+```
+
+`POST /v1/inbox/drain` takes no body and two optional query parameters:
+
+| Parameter | Default | Range | Meaning |
+|---|---:|---|---|
+| `count` | 10 | 1 – 1,000 | At most this many messages, oldest first |
+| `maxBytes` | 65,536 | 1,024 – 4,194,304 | A budget for the **whole JSON response** — messages, receipt and state included |
+
+```json
+{
+  "batchId": "opaque-account-bound-receipt",
+  "messages": [],
+  "hasMore": false,
+  "state": {}
+}
+```
+
+The example elides the messages and the state. What the response means:
+
+- **Drain removes nothing.** It does not lease or lock either: a repeated or concurrent drain returns the same pending messages, and a failed response leaves everything pending. Only an [ack](#acknowledge) deletes.
+- `batchId` is an opaque **receipt** for this batch, bound to your account, which an ack can refer to. An empty inbox returns an empty `batchId`.
+- `hasMore` means more pending messages existed beyond this batch **at the time of the read** — not that the returned ones have been consumed.
+- Messages are never split, skipped or truncated to fit `maxBytes`. If the **oldest** pending message does not fit, the response is **`413`** with empty `messages`, an empty `batchId`, the `state`, and `requiredMaxBytes`: retry with at least that budget.
+- A malformed, unknown or duplicated query parameter is `400`.
+- Responses are `no-store`: nothing on the way caches a drain.
+
+## Acknowledge
+
+`POST /v1/inbox/ack` deletes messages. The body is **one** of two shapes:
+
+<CodeGroup>
+
+```json By batch prefix
+{"batchId": "opaque-account-bound-receipt", "count": 5}
+```
+
+```json By message id
+{"inboxIds": ["msg_0123456789abcdef0123456789abcdef", "msg_abcdef0123456789abcdef0123456789"]}
+```
+
+</CodeGroup>
+
+```bash
+curl -X POST https://webhook.coinversa.ai/v1/inbox/ack \
+  -H "Authorization: Bearer $COINVERSA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"batchId": "'"$BATCH_ID"'", "count": 5}'
+```
+
+**By batch prefix.** `count` acknowledges an **absolute prefix of that batch** — the first `count` messages the drain returned — never a count against whatever is pending now. After draining ten, `count: 5` deletes the first five; sending it again deletes nothing more; a later `count: 10` on the same receipt deletes the remaining five, not ten newer messages. `count` must be between 1 and the number of messages in that batch. A receipt is bound to your account, survives a service restart and expires after **14 days**; an invalid, tampered, expired or other-account receipt is `400`. Never send a bare `count` without its `batchId`.
+
+**By message id.** `inboxIds` takes 1 to 1,000 ids. Only this account's listed messages are deleted; an id that is already acknowledged, expired, evicted, unknown or another account's has no effect and is not an error.
+
+Both forms are **idempotent**, and an old receipt cannot delete messages that replaced its batch after overflow or expiry. The response is:
+
+```json
+{"acknowledged": 5, "state": {...}}
+```
+
+`acknowledged` counts the rows **this request** removed, so a retried ack legitimately returns `0` — that is the idempotency working, not a lost ack ([troubleshooting](/webhooks/troubleshooting#acknowledged-0-on-an-ack)).
+
+## Limits
+
+| Plan | Pending messages |
+|---|---:|
+| Free | 0 — creating an inbox subscription is `403` |
+| Starter | 1,000 |
+| Agent | 50,000 |
+| Pro | 1,000,000 |
+| Enterprise | 1,000,000 |
+
+- **2 GiB** of compressed payload per account, independent of the message count. `pendingBytes` and `maxStoredBytes` in the state are this cap.
+- Messages older than **14 days** are deleted — on service startup, every minute, and lazily when your inbox is read or written. They count in `expiredTotal`.
+- On **overflow** of either limit, the **oldest** pending messages are evicted until both hold again. They count in `overflowDroppedTotal`.
+- Your plan's limits are refreshed when you make an inbox request or create or re-enable an inbox subscription, and incoming messages are held to the most recently seen plan. A lower limit evicts the oldest messages at that refresh. An account that never makes another request is not re-checked.
+- Inbox subscriptions count against the same subscription allowance as HTTP ones ([Plan limits](/webhooks/limits)).
+
+## For agents: drain, process, ack
+
+The inbox is what lets an agent use webhooks with no receiver. The loop is three steps, and the order matters:
+
+1. **Drain** with a `count` and `maxBytes` sized for what you can show or process in one go.
+2. **Process** the messages — read `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object), liquidation objects, TWAP status records or crossing events they are.
+3. **Ack exactly what you processed**: the `inboxIds` you exposed, or the prefix `count` you exposed, against that drain's `batchId` — not the whole fetched batch if you dropped some of it on the way.
+
+Because a drain deletes nothing, a crash between steps 1 and 3 costs you nothing but a repeated read; because ack is idempotent, a retried step 3 is harmless. `pulse_watch_wallet` creates inbox subscriptions by default and `pulse_events` runs this loop from chat — see [Webhooks for agents](/webhooks/agents).
+
+## Errors on the inbox routes
+
+| Status | Meaning |
+|---|---|
+| `400` | Bad drain parameters; an ack body that is not one of the two shapes or has a `count` outside the batch; an invalid, tampered, expired or other-account receipt; `GET /v1/subscriptions/{id}/secret` on an inbox subscription |
+| `401` | Missing or invalid credentials |
+| `403` | Inbox subscription creation on Free |
+| `413` | The oldest pending message does not fit `maxBytes`; `requiredMaxBytes` says what would |
+| `503` | Auth or storage unavailable |
+
+Errors are plain text in the body, as on the rest of the [webhook API](/webhooks/api#errors).
