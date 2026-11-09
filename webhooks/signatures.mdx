@@ -133,6 +133,8 @@ Delivery is **at least once**, and order across workers and retries is **not gua
 
 ## 410 disables the subscription
 
+{/* Depends on fix/webhook-enable-health being deployed: POST /v1/subscriptions/{id}/enable is 404 until then, and a disabled subscription still counts toward the allowance. */}
+
 A **`410 Gone`** response disables the subscription at once: deliveries stop and it shows `disabled: true` in `GET /v1/subscriptions`. Frames matched while it is disabled are not kept. Re-enable it with `POST /v1/subscriptions/{id}/enable`, which is idempotent and answers `429` if the account is already at its subscription allowance — a disabled subscription does not count toward the allowance, so enabling one can put you over it. Return `410` only when you mean to stop the subscription.
 
 ## Transport rules

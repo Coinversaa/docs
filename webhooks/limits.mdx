@@ -1,6 +1,6 @@
 ---
 title: "Webhook plan limits"
-description: "Coinversa Pulse webhook limits by plan — tentative subscription allowances (Free 0, Starter 2, Agent 6, Pro 10, Enterprise 20), creation-time tier checks, the in-memory retry policy of nine attempts over about 76 hours, the 128 + 128 delivery slots and 16-per-subscription cap, the 32-row priceCross outbox, and what a 410 does."
+description: "Coinversa Pulse webhook limits by plan — tentative subscription allowances (Free 0, Starter 2, Agent 6, Pro 10, Enterprise 20), creation-time tier checks, the in-memory retry policy of nine attempts over about 76 hours, the separate 128 fresh and 128 retry delivery budgets with 16 per subscription across both, the 32-row priceCross outbox, and what a 410 does."
 ---
 
 Webhook limits are separate from REST request quotas and WebSocket capacity — receiving a delivery never draws down your API calls, and a webhook subscription is not a WebSocket subscription against your per-connection cap.
@@ -14,6 +14,8 @@ Webhook limits are separate from REST request quotas and WebSocket capacity — 
 <Note>
 These allowances are **tentative** and may change before or after launch. A tier missing from the table gets 0.
 </Note>
+
+{/* The /enable check and "disabled subscriptions do not count" depend on fix/webhook-enable-health being deployed. */}
 
 - The allowance is per **account**, across every API key, and counts subscriptions of every type together.
 - It is checked at **creation time** — `POST /v1/subscriptions` answers `429` at the cap — and again on `POST /v1/subscriptions/{id}/enable`. Saved subscriptions are not re-authorised after an account change.
@@ -46,23 +48,25 @@ The type's `minTier` in the definitions is the plan it needs; a create below it 
 
 ## Queues and the outbox
 
-Deliveries share one bounded in-memory queue, so a slow or failing receiver cannot starve everyone else:
+Deliveries share one bounded in-memory queue and one pool of workers. The budgets below reduce back-off starvation; they do not guarantee tenant isolation or throughput for other subscriptions:
 
 | | |
 |---|---|
-| Fresh deliveries waiting | **128** across all subscriptions |
-| Retries waiting | **128** across all subscriptions, in their own pool |
+| Fresh deliveries | A budget of **128** across all subscriptions |
+| Retries | A separate budget of **128** across all subscriptions |
 | Size of one delivery | At most **1 MiB** |
-| Per subscription | At most **16** slots across both pools |
+| Per subscription | At most **16** deliveries across both budgets, delayed retries included |
 
-A retry waits in its own pool, so a failing receiver's back-off never holds a slot a fresh delivery could use. When the retry pool is full, further retries are dropped and logged. A subscription at its 16 drops its **own** frames, with a log line, and never takes another subscription's share.
+Fresh deliveries and ordinary retries have separate budgets of 128 each. A delayed retry does not hold a fresh-delivery slot; when the retry budget is full, further retries are **dropped and logged**. A subscription at its 16 drops its **own** fresh frames, with a log line. Queue capacity and workers are still shared: these bounds reduce back-off starvation, but do not guarantee tenant isolation or throughput for other subscriptions.
 
-`priceCross` deliveries use a **durable outbox** instead: at most **32 pending deliveries per subscription**, each at most 1 MiB. When a subscription's share is full, its new observation is rejected and logged without advancing the crossing baseline; observations are not retained for later replay, so a saturated subscription can miss its own crossings. Other subscriptions are unaffected. Deleting the subscription removes its baseline and pending rows.
+`priceCross` deliveries use a **durable outbox** instead: at most **32 pending deliveries per subscription**, each at most 1 MiB. When a subscription's share is full, its new observation is rejected and logged without advancing the crossing baseline; observations are not retained for later replay, so a saturated subscription can miss its own crossings. Retry exhaustion still drops a delivery. Total disk use scales with the number of subscriptions. Deleting the subscription removes its baseline and pending rows.
 
 ## 410 disables a subscription
+
+{/* Depends on fix/webhook-enable-health being deployed: POST /v1/subscriptions/{id}/enable is 404 until then, and a disabled subscription still counts toward the allowance. */}
 
 A `410` from your URL disables the subscription at once. It stops counting toward your allowance, deliveries stop, and frames matched meanwhile are not kept. `POST /v1/subscriptions/{id}/enable` brings it back, subject to the allowance. See [Signatures and delivery](/webhooks/signatures#410-disables-the-subscription).
 
 ## What is not limited, because it does not exist
 
-There is no monthly event budget, no retention window, no per-subscription wallet count and no delivery log: nothing is stored once a delivery is acknowledged or dropped, and each subscription names one wallet or one market. The ceiling on how much you receive is your receiver's capacity and the queue above. Prices and the rest of each plan are on [Pricing](/pricing).
+There is no monthly event budget, no retention window and no delivery log: nothing is stored once a delivery is acknowledged or dropped. A subscription names one market, or one wallet or an array of up to **1,000** wallets ([one wallet or many](/webhooks/events#one-wallet-or-many)) — that 1,000, and the 64 KiB creation body, are the only per-subscription size caps. The ceiling on how much you receive is your receiver's capacity and the queue above. Prices and the rest of each plan are on [Pricing](/pricing).

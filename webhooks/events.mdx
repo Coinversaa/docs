@@ -1,6 +1,6 @@
 ---
 title: "Subscription types"
-description: "The six Coinversa Pulse webhook subscription types — tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser and priceCross — with their args, filters, minimum plan, the delivered frame shape and a delivery example for each."
+description: "The six Coinversa Pulse webhook subscription types — tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser and priceCross — with their args (one wallet or an array of up to 1,000 per subscription), filters, minimum plan, the delivered frame shape and a delivery example for each."
 ---
 
 Six subscription **types**. Five of them deliver the frames of the WebSocket feed of the same name; `priceCross` synthesises its own. The machine-readable version of this page is `GET /v1/subscriptions/definitions`: it lists the types **your plan** may create, each with its `args`, `filters` and `minTier`, and the same declarations drive validation — so read the endpoint rather than keeping a client-side copy ([reference](/webhooks/api#definitions)).
@@ -38,13 +38,38 @@ A filter is a field name with either an **exact** value or, for numeric fields, 
 
 Units are the market's **base** size and **quote** price. `quote` means the market's quote denomination — not a promise of USD conversion — so there is no dollar-notional filter.
 
+## One wallet or many
+
+On the four by-user types — `tradesByUser`, `twapSliceFillsByUser`, `twapStatusesByUser` and `liquidationsByUser` — `args.user` is **either one address string or an array of 1 to 1,000 addresses**. The definitions advertise this on the argument itself: `"user": {"type": "address", "required": true, "minItems": 1, "maxItems": 1000}`.
+
+```json Create
+{
+  "type": "tradesByUser",
+  "args": {
+    "user": [
+      "0x0123456789012345678901234567890123456789",
+      "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+    ]
+  },
+  "filters": {"coin": "BTC", "sz": {"gt": "1.5", "lte": "10"}},
+  "url": "https://example.com/hook"
+}
+```
+
+- One array is **one subscription** against your allowance, not one per wallet, and one underlying processor feed. It does not change the type's minimum plan.
+- Addresses are lowercased; an array is **sorted and deduplicated**. The 1,000 limit is checked before deduplication.
+- An **empty array**, an **invalid address** or **more than 1,000 entries** is a `400`. A creation body over **64 KiB** is refused.
+- In the response, a one-element array — including one left after deduplication — comes back as a **string**; the legacy top-level `user` field appears only for a single-wallet scope.
+- Matching events from every listed wallet in a source block arrive **together**, in source order, in one delivery's `data`; the same filters apply to each event. The frame shape and the type's `channel` do not change, and each `[wallet, fill]` pair names its wallet.
+- Non-wallet arguments (`coin`, `threshold`, `source`, `direction`) stay single-valued.
+
 ## `tradesByUser`
 
-Every fill of one wallet, TWAP fills included — the same pairs the [`tradesByUser` feed](/websocket/feeds) streams, filtered. Any address on Hyperliquid, not only wallets you control.
+Every fill of one wallet — or of up to 1,000 wallets in one subscription — TWAP fills included: the same pairs the [`tradesByUser` feed](/websocket/feeds) streams, filtered. Any address on Hyperliquid, not only wallets you control.
 
 | | |
 |---|---|
-| `args` | `user` (required): the wallet, normalised to lowercase |
+| `args` | `user` (required): one address, or an array of 1 to 1,000 addresses — lowercased, sorted and deduplicated ([one wallet or many](#one-wallet-or-many)) |
 | Filters | `coin`, `side` (`A` sell / `B` buy), `px`, `sz`, `closedPnl` |
 | Minimum plan | Free data — but Free has no subscription allowance, so Starter in practice |
 
@@ -93,7 +118,7 @@ The fills a wallet's TWAP orders executed — the same `[wallet, fill]` pairs, f
 
 | | |
 |---|---|
-| `args` | `user` (required) |
+| `args` | `user` (required): one address or an array of 1 to 1,000 ([one wallet or many](#one-wallet-or-many)) |
 | Filters | `coin`, `side`, `px`, `sz`, `closedPnl` |
 | Minimum plan | Free data — Starter in practice |
 
@@ -129,11 +154,11 @@ The fills a wallet's TWAP orders executed — the same `[wallet, fill]` pairs, f
 
 ## `twapStatusesByUser`
 
-The node's **raw TWAP status records** for one wallet — activated, finished, terminated, an error — as the [`twapStatusesByUser` feed](/websocket/feeds#twap-statuses) forwards them. These are the node's records, not normalised lifecycle alerts. No snapshot is delivered: a webhook subscription gets status changes from the moment it is created.
+The node's **raw TWAP status records** for one wallet, or for up to 1,000 wallets in one subscription — activated, finished, terminated, an error — as the [`twapStatusesByUser` feed](/websocket/feeds#twap-statuses) forwards them. These are the node's records, not normalised lifecycle alerts. No snapshot is delivered: a webhook subscription gets status changes from the moment it is created.
 
 | | |
 |---|---|
-| `args` | `user` (required) |
+| `args` | `user` (required): one address or an array of 1 to 1,000 ([one wallet or many](#one-wallet-or-many)) |
 | Filters | `coin` (mapped from `state.coin`), `status`, `sz`, `executedSz`, `executedNtl`, `minutes` |
 | Minimum plan | Pro |
 
@@ -213,11 +238,11 @@ Every liquidation on the exchange. `data` is an array of **liquidation objects**
 
 ## `liquidationsByUser`
 
-Liquidations of one account. The subscription selects the **liquidated** account's side, not the liquidator's fills — a liquidator watching its own activity sees its side through `tradesByUser`.
+Liquidations of one account, or of up to 1,000 accounts in one subscription. The subscription selects the **liquidated** account's side, not the liquidator's fills — a liquidator watching its own activity sees its side through `tradesByUser`.
 
 | | |
 |---|---|
-| `args` | `user` (required): the account whose liquidations you want |
+| `args` | `user` (required): the account — or an array of 1 to 1,000 accounts — whose liquidations you want ([one wallet or many](#one-wallet-or-many)) |
 | Filters | `coin`, `side`, `px`, `sz`, `closedPnl` |
 | Minimum plan | Agent |
 
@@ -293,4 +318,4 @@ The delivered frame is synthesised with `channel: "priceCross"`; each event in `
 }
 ```
 
-Unlike the other five types, `priceCross` deliveries are **durable**: baseline and pending delivery commit atomically to an outbox with stable delivery ids and retry schedules that survive a restart of the service. That is at-least-once delivery, not exactly-once processing — deduplicate on `webhook-id`. The outbox holds at most **32 pending deliveries per subscription**, each at most 1 MiB; when a subscription's share is full, its observation is rejected and logged without advancing the baseline, so a saturated subscription can miss its own crossings. Other subscriptions are unaffected. See [Plan limits](/webhooks/limits#queues-and-the-outbox).
+Unlike the other five types, `priceCross` deliveries are **durable**: baseline and pending delivery commit atomically to an outbox with stable delivery ids and retry schedules that survive a restart of the service. That is at-least-once delivery, not exactly-once processing — deduplicate on `webhook-id`. The outbox holds at most **32 pending deliveries per subscription**, each at most 1 MiB; when a subscription's share is full, its observation is rejected and logged without advancing the baseline, so a saturated subscription can miss its own crossings; total disk use scales with the number of subscriptions. See [Plan limits](/webhooks/limits#queues-and-the-outbox).

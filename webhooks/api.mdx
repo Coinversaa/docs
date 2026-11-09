@@ -1,6 +1,6 @@
 ---
 title: "Webhooks API"
-description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions, list, delete one or all, re-enable, read the signing secret, the unauthenticated health route, and the 400, 401, 403, 429 and 503 errors."
+description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with args.user as one address or an array of up to 1,000, list, delete one or all, re-enable, read the signing secret, the unauthenticated health route, and the 400, 401, 403, 429 and 503 errors."
 ---
 
 Every route on this page is relative to one base URL and authenticated with your API key as a Bearer token:
@@ -27,7 +27,7 @@ This API is served by `webhook.coinversa.ai`, not the data API at `api.coinversa
 | `DELETE` | `/v1/subscriptions/{id}` | Bearer | Delete one subscription |
 | `POST` | `/v1/subscriptions/{id}/enable` | Bearer | Re-enable a subscription a `410` disabled |
 | `GET` | `/v1/subscriptions/{id}/secret` | Bearer | Read the subscription's signing secret |
-| `GET` | `/health` | none | Service counts, or `503` |
+| `GET` | `/health` | none | Liveness: `200`, with service counts in the body |
 
 ## Definitions
 
@@ -38,14 +38,14 @@ Only the types **permitted by your tier** are listed, so Free sees the Free-tier
 | Field | Meaning |
 |---|---|
 | `type` | The name you send at creation |
-| `args` | Scope and configuration arguments. Each declares `type`, `required`, optional `options` and optional `default` |
+| `args` | Scope and configuration arguments. Each declares `type`, `required`, optional `options` and optional `default`. Wallet arguments also declare `minItems: 1` and `maxItems: 1000`: they take one address or an array |
 | `filters` | Public field names. Each declares `type`, `label`, optional `unit` (`base` or `quote`), `exact`, optional enum `options` and the allowed numeric `operators` |
 | `minTier` | The minimum plan, inherited from the underlying feed. `priceCross` also exports `sourceMinTiers` for its `mark` and `trade` sources |
 
 ```json
 {
   "type": "tradesByUser",
-  "args": {"user": {"type": "address", "required": true}},
+  "args": {"user": {"type": "address", "required": true, "minItems": 1, "maxItems": 1000}},
   "filters": {
     "coin": {"type": "string", "label": "Market", "exact": true},
     "sz": {
@@ -57,7 +57,7 @@ Only the types **permitted by your tier** are listed, so Free sees the Free-tier
 }
 ```
 
-The example omits the other trade fields for brevity. Read the endpoint rather than maintaining a client-side list.
+The example omits the other trade fields for brevity. `minItems` and `maxItems` on `user` mean it accepts one address or an array of 1 to 1,000 ([one wallet or many](#one-wallet-or-many)). Read the endpoint rather than maintaining a client-side list.
 
 ## Create a subscription
 
@@ -66,7 +66,7 @@ The example omits the other trade fields for brevity. Read the endpoint rather t
 | Body field | Type | Required | Notes |
 |---|---|---|---|
 | `type` | string | yes | One of the [six types](/webhooks/events) |
-| `args` | object | per type | `user` for the four by-user types; `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`. Wallets are normalised to lowercase |
+| `args` | object | per type | `user` for the four by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`. Wallets are normalised to lowercase |
 | `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross` takes none |
 | `url` | string | yes | Public HTTPS on port 443. Redirects and private or reserved addresses are refused |
 
@@ -81,19 +81,43 @@ The example omits the other trade fields for brevity. Read the endpoint rather t
 
 `args` selects and configures the source independently of the optional `filters`. The original top-level `user` spelling is still accepted, but do not send `user` both at the top level and inside `args`.
 
+### One wallet or many
+
+On the four by-user types `args.user` is **one address string or an array of 1 to 1,000 addresses**; the definitions advertise `minItems: 1` and `maxItems: 1000` on the argument. The top-level `user` spelling accepts either form too.
+
+```json
+{
+  "type": "tradesByUser",
+  "args": {
+    "user": [
+      "0x0123456789012345678901234567890123456789",
+      "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+    ]
+  },
+  "filters": {"coin": "BTC", "sz": {"gt": "1.5", "lte": "10"}},
+  "url": "https://example.com/hook"
+}
+```
+
+- One array is **one subscription** against your allowance and one underlying processor feed; it does not change the type's minimum plan.
+- Addresses are lowercased; arrays are **sorted and deduplicated**. The 1,000 limit is checked before deduplication.
+- An **empty array**, an **invalid address** or **more than 1,000 entries** is a `400`. Creation bodies are limited to **64 KiB**.
+- In create and list responses a one-element array — including one left after deduplication — is returned as a **string**; the legacy top-level `user` appears only for a single-wallet scope.
+- Matching events from every listed wallet in a source block arrive together, in source order, in one delivery's `data`, with the same filters applied to each. Non-wallet arguments stay single-valued.
+
 The response carries the subscription — `type`, the normalised `args`, the saved `filters`, its `id`, `url` and `disabled` status — and, **on creation only**, the `whsec_…` signing secret. List responses never include it; read it later with [`GET /v1/subscriptions/{id}/secret`](#read-the-signing-secret).
 
 A subscription's configuration is **immutable**: delete and recreate to change it, which also resets `priceCross` crossing state. If activating the underlying feed fails, creation **rolls back** and answers `503` rather than leaving a saved subscription behind.
 
-Errors: `400` (invalid format, unknown type, argument, filter or operator, impossible range — checked before anything is saved), `403` (the type is not permitted by your tier), `429` (your account is at its subscription allowance), `503` (auth, storage or feed unavailable).
+Errors: `400` (invalid format, unknown type, argument, filter or operator, impossible range, an empty or over-1,000 `user` array or an invalid address in it, a body over 64 KiB — checked before anything is saved), `403` (the type is not permitted by your tier), `429` (your account is at its subscription allowance), `503` (auth, storage or feed unavailable).
 
 | Type | `args` | Minimum plan |
 |---|---|---|
-| `tradesByUser` | required `user` | Free (Free's allowance is zero) |
-| `twapSliceFillsByUser` | required `user` | Free (Free's allowance is zero) |
-| `twapStatusesByUser` | required `user` | Pro |
+| `tradesByUser` | required `user`: one address or 1–1,000 | Free (Free's allowance is zero) |
+| `twapSliceFillsByUser` | required `user`: one address or 1–1,000 | Free (Free's allowance is zero) |
+| `twapStatusesByUser` | required `user`: one address or 1–1,000 | Pro |
 | `liquidations` | none | Agent |
-| `liquidationsByUser` | required `user` | Agent |
+| `liquidationsByUser` | required `user`: one address or 1–1,000 | Agent |
 | `priceCross` | required `coin`, `threshold`; optional `source`, `direction` | Free for both sources (Free's allowance is zero) |
 
 Tier checks are **creation-time** checks, not continuous re-authorisation of saved subscriptions after an account change.
@@ -112,6 +136,8 @@ Tier checks are **creation-time** checks, not continuous re-authorisation of sav
 
 ## Re-enable a subscription
 
+{/* Depends on fix/webhook-enable-health being deployed: until then POST /v1/subscriptions/{id}/enable is 404 and disabled subscriptions still count toward the allowance. */}
+
 `POST /v1/subscriptions/{id}/enable` re-enables a subscription that a `410` from your URL disabled. It is idempotent. It answers `429` if the account is already at its subscription allowance — a disabled subscription does not count toward it, so enabling one is a creation-time check again.
 
 ## Read the signing secret
@@ -120,7 +146,9 @@ Tier checks are **creation-time** checks, not continuous re-authorisation of sav
 
 ## Health
 
-`GET /health` needs **no key**. It answers `{"subscriptions", "feeds", "queued", "retrying", "outbox"}` — counts of saved subscriptions, active feed subscriptions, queued fresh deliveries, waiting retries and pending outbox rows — or `503` if storage is unavailable.
+{/* The JSON body depends on fix/webhook-enable-health being deployed: the build live today answers 200 with an empty body. Keep "accept both" until it ships. */}
+
+`GET /health` needs **no key** and answers `200` while the service is up. The body is a JSON object of counts — `subscriptions` (saved subscriptions), `feeds` (active feed subscriptions), `queued` (fresh deliveries waiting), `retrying` (retries waiting) and `outbox` (pending outbox rows). Treat the status code as the health signal and the body as informative: a build may answer `200` with an empty body, so accept both. It does not check auth or feed readiness.
 
 ## Delivery semantics
 
@@ -133,6 +161,8 @@ What a delivery looks like is on [Signatures and delivery](/webhooks/signatures)
 | Anything else | Retried on the bounded policy — up to nine attempts over about 76 hours, respecting `Retry-After` up to 24 hours — then dropped |
 
 ## Errors
+
+{/* "Disabled subscriptions do not count" and 429 on /enable depend on fix/webhook-enable-health being deployed. */}
 
 | Status | Meaning |
 |---|---|

@@ -14,6 +14,7 @@ The body failed validation and nothing was saved. The usual causes:
 3. **A number that is not a decimal string.** `1.5` must be `"1.5"`; exponent notation, `NaN`, infinity and `1/2` are rejected; the maximum length is 128 characters.
 4. **Unknown type or argument.** Check the spelling against the definitions; `user` sent both at the top level and inside `args` is also a `400`.
 5. **A missing required argument.** `user` on the four by-user types, `coin` and `threshold` on `priceCross` (a positive decimal string).
+6. **A bad wallet array.** `args.user` may be one address or an array of 1 to 1,000; an empty array, an invalid address or more than 1,000 entries is refused, as is a creation body over 64 KiB.
 
 ## `403` when creating a subscription
 
@@ -21,9 +22,13 @@ The type is above your plan: `liquidations` and `liquidationsByUser` need **Agen
 
 ## `429` when creating or enabling
 
+{/* The /enable route and "disabled subscriptions do not count" depend on fix/webhook-enable-health being deployed. */}
+
 Your account is at its subscription allowance — tentatively 2 on Starter, 6 on Agent, 10 on Pro, 20 on Enterprise, and **0 on Free**. Delete a subscription you no longer need (`GET /v1/subscriptions` to find it), or move up a plan. A disabled subscription does not count toward the allowance, which is why `POST /v1/subscriptions/{id}/enable` can be refused with `429` too. See [Plan limits](/webhooks/limits).
 
 ## Deliveries stopped and the subscription shows `disabled: true`
+
+{/* Depends on fix/webhook-enable-health being deployed: POST /v1/subscriptions/{id}/enable is 404 until then. */}
 
 Your URL answered **`410 Gone`** to a delivery. That disables the subscription at once; frames matched while it is disabled are not kept. Fix whatever returned the `410`, then:
 
@@ -47,7 +52,7 @@ Ordinary deliveries and their retries are kept **in memory**. When the webhook s
 3. **Is it the right wallet?** `liquidationsByUser` selects the **liquidated** account, not the liquidator's fills; `twapSliceFillsByUser` only carries fills with a `twapId`.
 4. **Is your receiver acknowledging?** Only a `2xx` counts. A `200` after a long handler may already have timed out on our side and been retried; answer first, process after.
 5. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped. Fix the receiver and the subscription resumes on its own.
-6. **Is the service healthy?** `GET /health` answers counts, or `503` if storage is unavailable.
+6. **Is the service healthy?** `GET /health` answers `200` while the service is up, with service counts in the body ([reference](/webhooks/api#health)).
 
 ## The URL was refused
 

@@ -3,7 +3,7 @@ title: "Webhooks overview"
 description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, or to a price crossing a level, and receive the raw frames as Standard Webhooks-signed HTTPS POSTs to your URL. Six subscription types, exact decimal filters, Bearer auth with your API key."
 ---
 
-**Webhooks** push the same data the [WebSocket](/websocket/overview) streams, to a URL you own, so you do not have to hold a socket open. You create a **subscription** — a **type** (which feed), its `args` (which wallet or which market), optional `filters` (which frames you want) and the `url` to deliver to — and every matching frame is POSTed to that URL, signed with the subscription's own **signing secret**.
+**Webhooks** push the same data the [WebSocket](/websocket/overview) streams, to a URL you own, so you do not have to hold a socket open. You create a **subscription** — a **type** (which feed), its `args` (which wallet — or up to 1,000 wallets — or which market), optional `filters` (which frames you want) and the `url` to deliver to — and every matching frame is POSTed to that URL, signed with the subscription's own **signing secret**.
 
 What arrives is the **raw source frame** — the same `channel`, `seq` and `data` the WebSocket sends — plus the `subscriptionId` it matched, with `data` cut down to the events that passed your filters. There is no envelope, no summary and no derived fields: a client that already reads the WebSocket feeds reads a webhook body unchanged.
 
@@ -17,14 +17,16 @@ What arrives is the **raw source frame** — the same `channel`, `seq` and `data
 
 | Type | What it delivers | `args` | Filters | Minimum plan |
 |---|---|---|---|---|
-| `tradesByUser` | Every fill of one wallet, TWAP fills included | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Free data* |
+| `tradesByUser` | Every fill of one wallet, or of up to 1,000 wallets, TWAP fills included | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Free data* |
 | `twapSliceFillsByUser` | The fills a wallet's TWAP orders executed | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Free data* |
-| `twapStatusesByUser` | The node's raw TWAP status records for one wallet | `user` | `coin`, `status`, `sz`, `executedSz`, `executedNtl`, `minutes` | Pro |
+| `twapStatusesByUser` | The node's raw TWAP status records for one wallet or up to 1,000 | `user` | `coin`, `status`, `sz`, `executedSz`, `executedNtl`, `minutes` | Pro |
 | `liquidations` | Every liquidation on the exchange | none | `coin`, `side`, `px`, `sz`, `closedPnl` | Agent |
-| `liquidationsByUser` | Liquidations of one account (the liquidated side) | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Agent |
+| `liquidationsByUser` | Liquidations of one account, or of up to 1,000 (the liquidated side) | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Agent |
 | `priceCross` | A market's mark or trade price crossing a threshold | `coin`, `threshold`, `source`, `direction` | none — the condition is in `args` | Free data* |
 
 \* Free-tier data, but Free's subscription allowance is **zero**, so creating one takes Starter or above. Feed access and the subscription allowance are separate checks — see [Plan limits](/webhooks/limits).
+
+On the four by-user types `user` is one address or an array of 1 to 1,000 addresses — one subscription, one allowance slot, for many wallets ([one wallet or many](/webhooks/events#one-wallet-or-many)).
 
 Every type, its arguments, filters and a delivery example are on [Subscription types](/webhooks/events). The machine-readable version is `GET /v1/subscriptions/definitions`, which lists the types **your** plan may create with their `args`, `filters` and `minTier` — read it instead of hard-coding this table ([reference](/webhooks/api#definitions)).
 
