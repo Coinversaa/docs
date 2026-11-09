@@ -1,67 +1,80 @@
 ---
 title: "Webhook troubleshooting"
-description: "Fix Coinversa Pulse webhook problems by symptom — no events arriving, an endpoint that stopped on its own (auto-disable and recovery probes), Standard Webhooks signature mismatches, duplicate deliveries, events dropped over quota or burst, wallet.activity.digest events in place of trades, and gap: true in the inbox."
+description: "Fix Coinversa Pulse webhook problems by symptom — 400 on an impossible filter range, 403 on a type above your plan, 429 at the subscription cap, a subscription disabled by a 410 and the enable route, deliveries missing after a service restart, a URL refused for a private address, a redirect or a non-443 port, and Standard Webhooks signature mismatches."
 ---
 
-Start from what you see. Each section names the likely causes in the order worth checking, and where to look: the portal's **Webhooks → Activity** log, `GET /endpoints/{id}/deliveries` ([reference](/webhooks/api#list-deliveries)), `GET /events` ([reference](/webhooks/api#list-events)) and `GET /plan` ([reference](/webhooks/api#plan)).
+Start from what you see. There is no delivery log on our side — nothing is stored after a delivery — so the places to look are `GET /v1/subscriptions` ([reference](/webhooks/api#list-subscriptions)), the unauthenticated `GET /health` ([reference](/webhooks/api#health)) and your own receiver's logs.
 
-## Nothing arrives
+## `400` when creating a subscription
 
-1. **Does the inbox have the event?** `GET /events` with no `since` shows the last 24 hours. If the event is there, matching works and the problem is delivery — go to step 4. If it is not, the rule never matched.
-2. **Is the rule active?** `GET /rules`. A rule created without `cooldownMin` defaults to `0` — **fire once, then deactivate** — so it shows `active: false` after its first event. Set `cooldownMin` to keep it firing.
-3. **Do the filters match?** Wallets must be lowercase `0x` addresses; coins use the canonical form (`BTC`, `xyz:GOLD`); `minNotionalUsd` defaults to $50,000 on increases and decreases and $250,000 on large liquidations and trades, so small moves do not fire. `wallet.liquidation_risk` comes from a 30-second poll and `cohort.bias_flipped` from a 60-second one, so give them a minute.
-4. **Does the rule have a webhook channel?** An event with `deliveryStatus: "inbox_only"` had no webhook channel on its rule, or its endpoint is disabled.
-5. **What does the delivery log say?** `error` names the failure: `timeout` (the attempt, DNS lookup included, took longer than 5 s), `dns` (the lookup failed or took more than 3 s), `connect`, `ssrf_rejected` (the host resolved to a private, loopback or metadata address), `redirect`, or `http_<status>` with the status in `responseStatus`. A `3xx` (`redirect`) is a failure and is **not retried** — the delivery is dead after one attempt and the redirect is never followed. Fix the URL: register the final one.
-6. **Is the plan right?** The webhook channel and the inbox start on Starter; some event types need Agent. A rule your plan cannot carry is refused at creation with `402 plan_required`, never silently ignored.
-7. **Did you hit a cap?** See [over quota](#events-stopped-mid-month-or-mid-burst).
+The body failed validation and nothing was saved. The usual causes:
 
-Send `POST /endpoints/{id}/test` to separate the two halves: if the test arrives and verifies, delivery works and the question is matching.
+1. **Impossible range.** `{"gt": "10", "lt": "5"}` can never match. Equal endpoints are allowed only when both are inclusive: `{"gte": "10", "lte": "10"}` is fine, `{"gt": "10", "lte": "10"}` is not.
+2. **Unknown filter or operator.** Only the fields the type declares in `GET /v1/subscriptions/definitions` and only `gt`, `gte`, `lt`, `lte` are accepted — no `eq`, no `$gt`, no nested paths. `priceCross` takes no filters at all.
+3. **A number that is not a decimal string.** `1.5` must be `"1.5"`; exponent notation, `NaN`, infinity and `1/2` are rejected; the maximum length is 128 characters.
+4. **Unknown type or argument.** Check the spelling against the definitions; `user` sent both at the top level and inside `args` is also a `400`.
+5. **A missing required argument.** `user` on the four by-user types, `coin` and `threshold` on `priceCross` (a positive decimal string).
 
-## An endpoint stopped on its own
+## `403` when creating a subscription
 
-`GET /endpoints/{id}` shows `status: "disabled"` and a `disabledReason`:
+The type is above your plan: `liquidations` and `liquidationsByUser` need **Agent**, `twapStatusesByUser` needs **Pro**. The definitions endpoint only lists what your plan may create, so a type you did not see there will be refused. See [Types per plan](/webhooks/limits#types-per-plan).
 
-| Cause | What happens next |
+## `429` when creating or enabling
+
+Your account is at its subscription allowance — tentatively 2 on Starter, 6 on Agent, 10 on Pro, 20 on Enterprise, and **0 on Free**. Delete a subscription you no longer need (`GET /v1/subscriptions` to find it), or move up a plan. A disabled subscription does not count toward the allowance, which is why `POST /v1/subscriptions/{id}/enable` can be refused with `429` too. See [Plan limits](/webhooks/limits).
+
+## Deliveries stopped and the subscription shows `disabled: true`
+
+Your URL answered **`410 Gone`** to a delivery. That disables the subscription at once; frames matched while it is disabled are not kept. Fix whatever returned the `410`, then:
+
+```bash
+curl -X POST https://webhook.coinversa.ai/v1/subscriptions/$SUB_ID/enable \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
+```
+
+The call is idempotent. If it answers `429`, you are at your allowance with the disabled one re-counted — delete another subscription first. A framework that answers `410` for an unknown route, or a proxy that does during a deploy, is the usual cause; make the route answer `404` or `503` instead for anything but a deliberate stop.
+
+## Nothing arrived, and the service restarted
+
+Ordinary deliveries and their retries are kept **in memory**. When the webhook service restarts — a deploy, a crash — whatever was queued or waiting to retry is lost, and nothing is replayed afterwards. Your subscription is still saved and starts delivering again on the next matching frame. If your receiver was down at the same time, the frames it missed are gone from the webhook side: read the wallet's fills from the [REST API](/quickstart) or the [WebSocket](/websocket/overview) to fill the gap.
+
+`priceCross` behaves differently: its deliveries sit in a durable outbox and survive a restart, though a crossing that happened entirely during an outage of the **source** cannot be reconstructed.
+
+## Nothing arrives, and the service did not restart
+
+1. **Is the subscription there and enabled?** `GET /v1/subscriptions`. A `disabled: true` means a `410` — see above.
+2. **Do the filters match?** Exact text is case-sensitive (`BTC`, not `btc`); `side` is `A` for sell and `B` for buy; sizes are in the market's base unit and prices in its quote, so a `sz` bound of `"100000"` on BTC never matches. A missing or null field never satisfies a numeric filter, so a `closedPnl` bound only matches fills that carry one.
+3. **Is it the right wallet?** `liquidationsByUser` selects the **liquidated** account, not the liquidator's fills; `twapSliceFillsByUser` only carries fills with a `twapId`.
+4. **Is your receiver acknowledging?** Only a `2xx` counts. A `200` after a long handler may already have timed out on our side and been retried; answer first, process after.
+5. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped. Fix the receiver and the subscription resumes on its own.
+6. **Is the service healthy?** `GET /health` answers counts, or `503` if storage is unavailable.
+
+## The URL was refused
+
+The `url` must be **public HTTPS on port 443**, reached without a redirect. Refused at creation:
+
+| Cause | Fix |
 |---|---|
-| Your endpoint answered **`410 Gone`** | Disabled at once and **not** probed. Re-enable it yourself with `PATCH /endpoints/{id}` and `{"status":"active"}` |
-| **20 consecutive dead deliveries**, or **72 hours** of failures without a success | Disabled, one email to the account owner, and a [recovery probe](/webhooks/signatures#auto-disable-and-recovery-probes) is scheduled: `probeAt` is when the next one may go out |
-
-A probe is one real delivery of the next event your rules match after `probeAt`. When it succeeds the endpoint is `active` again with its failure count cleared, and no email is sent. When it fails the wait grows — 5, 10, 20, 40 minutes, then every hour. A rule that matches nothing sends no probe, so a quiet endpoint can stay disabled after it is fixed: re-enable it yourself, or send a test event once it is active.
-
-Either way, events matched while it was disabled are in the inbox, not replayed. Pull them with `GET /events` from a saved cursor, or replay deliveries one by one.
+| A private, loopback, link-local or otherwise reserved address — `localhost`, `127.0.0.1`, `10.x`, `192.168.x`, a host that resolves to one | Expose a public host. There is no `http://` dev-tunnel option; use a tunnel that terminates TLS publicly |
+| `http://` | Use `https://` |
+| A port other than 443 — `https://example.com:8443/hook` | Put the receiver behind a proxy on 443 |
+| A redirect — the URL answers `3xx` | Register the final URL |
 
 ## Signature mismatch
 
-Check your verifier against the [known-answer test vector](/webhooks/signatures#known-answer-test-vector) first — it isolates your code from your framework. Then, in order of how often each one is the cause:
+Check your verifier against the [known-answer test vector](/webhooks/signatures#known-answer-test-vector) first — it isolates your code from your framework. Then, in order of how often each is the cause:
 
 1. **The body was re-serialised.** You verified `JSON.stringify(req.body)`, not the bytes received. Use `express.raw`, `await request.body()`, `request.get_data()` or `io.ReadAll(r.Body)` on the webhook route.
-2. **The key is the string, not the bytes.** The HMAC key is the base64-**decoded** part after `whsec_`, not the `whsec_…` text. Libraries do this for you; hand-rolled verifiers often do not.
-3. **Wrong signed content.** It is `webhook-id + "." + webhook-timestamp + "." + body` — the id first. The old `Coinversa-Signature` scheme signed only `t + "." + body`.
-4. **Hex instead of base64.** Signatures are standard base64 with padding, after the `v1,` prefix.
-5. **Only the first entry checked.** During a rotation `webhook-signature` has two space-separated entries; a request is authentic when **any** matches.
-6. **Clock skew.** `webhook-timestamp` must be within 300 seconds of your clock. Run NTP.
-7. **Wrong secret.** After a rotation the old secret stops signing at `previousSecretExpiresAt`. A secret is `whsec_` plus padded standard base64; one containing `-` or `_` is not valid and is not used to sign (its deliveries fail with `secret_unavailable`) — rotate it.
+2. **Wrong signed content.** It is `webhook-id + "." + webhook-timestamp + "." + body` — the id first.
+3. **Wrong secret.** Each subscription has its own; if one receiver serves several, look the secret up by the body's `subscriptionId`. `GET /v1/subscriptions/{id}/secret` returns the current one.
+4. **A hand-rolled HMAC.** Verify with a `standardwebhooks` library for your language; it takes the `whsec_…` secret as you received it and handles the key.
+5. **Hex instead of base64.** The signature is standard base64, after the `v1,` prefix.
+6. **Clock skew.** The libraries reject a `webhook-timestamp` more than five minutes from your clock. Run NTP.
 
-## Duplicate events
+## Duplicate deliveries
 
-Expected: delivery is **at least once**. A retry follows any failure we observed, including a timeout after your handler already succeeded. Deduplicate on `webhook-id` (also `id` in the body), which is identical across retries and replays; `Coinversa-Attempt` greater than `1` marks a retry and `Coinversa-Replay: true` a replay you or the portal asked for. If two **different** ids describe the same on-chain moment, check whether two of your rules match it — each rule produces its own event.
-
-## Events stopped mid-month or mid-burst
-
-You have a [`webhook.rate_limited`](/webhooks/events#webhook-rate_limited) event in the inbox. Past your monthly budget or per-minute burst, events are **dropped** — not stored, not delivered — and that one event per hour counts them in `data.dropped`. `GET /plan` shows `usage.eventsThisMonth` against `limits.webhookEventsMonthly`.
-
-Find the noisy rule — usually one with many wallets, no `coins` filter, or a low `minNotionalUsd` — and narrow it. `POST /rules?dryRun=1` with its body shows its estimated events per day. The monthly budget resets at the start of the calendar month; the burst resets each minute. See [Plan limits](/webhooks/limits#what-happens-at-a-cap).
-
-## I get `wallet.activity.digest` instead of trades
-
-The wallet is in **digest mode** for that rule: it produced more than 120 `wallet.*` events for the rule within an hour, so for the rest of the hour its individual events are folded into one digest every 5 minutes (`suppressed`, `byType`, `notionalUsd`). Other wallets and your other rules are unaffected, and individual events resume when the hour ends. If you need every fill from a wallet that busy, read its positions and fills from the [REST API](/quickstart) or stream it over the [WebSocket](/websocket/overview) rather than through webhooks. See [noisy wallets and digest mode](/webhooks/limits#noisy-wallets-and-digest-mode).
-
-## The inbox says `gap: true`
-
-Your `since` cursor is older than your plan's retention window (one day on Starter, seven on Agent, thirty on Pro), or older than the oldest event still stored for your account. Events between the cursor and the page you got **may be missing** — aged out, or dropped at a cap. Do not try to reconstruct them: re-read the current state you depend on (the wallet's positions, the coin's price), then continue from the new `nextCursor`.
-
-**It comes back on every call with no events.** Your account is quiet: no event has arrived for longer than the retention window, so your cursor has aged past it, and `nextCursor` (your `since` echoed back) cannot move until a new event is stored. Polling more often does not clear it. Nothing new is missing on those repeat calls — resynchronise once for that cursor, remember that you did, and ignore the flag while the cursor stays the same. A poller that keeps the cursor it resynchronised for is in [Cursor and gap, in code](/webhooks/agents#cursor-and-gap-in-code). See [the inbox gap flag](/webhooks/limits#the-inbox-gap-flag).
+Expected: delivery is **at least once**, and order is not guaranteed across workers and retries. A retry follows any failure we observed, including a timeout after your handler already succeeded. Deduplicate on `webhook-id`, which is stable across the retries of one delivery, and order by `seq` within one source if order matters. If two different ids carry the same fill, check whether two of your subscriptions match it — each delivers on its own.
 
 ## Still stuck
 
-Email [chat@coinversa.ai](mailto:chat@coinversa.ai) with the endpoint id (`whe_…`), a delivery id (`dlv_…`) or event id (`evt_…`), and what you expected. Never send your signing secret.
+Email [chat@coinversa.ai](mailto:chat@coinversa.ai) with the subscription id, the `webhook-id` of a delivery if you have one, and what you expected. Never send your signing secret.

@@ -1,79 +1,70 @@
 ---
 title: "Webhooks overview"
-description: "Coinversa Pulse webhooks — Standard Webhooks-signed HTTPS POSTs, a pullable event inbox and Telegram alerts when a watched Hyperliquid wallet opens, closes, flips or resizes a position, runs a TWAP, gets liquidated or nears liquidation, when a large trade or liquidation hits the exchange, when a PnL cohort flips its bias, or when a price crosses your level."
+description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, or to a price crossing a level, and receive the raw frames as Standard Webhooks-signed HTTPS POSTs to your URL. Six subscription types, exact decimal filters, Bearer auth with your API key."
 ---
 
-**Webhooks** turn Coinversa Pulse from something you poll into something that calls you. You write a **rule** — which events, which wallets or coins, which thresholds — and every match becomes an **event**: one JSON envelope with a one-sentence `summary` for an LLM or a human, a typed `data` block for code, an honest `freshness` stamp, and the MCP tools that answer the obvious next question.
+**Webhooks** push the same data the [WebSocket](/websocket/overview) streams, to a URL you own, so you do not have to hold a socket open. You create a **subscription** — a **type** (which feed), its `args` (which wallet or which market), optional `filters` (which frames you want) and the `url` to deliver to — and every matching frame is POSTed to that URL, signed with the subscription's own **signing secret**.
 
-Events describe public on-chain activity. They are **data, not advice**: a `summary` says what happened, never what to do about it, and every envelope carries the same disclaimer — `"Descriptive market data from public on-chain activity. Not investment advice."` Nothing here trades, signs or touches an exchange account.
+What arrives is the **raw source frame** — the same `channel`, `seq` and `data` the WebSocket sends — plus the `subscriptionId` it matched, with `data` cut down to the events that passed your filters. There is no envelope, no summary and no derived fields: a client that already reads the WebSocket feeds reads a webhook body unchanged.
 
-## What fires
+## Who it is for
 
-| Family | Event types | Plan |
-|---|---|---|
-| Watched-wallet positions | `wallet.position.opened`, `.closed`, `.flipped`, `.increased`, `.decreased`, `.reconciled` | Free (Telegram); inbox and webhook from Starter |
-| Watched-wallet liquidations | `wallet.liquidated`, `wallet.liquidation_risk` | Free (Telegram); inbox and webhook from Starter |
-| Watched-wallet TWAP fills | `wallet.twap.filled` | Starter |
-| Watched-wallet TWAP status | `wallet.twap.status` | Agent |
-| Busy watched wallets | `wallet.activity.digest` — one summary every 5 min in place of a noisy wallet's individual events | Starter, on rules with an inbox or webhook channel (and the rule's other channels); Telegram-only rules get every event |
-| Price levels | `market.price.crossed` (`above`, `below` or `both`) | Starter |
-| Exchange-wide flow | `market.liquidation.large`, `market.trade.large` | Agent |
-| Cohort positioning | `cohort.bias_flipped` | Agent |
-| Sent by us | `webhook.test`, `webhook.rate_limited` | Starter (not subscribable) |
+- **Servers and bots** that would rather be called than poll or hold a connection — a Lambda, a Cloud Run service, a Zapier / Make / n8n catch hook.
+- **Alerting**: a wallet's fills above a size, a liquidation on a watched account, a price crossing a level.
+- **Agents** that manage subscriptions from chat through the [MCP tools](/webhooks/agents).
 
-Every type, its filters and a full sample payload are in the [event catalogue](/webhooks/events). The same catalogue is served, unauthenticated, at `GET https://backend.coinversa.ai/api/v1/webhooks/event-types`.
+## The six types
 
-## Three ways to receive
+| Type | What it delivers | `args` | Filters | Minimum plan |
+|---|---|---|---|---|
+| `tradesByUser` | Every fill of one wallet, TWAP fills included | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Free data* |
+| `twapSliceFillsByUser` | The fills a wallet's TWAP orders executed | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Free data* |
+| `twapStatusesByUser` | The node's raw TWAP status records for one wallet | `user` | `coin`, `status`, `sz`, `executedSz`, `executedNtl`, `minutes` | Pro |
+| `liquidations` | Every liquidation on the exchange | none | `coin`, `side`, `px`, `sz`, `closedPnl` | Agent |
+| `liquidationsByUser` | Liquidations of one account (the liquidated side) | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Agent |
+| `priceCross` | A market's mark or trade price crossing a threshold | `coin`, `threshold`, `source`, `direction` | none — the condition is in `args` | Free data* |
 
-| Channel | Rule channel | You need | Best for |
-|---|---|---|---|
-| **Webhook POST** | `{"kind":"webhook","endpointId":"whe_…"}` | A public HTTPS endpoint (Starter and above) | Servers, bots, Zapier / Make / n8n catch hooks |
-| **Inbox pull** | `{"kind":"inbox"}` | Nothing — read with `GET /events` or the `pulse_events` MCP tool | Agents with no server, scheduled Claude routines, backfilling after downtime |
-| **Telegram** | `{"kind":"telegram","chatId":"…"}` | The Coinversa alerts bot (its own `/activate` flow; not yet attachable from the API, portal or MCP) | Humans; the only channel on Free |
+\* Free-tier data, but Free's subscription allowance is **zero**, so creating one takes Starter or above. Feed access and the subscription allowance are separate checks — see [Plan limits](/webhooks/limits).
 
-The **inbox records every matched event, whatever its channels** — a webhook rule's events are pullable too, so a receiver that was down can catch up with a cursor instead of waiting for retries. Use `{"kind":"inbox"}` alone when you want pull-only delivery. Inbox and webhook delivery count against your plan's monthly event budget; see [Plan limits](/webhooks/limits).
+Every type, its arguments, filters and a delivery example are on [Subscription types](/webhooks/events). The machine-readable version is `GET /v1/subscriptions/definitions`, which lists the types **your** plan may create with their `args`, `filters` and `minTier` — read it instead of hard-coding this table ([reference](/webhooks/api#definitions)).
 
-## Freshness, per source
+## How it relates to the WebSocket feeds
 
-Each envelope's `freshness.source` names where the event came from and `freshness.typicalLagMs` is the typical delay between the on-chain moment (`occurredAt`) and when we saw it (`observedAt`). They differ by source, and the event says which:
+Same data, pushed to a URL. A `tradesByUser` subscription delivers the frames a `tradesByUser` WebSocket subscription would stream, filtered; `liquidations` and `liquidationsByUser` deliver liquidation objects; `twapStatusesByUser` delivers the node's status records. `priceCross` is the one type with no WebSocket twin: it watches a market's mark or trade price and synthesises its own `channel: "priceCross"` frame when the price crosses your threshold.
 
-| `freshness.source` | Event types | `typicalLagMs` | What it means |
-|---|---|---:|---|
-| `fills_stream` | `wallet.position.opened` … `.decreased`, `wallet.twap.filled`, `market.trade.large` | 500 | Fills from the Coinversa fill stream, coalesced per block |
-| `liquidations_stream` | `wallet.liquidated`, `market.liquidation.large` | 500 | Liquidation frames from the stream |
-| `mids_feed` | `market.price.crossed` | 1,000 | Evaluated on every mid-price tick |
-| `live_positions` | `wallet.position.reconciled` | 5,000 | A position reseed after a stream gap — the corrected state, not the missed fills |
-| `info_api_poll` | `wallet.liquidation_risk` | 30,000 | A poll of Hyperliquid's Info API every 30 s — this event can be up to a poll interval late |
-| `twap_status_stream` | `wallet.twap.status` | 500 | The node's TWAP status events from the stream |
-| `cohort_poll` | `cohort.bias_flipped` | 60,000 | A poll of the live cohort bias every 60 s — up to a poll interval late |
-| `digest` | `wallet.activity.digest` | 300,000 | A 5-minute roll-up of a noisy wallet's suppressed events |
-| `synthetic` | `webhook.test`, `webhook.rate_limited` | 0 | Generated by us; no chain moment |
+Two differences from the socket. A webhook body carries **`subscriptionId`**, which a WebSocket data frame does not, so one receiver can tell its subscriptions apart. And `data` holds **only the events that matched your filters** — a frame with no match is not delivered at all.
 
-`typicalLagMs` is a typical value carried in the payload, not a guarantee. Compare `occurredAt` and `observedAt` on the event you received for its actual lag, and `GET /plan` reports measured [latency per event type](/webhooks/api#plan).
+Treat `seq` as a per-source position, as on the socket: trade prices use the block height, mark prices use the replica's Unix nanoseconds — never compare the two ([sequence numbers](/websocket/protocol#sequence-numbers)).
 
 ## Delivery model
 
-Delivery works the way Stripe's does, signed the **[Standard Webhooks](https://www.standardwebhooks.com)** way. Each POST carries `webhook-id`, `webhook-timestamp` and `webhook-signature` (HMAC-SHA256 over the id, the timestamp and the raw body), so an off-the-shelf `standardwebhooks` library verifies it; any **2xx within 5 seconds** is success, a `3xx` is a failure that is never followed or retried, and anything else is retried on a fixed schedule — immediately, then after 30 s, 2 min, 10 min, 1 h and 6 h — before the delivery is marked dead and kept in the log for **replay**. Delivery is **at least once**, so deduplicate on `webhook-id` (also `id` in the body). A `410 Gone` disables the endpoint at once; 20 consecutive dead deliveries or 72 hours of failures disable it automatically, events keep landing in the inbox meanwhile, and a **recovery probe** re-enables it on its own once it answers again. The details are on [Signatures and delivery](/webhooks/signatures).
+Each delivery is one `POST` to the subscription's `url`, signed the **[Standard Webhooks](https://www.standardwebhooks.com)** way: `webhook-id`, `webhook-timestamp` and `webhook-signature` headers, `v1` HMAC-SHA256 over `id.timestamp.body`, verified by the off-the-shelf `standardwebhooks` library for your language ([Signatures and delivery](/webhooks/signatures)).
 
-Storage is guarded so one noisy rule cannot bury the rest: events past your monthly budget or per-minute burst are dropped and counted in one hourly `webhook.rate_limited` event, a wallet producing more than 120 events an hour for a rule is folded into 5-minute digests, and `POST /rules?dryRun=1` estimates a rule's events per day before you save it. See [Plan limits](/webhooks/limits).
+- Any **2xx** acknowledges. Anything else is retried on a bounded back-off, respecting your `Retry-After` up to 24 hours, for up to **nine attempts over about 76 hours**.
+- Retries are kept **in memory**: a restart of the service drops them. Only `priceCross` deliveries sit in a durable outbox that survives restarts.
+- Delivery is **at least once**, and order across deliveries and retries is not guaranteed. Deduplicate on `webhook-id`.
+- A **410** from your URL disables the subscription until you re-enable it with `POST /v1/subscriptions/{id}/enable`.
+- The URL must be public **HTTPS on port 443**; redirects and private or reserved addresses are refused when you create the subscription.
 
-## Building for your own users
+Nothing is stored after a delivery is acknowledged or gives up: there is no delivery history, no replay and no test send. If you need to see what your receiver got, log it on your side.
 
-If you run alerts for your own customers, Coinversa is the plumbing, not the brand. Create **one rule per customer**, put your customer's name or reference in the rule's `label`, and route on `rule.id`: every envelope carries `rule: { "id", "label" }`, so one endpoint can fan events out to the right customer without parsing `data`. Key your routing on `rule.id` — the 24-character id is fixed for the rule's life, while a `label` can be edited — and show `rule.label` or your own wording to the customer. The `summary` is a neutral sentence about on-chain activity that you can pass through or rewrite; keep the descriptive, not-advice framing of `disclaimer` when you do.
+## Subscriptions are immutable
+
+A subscription's `type`, `args`, `filters` and `url` cannot be edited. To change one, delete it and create it again — which also resets a `priceCross` subscription's crossing baseline. Each subscription has one signing secret, returned once at creation and readable later with `GET /v1/subscriptions/{id}/secret`.
+
+Subscriptions belong to your **account**, not to the API key that created them: any of your keys can list, delete or re-enable them. Your plan caps how many you can have — see [Plan limits](/webhooks/limits).
 
 ## Where to manage it
 
-The same operations exist in three places, against the same data:
-
-- The **developer portal** — the Webhooks page at [developers.coinversa.ai](https://developers.coinversa.ai): endpoints, rules and an activity log with replay.
-- The **REST API** at `https://backend.coinversa.ai/api/v1/webhooks` with your `X-API-Key` — see the [API reference](/webhooks/api).
-- The **MCP server** — six tools to read the inbox, discover event types and manage rules from chat; see [Webhooks for agents](/webhooks/agents). Creating an endpoint is portal or REST only, so a signing secret never passes through a chat transcript.
+- The **developer portal** at [developers.coinversa.ai](https://developers.coinversa.ai).
+- The **REST API** at `https://webhook.coinversa.ai` with `Authorization: Bearer <your API key>` — see the [API reference](/webhooks/api).
+- The **MCP server** — tools to read the definitions and to create, list and delete subscriptions from chat; see [Webhooks for agents](/webhooks/agents).
 
 <Columns cols={2}>
   <Card title="Quickstart" icon="rocket" href="/webhooks/quickstart">
-    Endpoint, rule, test-send, verify, inbox — in five steps.
+    Read the definitions, create a subscription, verify one delivery, delete it.
   </Card>
-  <Card title="Webhooks for agents" icon="robot" href="/webhooks/agents">
-    No server needed: a scheduled routine that pulls the inbox.
+  <Card title="Subscription types" icon="list" href="/webhooks/events">
+    The six types with their arguments, filters, plans and delivery examples.
   </Card>
 </Columns>

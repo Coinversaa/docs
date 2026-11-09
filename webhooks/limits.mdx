@@ -1,83 +1,68 @@
 ---
 title: "Webhook plan limits"
-description: "Coinversa Pulse webhook limits by plan — endpoints, alert rules, watched wallets, events per month, per-minute burst, inbox and replay retention, http dev-tunnel URLs — plus the storage guards: dropped events, noisy-wallet digest mode, rule dry-run estimates with estimate_too_high, and the inbox gap flag."
+description: "Coinversa Pulse webhook limits by plan — tentative subscription allowances (Free 0, Starter 2, Agent 6, Pro 10, Enterprise 20), creation-time tier checks, the in-memory retry policy of nine attempts over about 76 hours, the 128 + 128 delivery slots and 16-per-subscription cap, the 32-row priceCross outbox, and what a 410 does."
 ---
 
-Webhook limits are separate from REST request quotas and WebSocket capacity — receiving an event never draws down your API calls. `GET /plan` returns your plan's numbers and your current usage ([reference](/webhooks/api#plan)).
+Webhook limits are separate from REST request quotas and WebSocket capacity — receiving a delivery never draws down your API calls, and a webhook subscription is not a WebSocket subscription against your per-connection cap.
 
-## Limits
+## Subscriptions per plan
 
 | | Free | Starter | Agent | Pro | Enterprise |
 |---|---:|---:|---:|---:|---:|
-| Webhook endpoints | 0 | 1 | 3 | 10 | 10 |
-| Active alert rules (every channel) | 3 | 5 | 25 | 100 | 100 |
-| Watched wallets (distinct, across rules) | 3 | 10 | 100 | 1,000 | 1,000 |
-| Events / month (webhook + inbox) | 0 | 10,000 | 100,000 | 1,000,000 | 1,000,000 |
-| Burst — events / minute | — | 30 | 120 | 600 | 600 |
-| Inbox, replay and delivery-log window | — | 1 day | 7 days | 30 days | 30 days |
-| `http://` dev-tunnel URLs (`allowInsecure`) | no | no | yes | yes | yes |
+| Subscriptions per account | 0 | 2 | 6 | 10 | 20 |
 
-- **Free** has no webhook channel and no inbox: its three rules deliver to **Telegram** through the existing alerts bot, which keeps its own activation flow (a Telegram channel cannot yet be attached to a rule from the API, portal or MCP).
-- **Events / month** counts every event your rules match into the webhook or inbox channels, per calendar month.
-- **Burst** is per account and counts matched events on the webhook **and** inbox channels — an inbox-only rule is capped too.
-- A single rule watches at most **1,000** wallets on any plan; your plan's watched-wallet count is the ceiling across all your rules.
-- **Webhook endpoints** counts disabled endpoints until you delete them, because a recovery probe can re-activate one. At the limit with a disabled endpoint, delete it or re-enable it; the `402 plan_limit` message says how many are disabled.
-- **Enterprise** starts at Pro's numbers; email [chat@coinversa.ai](mailto:chat@coinversa.ai) to raise them.
+<Note>
+These allowances are **tentative** and may change before or after launch. A tier missing from the table gets 0.
+</Note>
 
-## What happens at a cap
+- The allowance is per **account**, across every API key, and counts subscriptions of every type together.
+- It is checked at **creation time** — `POST /v1/subscriptions` answers `429` at the cap — and again on `POST /v1/subscriptions/{id}/enable`. Saved subscriptions are not re-authorised after an account change.
+- **Disabled** subscriptions do not count toward it, so re-enabling one can be refused with `429` when you are at the cap.
+- Free can read `GET /v1/subscriptions/definitions` and discover the Free-tier types but cannot create a subscription: feed access and subscription allowance are separate checks.
 
-Past the monthly budget or the per-minute burst, events are **dropped**: they are not stored in the inbox and not POSTed. You are not sent one notice per dropped event. Instead your account gets **one [`webhook.rate_limited`](/webhooks/events#webhook-rate_limited) event per hour** that counts what was dropped in that hour (`data.dropped`). It is delivered like any other event, so it reaches the inbox and your endpoints.
+## Types per plan
 
-If you see one, a rule is matching more than your plan carries. Narrow it — fewer wallets, a `coins` filter, a higher `minNotionalUsd` — or move up a plan. The [inbox gap flag](#the-inbox-gap-flag) tells a poller when something it expected may be missing.
+The type's `minTier` in the definitions is the plan it needs; a create below it is `403`.
 
-## Noisy wallets and digest mode
-
-Some wallets trade constantly — market makers and bots can produce hundreds of thousands of fills a day. One of those in a rule would spend the whole month's budget in hours and bury every other event. So on every rule with an **inbox or webhook channel** (Starter and above), each **(rule, wallet)** pair has a guard. A Telegram-only rule — every rule on Free — has no budget to protect and is never digested: it gets every event.
-
-- Above **120** `wallet.*` events for one rule within an hour, that wallet enters **digest mode** for that rule until the hour ends.
-- In digest mode its individual `wallet.*` events for that rule are **not stored and not delivered**.
-- Instead, every **5 minutes**, the rule gets one [`wallet.activity.digest`](/webhooks/events#wallet-activity-digest) event for the wallet: the window it covers (`from`, `to`), how many events it folded (`suppressed`), the count per type (`byType`) and the summed `notionalUsd`.
-- When the hour ends, individual events resume.
-- A digest window that is open when we restart is emitted at shutdown, with `to` set to that moment, so a digest can cover less than 5 minutes.
-
-Other wallets in the same rule, and the same wallet in your other rules, are not affected. A digest tells you that a wallet is busy and roughly how; when you need the detail, read its current positions rather than replaying fills.
-
-## Estimate a rule before you save it
-
-`POST /rules?dryRun=1` validates a rule body exactly as a real create does and returns an estimate **without saving anything** ([reference](/webhooks/api#create-a-rule)):
-
-```json
-{ "estimate": { "eventsPerDay": 1840, "basis": "24h_observed", "knownWallets": 3, "unknownWallets": 1 } }
-```
-
-- `eventsPerDay` is projected from the **last 24 hours** of matched `wallet.*` events we counted for the rule's wallets (`basis: "24h_observed"`), from hourly counts at most a minute behind.
-- A wallet is **known** only when we counted at least one matched `wallet.*` event for it in the last 24 hours — in practice, a wallet some rule already watches and that has traded. `knownWallets` counts those, `unknownWallets` the rest: a watched wallet with no counted event is unknown, not zero. The estimate covers the known wallets only, so read it as a floor when `unknownWallets` is not zero.
-- `eventsPerDay` is `null` when none of the rule's wallets is known.
-
-A real create is refused with **`400 estimate_too_high`** when `eventsPerDay` is known and is more than **10 × your monthly budget ÷ 30** — a rule that would burn through roughly ten days of budget in one day. A `PATCH` that changes the rule's event types or wallets is held to the same ceiling; a change to its label, channels or cooldown is not re-estimated:
-
-| | Starter | Agent | Pro |
-|---|---:|---:|---:|
-| Refused above (events / day) | 3,333 | 33,333 | 333,333 |
-
-Drop the busiest wallets, add a `coins` or `minNotionalUsd` filter, and try the dry run again. The `pulse_watch_wallet` MCP tool runs the dry run for you and reports the estimate.
-
-## The inbox gap flag
-
-`GET /events` answers `gap: true` when the `since` cursor you passed is older than your plan's retention window, or older than the oldest event still stored for your account ([reference](/webhooks/api#list-events)). Either way, events between your cursor and the first one returned **may be missing** — aged out, or dropped at a cap. Do not treat the page as complete: re-read the state you care about (the wallet's positions, the coin's price) and carry on from the new cursor.
-
-Polling often does not keep the flag away on a **quiet** account. Your cursor is the id of the last event you received; when no new event arrives for longer than your retention window (a day on Starter), the cursor ages past the window, and from then on every call returns an empty page with `gap: true` and the same `nextCursor` — it cannot move past what is stored — until the next event arrives. Nothing new is missing on those repeat calls, so resynchronise **once per cursor value**: remember the cursor you last resynchronised for, and skip the resync while `nextCursor` is still that value.
-
-## Event types by plan
-
-Each plan includes the event types of the plans below it.
-
-| Plan | Event types it adds |
+| Plan | Types it may create |
 |---|---|
-| Free | `wallet.position.opened`, `wallet.position.closed`, `wallet.position.flipped`, `wallet.position.increased`, `wallet.position.decreased`, `wallet.position.reconciled`, `wallet.liquidated`, `wallet.liquidation_risk` — on Telegram, every event (a Telegram-only rule is never digested) |
-| Starter | The same `wallet.*` types on the inbox and webhook channels, plus `wallet.twap.filled` and `market.price.crossed`. Noisy wallets on those rules switch to `wallet.activity.digest` ([digest mode](#noisy-wallets-and-digest-mode)). Your endpoints also receive `webhook.test` and `webhook.rate_limited` |
-| Agent | `market.liquidation.large` and `market.trade.large` — every liquidation and every block's trading by one wallet in one coin on the exchange above your notional threshold — plus `wallet.twap.status` and `cohort.bias_flipped` |
-| Pro | No additional event type today; Pro raises the limits above |
-| Enterprise | Everything in Pro |
+| Free | None — the allowance is zero, though `tradesByUser`, `twapSliceFillsByUser` and `priceCross` are Free-tier data |
+| Starter | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` (both `mark` and `trade` sources) |
+| Agent | Starter's types plus `liquidations` and `liquidationsByUser` |
+| Pro | Agent's types plus `twapStatusesByUser` |
+| Enterprise | Everything in Pro, with a larger allowance |
 
-A rule asking for a type or channel your plan does not include is refused with `402` and code `plan_required`, naming the `required_tier`; a rule that would exceed a count is refused with `plan_limit`. See [Errors](/webhooks/api#errors). Prices and the rest of each plan are on [Pricing](/pricing).
+## Retries
+
+| | |
+|---|---|
+| Acknowledged by | Any `2xx` |
+| Retry policy | Bounded back-off, up to **nine attempts over about 76 hours**; your `Retry-After` is respected up to 24 hours |
+| Where retries live | **In memory** — lost when the service restarts, never replayed |
+| After the last attempt | The delivery is dropped |
+| Order | Not guaranteed across workers and retries; deduplicate on `webhook-id` |
+
+`priceCross` is the exception: its deliveries sit in a durable outbox with stable delivery ids and retry schedules that survive a restart ([below](#queues-and-the-outbox)).
+
+## Queues and the outbox
+
+Deliveries share one bounded in-memory queue, so a slow or failing receiver cannot starve everyone else:
+
+| | |
+|---|---|
+| Fresh deliveries waiting | **128** across all subscriptions |
+| Retries waiting | **128** across all subscriptions, in their own pool |
+| Size of one delivery | At most **1 MiB** |
+| Per subscription | At most **16** slots across both pools |
+
+A retry waits in its own pool, so a failing receiver's back-off never holds a slot a fresh delivery could use. When the retry pool is full, further retries are dropped and logged. A subscription at its 16 drops its **own** frames, with a log line, and never takes another subscription's share.
+
+`priceCross` deliveries use a **durable outbox** instead: at most **32 pending deliveries per subscription**, each at most 1 MiB. When a subscription's share is full, its new observation is rejected and logged without advancing the crossing baseline; observations are not retained for later replay, so a saturated subscription can miss its own crossings. Other subscriptions are unaffected. Deleting the subscription removes its baseline and pending rows.
+
+## 410 disables a subscription
+
+A `410` from your URL disables the subscription at once. It stops counting toward your allowance, deliveries stop, and frames matched meanwhile are not kept. `POST /v1/subscriptions/{id}/enable` brings it back, subject to the allowance. See [Signatures and delivery](/webhooks/signatures#410-disables-the-subscription).
+
+## What is not limited, because it does not exist
+
+There is no monthly event budget, no retention window, no per-subscription wallet count and no delivery log: nothing is stored once a delivery is acknowledged or dropped, and each subscription names one wallet or one market. The ceiling on how much you receive is your receiver's capacity and the queue above. Prices and the rest of each plan are on [Pricing](/pricing).

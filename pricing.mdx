@@ -27,27 +27,27 @@ The websocket is metered separately, on **capacity** rather than requests — st
 
 Details in [WebSocket plan limits](/websocket/limits).
 
-[Webhooks](/webhooks/overview) — events pushed to your endpoint or kept in a pullable inbox — have their own allowance, separate from both:
+[Webhooks](/webhooks/overview) — the WebSocket feeds' frames, filtered and pushed to a URL you own — have their own allowance, separate from both. The numbers are **tentative**:
 
-| Tier | Webhook endpoints | Alert rules | Watched wallets | Events / month | Burst (events / min) | Inbox and replay window |
-|------|---:|---:|---:|---:|---:|---:|
-| Free       | 0  | 3 (Telegram only) | 3   | —       | —   | —       |
-| Starter    | 1  | 5   | 10    | 10,000    | 30  | 1 day   |
-| Agent      | 3  | 25  | 100   | 100,000   | 120 | 7 days  |
-| Pro        | 10 | 100 | 1,000 | 1,000,000 | 600 | 30 days |
-| Enterprise | 10+ | 100+ | 1,000+ | 1,000,000+ | 600+ | 30 days |
+| Tier | Webhook subscriptions (per account) | Types |
+|------|---:|---|
+| Free       | 0  | Can read the definitions; cannot create a subscription |
+| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` |
+| Agent      | 6  | Starter's plus `liquidations` and `liquidationsByUser` |
+| Pro        | 10 | Agent's plus `twapStatusesByUser` |
+| Enterprise | 20 | Everything in Pro |
 
-Starter adds `wallet.twap.filled` and `market.price.crossed`; Agent adds exchange-wide `market.liquidation.large` and `market.trade.large` events, `wallet.twap.status`, `cohort.bias_flipped` and `http://` dev-tunnel endpoints. Over a cap, events are dropped and counted, not stored. Details in [Webhook plan limits](/webhooks/limits).
+Each subscription names one wallet or one market and delivers to one URL; disabled subscriptions do not count. Details in [Webhook plan limits](/webhooks/limits).
 
 ## What each tier unlocks
 
 <AccordionGroup>
   <Accordion title="Free">
-    - All 122 MCP tools / 124 API endpoints (tier-gated)
+    - All 121 MCP tools / 124 API endpoints (tier-gated)
     - 1 active key
     - Public-only data (no private wallet correlation)
     - [WebSocket](/websocket/overview): 1 connection, 2 subscriptions, six feeds — `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser`, `bbo` and `allMids`
-    - [Alerts](/webhooks/overview): 3 Telegram rules watching up to 3 wallets
+    - [Webhooks](/webhooks/overview): read the subscription definitions; no subscription allowance
   </Accordion>
   <Accordion title="Starter — $29 / mo">
     - 4× the per-minute rate
@@ -58,7 +58,7 @@ Starter adds `wallet.twap.filled` and `market.price.crossed`; Agent adds exchang
     - [Sharpe ratios](/concepts/sharpe): any tracked wallet's realized-PnL Sharpe (30 days, a custom 1–90-day window, or three monthly buckets) and the top-50 Sharpe leaderboard
     - [Builder analytics](/api-reference/builders): leaderboard, builder profiles, per-wallet builder usage
     - [WebSocket](/websocket/overview): 25 subscriptions per connection, the `trades` firehose, and [multi-wallet feeds](/websocket/feeds#multi-wallet-subscriptions) following up to 1,000 wallets on one subscription
-    - [Webhooks](/webhooks/overview): 1 signed endpoint, an event inbox, 5 rules over 10 wallets, 10,000 events a month, `market.price.crossed` price alerts and `wallet.twap.filled` TWAP fills
+    - [Webhooks](/webhooks/overview): 2 subscriptions (tentative) — a wallet's fills (`tradesByUser`), its TWAP fills (`twapSliceFillsByUser`) or a price crossing (`priceCross`), filtered and signed, to your URL
   </Accordion>
   <Accordion title="Agent — $49 / mo">
     For agents and bots that need more volume than Starter, plus the live positioning tools. Everything in Starter, and:
@@ -69,7 +69,7 @@ Starter adds `wallet.twap.filled` and `market.price.crossed`; Agent adds exchang
     - [Positioning by entry](/api-reference/chart-layers#positioning-by-entry) — `/live/positioning-by-entry/{coin}` (`live_positioning_by_entry`): where open positions got in, by cohort. In the chart, this is the **entry profile** and the **average entry lines**
     - The L4 **stop map** — `/market/book/stops/{coin}` (`book_stop_map`): untriggered stop and take-profit size bucketed by distance from mid
     - [WebSocket](/websocket/overview): 2 connections, 50 subscriptions each, Starter's feeds plus the [liquidation feeds](/websocket/feeds#liquidations) (`liquidations`, `liquidationsByUser`, `liquidationsByUsers`), 100 GB fair-use bandwidth
-    - [Webhooks](/webhooks/overview): 3 endpoints, 25 rules over 100 wallets, 100,000 events a month, a 7-day inbox and replay window, exchange-wide `market.liquidation.large` and `market.trade.large` events, `wallet.twap.status` and `cohort.bias_flipped`, and `http://` dev-tunnel endpoints for local agent development
+    - [Webhooks](/webhooks/overview): 6 subscriptions (tentative), Starter's types plus exchange-wide `liquidations` and one account's `liquidationsByUser`
 
     History, wallet deep-dives, whale trades, cohort drill-downs, the per-order L4 book tools (whales, levels), [TP/SL trigger orders](/concepts/trigger-orders) and the `l4Book` feed stay on Pro.
   </Accordion>
@@ -84,7 +84,7 @@ Starter adds `wallet.twap.filled` and `market.price.crossed`; Agent adds exchang
     - [TP/SL trigger orders](/concepts/trigger-orders): every pending stop-loss and take-profit order, by market or by wallet
     - Cohort drill-downs, archetypes and deeper analytics tools (entity resolution, HIP-4 perp-position context, etc.)
     - [WebSocket](/websocket/overview): 5 concurrent connections, 100 subscriptions each, all 24 feeds (Agent's, plus `l4Book`, leverage changes, TWAP orders, TWAP statuses and their multi-wallet variants), 250 GB fair-use bandwidth
-    - [Webhooks](/webhooks/overview): 10 endpoints, 100 rules over 1,000 wallets, 1,000,000 events a month, a 30-day inbox and replay window
+    - [Webhooks](/webhooks/overview): 10 subscriptions (tentative), Agent's types plus the node's TWAP status records (`twapStatusesByUser`)
   </Accordion>
   <Accordion title="Enterprise — custom">
     - Negotiated rate / volume / SLA

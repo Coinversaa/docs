@@ -1,120 +1,55 @@
 ---
 title: "Webhooks for agents"
-description: "Run an AI agent on Coinversa Pulse events without a server — the pullable event inbox with a saved cursor and gap handling, a scheduled Claude routine calling pulse_events every 15 minutes, pulse_event_types for filter discovery, one-call pulse_watch_wallet setup with a dry-run estimate, and how an LLM should use summary, suggestedTools and freshness."
+description: "Manage Coinversa Pulse webhook subscriptions from an AI agent — pulse_event_types reads the subscription definitions, pulse_watch_wallet creates subscriptions for a wallet's fills (per coin, and its liquidations on Agent and above), pulse_alert_rules lists subscriptions, pulse_remove_rule deletes one and pulse_events reads the inbox — through the MCP server, with the same plan allowances as REST."
 ---
 
-An agent does not need a public URL to act on events. Every event your rules match is kept in an **inbox** you can pull with a cursor — `pulse_events` in the [MCP server](/mcp/setup), `GET /events` over [REST](/webhooks/api#list-events). A scheduled agent that wakes up, pulls what is new and reports on it is the simplest "agent on events" loop there is, and it needs nothing but your API key.
+An agent connected to the [MCP server](/mcp/setup) can set up and tear down webhook subscriptions from chat, without a curl in sight. The five tools below wrap the [webhook API](/webhooks/api) one for one, act on the same subscriptions the portal and REST show, and are bound by the same plan allowance.
 
 <Note>
-The inbox and webhooks start on **Starter**. On Free, rules deliver to Telegram only — see [Plan limits](/webhooks/limits).
+A webhook subscription delivers to a **URL**, so the agent still needs a receiver to point at — yours, or a catch hook on Zapier, Make or n8n. An inbox of matched events that an agent reads back from chat, with no receiver at all, is in development: until it is available, `pulse_events` returns a clear error saying so, and `pulse_watch_wallet` needs a `url`.
 </Note>
 
-## The loop: a scheduled routine
+## Discover the types first
 
-Set up a Claude routine (or any scheduler that runs an agent with the Coinversa MCP server connected) to run **every 15 minutes** with a prompt like:
+`pulse_event_types` reads `GET /v1/subscriptions/definitions` — the subscription types **your plan** may create, each with its `args`, its `filters` (field, type, unit, exact or numeric operators) and `minTier`. An agent that calls it before creating a subscription does not have to guess what a filter may say: the same declarations drive validation, so what the tool returns is exactly what a create accepts. See [Subscription types](/webhooks/events).
 
-```text
-Call pulse_events with since set to the last event id you reported (none on the first run).
-If the result says gap: true and the since you passed is not the cursor you last resynced
-for, events may be missing: before anything else, re-read the current state of every
-wallet I track with pulse_trader_position_summary, tell me the state, not a
-reconstruction of what was missed, and remember that since as the cursor you resynced
-for. If gap: true comes back for the cursor you already resynced for, nothing new is
-missing: do not resync or mention the gap again.
-For each event, say what happened using its summary. If an event matters for what I am
-tracking, call one of its context.suggestedTools to add detail. Note each event's
-freshness. A wallet.activity.digest means the wallet was too busy for individual events:
-report the counts, not trades. Remember nextCursor for the next run. If there are no
-events and no gap, say nothing.
-```
+## Watch a wallet in one call
 
-Without `since`, `pulse_events` returns the last 24 hours, up to 50 events, so a routine that cannot keep state still works — it re-reads a day's events and should skip ids it has already reported. Fifteen minutes is well inside every paid plan's retention window (one day on Starter, seven on Agent, thirty on Pro), so nothing ages out between runs. On a quiet account, though, the cursor itself ages out: after a retention window with no new event, every run gets an empty page with `gap: true` and the same `nextCursor` until the next event arrives. That is why the routine resyncs once per cursor value rather than on every gap.
-
-### Cursor and gap, in code
-
-The same routine without an LLM — a poller that keeps its cursor, drains every ready page, and resynchronises when the inbox reports a gap:
-
-```javascript Node
-const BASE = "https://backend.coinversa.ai/api/v1/webhooks";
-
-export async function pollInbox({ loadState, saveState, handle, resync }) {
-  // { cursor, resyncedFor }: both null on the first run
-  let { cursor = null, resyncedFor = null } = (await loadState()) ?? {};
-  for (;;) {
-    const url = new URL(`${BASE}/events`);
-    url.searchParams.set("limit", "200");
-    if (cursor) url.searchParams.set("since", cursor);
-
-    const res = await fetch(url, { headers: { "X-API-Key": process.env.COINVERSA_API_KEY } });
-    if (!res.ok) throw new Error(`inbox ${res.status}: ${await res.text()}`);
-    const page = await res.json();
-
-    // Events may be missing: re-read the state you track. Once per cursor value, because on a
-    // quiet account the flag repeats on every empty page until a new event moves the cursor.
-    if (page.gap && cursor !== resyncedFor) {
-      await resync();
-      resyncedFor = cursor;
-    }
-    for (const event of page.events) await handle(event); // deduplicate on event.id
-    cursor = page.nextCursor;
-    await saveState({ cursor, resyncedFor });
-    if (!page.hasMore) return;
-  }
-}
-```
-
-`nextCursor` is your `since` echoed back when a page is empty, so saving it unconditionally never moves you backwards. `gap: true` means your cursor is older than your plan's retention window or than the oldest event still stored for your account — what lies between may be gone. Re-read the state, do not try to reconstruct the missing events. The flag stays up on every empty page until a new event arrives, so `resyncedFor` keeps a quiet account from resyncing on every run. See [the inbox gap flag](/webhooks/limits#the-inbox-gap-flag).
-
-## Discover the event types first
-
-`pulse_event_types` returns the [event catalogue](/webhooks/events) — every type with its plan, freshness and sample — plus `filterDefinitions`: each filter's type, bounds and defaults (`wallets` up to 1,000 addresses, `coins` up to 100, `minNotionalUsd` defaults per type, `thresholdPct` 0–100, `price.direction` `above`, `below` or `both`). An agent that calls it before writing a rule does not have to guess what a rule may say. It is the MCP twin of [`GET /event-types`](/webhooks/api#list-event-types).
-
-## Set up a watch in one call
-
-`pulse_watch_wallet` creates a rule from chat. Ask Claude to "watch 0x28f0…9bad for position changes on BTC" and it calls:
+`pulse_watch_wallet` takes an `address`, optional `coins`, optional `liquidations: true` and the `url` to deliver to. It creates a `tradesByUser` subscription for the wallet's **fills** — one subscription for all its fills, or, with `coins`, one subscription per coin with that coin as the filter. Ask Claude to "send 0x28f0…9bad's BTC fills to my hook" and it creates the equivalent of:
 
 ```json
 {
-  "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
-  "label": "Whale 0x28f0",
-  "coins": ["BTC"]
+  "type": "tradesByUser",
+  "args": {"user": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"},
+  "filters": {"coin": "BTC"},
+  "url": "https://example.com/hooks/coinversa"
 }
 ```
 
-`deliver` defaults to **`inbox`**, so the watch works with no endpoint and no other setup. Before it saves anything the tool runs the rule as a [dry run](/webhooks/limits#estimate-a-rule-before-you-save-it); when the wallet has history, its answer includes the estimate — "about 40 events a day" — next to the rule it created and how to read the results. A wallet busy enough to blow through your plan is refused with `estimate_too_high` rather than saved. `events` accepts every subscribable `wallet.*` type your plan includes, `wallet.twap.filled` and `wallet.twap.status` among them; `wallet.activity.digest` is not one of them — the backend emits it on its own when a watched wallet goes over 120 events an hour. Pass `deliver: "webhook"` with an `endpointId` to post to an endpoint you already created. Telegram delivery is not configurable from the tool yet. The tool is idempotent — repeating the same request does not create a second rule — and it is bound by your plan's rule and watched-wallet counts.
+The tool sets no other filter: `side`, `px`, `sz` and `closedPnl` bounds are set over [REST](/webhooks/api#create-a-subscription) or in the portal. With `liquidations: true`, on **Agent** and above, it also watches the wallet's **liquidations** — one `liquidationsByUser` subscription, a further subscription against your allowance. Each subscription is one of your plan's slots ([Plan limits](/webhooks/limits)); a type your plan does not include is refused with `403`, a full allowance with `429`, and the tool reports the refusal rather than retrying.
 
-## Reading an event as an LLM
+Creation returns each subscription's **signing secret**, so a tool that creates a subscription sees it. If you would rather a secret never pass through a chat transcript, create the subscription over [REST](/webhooks/api#create-a-subscription) or in the [developer portal](https://developers.coinversa.ai) and use the tools to list and delete; the secret is also readable later with `GET /v1/subscriptions/{id}/secret`.
 
-Each envelope is built so a model can act on it without parsing `data`:
+## List and remove
 
-| Field | How to use it |
-|---|---|
-| `summary` | One factual sentence — quote or paraphrase it. It describes; it never recommends, and your answer should not turn it into a trade call |
-| `type` | Stable, so branch on it rather than on the wording of `summary`. A `wallet.activity.digest` stands in for many events of a busy wallet — report its counts, not individual trades |
-| `context.suggestedTools` | MCP calls with arguments already filled in (for a wallet event: `pulse_trader_position_summary` for the wallet, `live_liquidation_heatmap` for the coin). Call one when the user wants more than the headline |
-| `freshness` | Say how fresh it is. A `fills_stream` event is typically half a second behind the chain; a `wallet.liquidation_risk` event comes from a 30-second poll and a `cohort.bias_flipped` event from a 60-second one; a `wallet.position.reconciled` event reports a corrected state after a stream gap, not the fills that were missed |
-| `occurredAt` / `observedAt` | When it happened versus when we saw it. Report the event as of `occurredAt` |
-| `disclaimer` | Market data, not advice. Keep that framing in what you tell the user |
-
-`data` carries exact numbers — sizes and prices as decimal strings, notional and PnL as USD numbers — for when the answer needs them. Every field is in the [event catalogue](/webhooks/events).
+`pulse_alert_rules` lists your subscriptions — `GET /v1/subscriptions`: type, arguments, filters, URL and whether each is disabled, never the secrets. `pulse_remove_rule` deletes one by its id — `DELETE /v1/subscriptions/{id}`. Subscriptions are immutable, so "watch ETH instead of BTC" is a remove followed by a new watch.
 
 ## The tools
 
-| Tool | Kind | What it does |
-|---|---|---|
-| `pulse_events` | Read-only | The inbox: `since?`, `types?`, `wallet?`, `limit?`. Defaults to the last 24 hours, 50 events. Reports `gap` when events may be missing; on a quiet account it repeats on every empty page until a new event arrives |
-| `pulse_event_types` | Read-only | The event catalogue with `filterDefinitions`, for discovering types and filters before writing a rule |
-| `pulse_watch_wallet` | Creates a rule (idempotent) | `address`, `label?`, `events?`, `coins?`, `minNotionalUsd?`, `deliver?` (`inbox` or `webhook`; default `inbox`), `endpointId?`. Dry-runs first and reports the events-per-day estimate |
-| `pulse_alert_rules` | Read-only | Lists your rules on every channel |
-| `pulse_remove_rule` | Destructive | Deletes one rule, by the id `pulse_alert_rules` returns |
-| `pulse_webhook_endpoints` | Read-only | Lists your endpoints with their health, `probeAt` and `probeCount`, so Claude can tell you an endpoint has been failing and since when — and, for one disabled for repeated failures, when the next recovery probe goes out and how many have been sent |
+| Tool | Kind | Backing route | What it does |
+|---|---|---|---|
+| `pulse_event_types` | Read-only | `GET /v1/subscriptions/definitions` | The types your plan may create, with `args`, `filters` and `minTier` |
+| `pulse_watch_wallet` | Creates subscriptions | `POST /v1/subscriptions` | `tradesByUser` subscriptions for one wallet to a URL, one per coin in `coins`; with `liquidations: true` on Agent and above, `liquidationsByUser` as well |
+| `pulse_alert_rules` | Read-only | `GET /v1/subscriptions` | Lists your subscriptions |
+| `pulse_remove_rule` | Destructive | `DELETE /v1/subscriptions/{id}` | Deletes one subscription |
+| `pulse_events` | Read-only | `GET /v1/events` | Reads matched events from the inbox, oldest first, with a `since` cursor; today it returns a clear error (see the note above) |
 
-The connector still never touches an exchange account, never signs and never trades. `pulse_watch_wallet` and `pulse_remove_rule` are its only tools that change anything, and what they change is your Coinversa alert settings.
+`pulse_watch_wallet` and `pulse_remove_rule` are the only webhook tools that change anything, and what they change is your Coinversa subscriptions. The connector still never touches an exchange account, never signs and never trades.
 
-## Endpoints are created in the portal or over REST
+## What the receiver gets
 
-There is no MCP tool that creates, edits or rotates a webhook endpoint. Creating one returns a **signing secret**, and a secret should not pass through a chat transcript. Create endpoints in the [developer portal](https://developers.coinversa.ai) or with [`POST /endpoints`](/webhooks/api#create-an-endpoint); then an agent can route a watch to one with `deliver: "webhook"`. Deliveries are signed with [Standard Webhooks](/webhooks/signatures) headers, so the receiving side can verify with an off-the-shelf library.
+Whatever created the subscription, the receiver gets the same thing: the raw source frame plus `subscriptionId`, signed with [Standard Webhooks](/webhooks/signatures) headers. An agent that reads a receiver's log should treat `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object) they are — sizes and prices as decimal strings, `side` as `A` (sell) or `B` (buy), `closedPnl` from the node — and say what happened, not what to do about it. Market data is not advice.
 
 ## Roadmap
 
-Today an agent **pulls** its events. Having the MCP server **push** an event into a running session — through the proposed MCP events extension, or Claude Code channels — is on the roadmap and not available yet; the protocol version the server speaks has no events capability. Until then, the scheduled routine above is the way to run an agent on events.
+Today an agent **sets up** webhooks and a server **receives** them. Having the MCP server push an event into a running session is not something the protocol allows: the version the server speaks has no events capability.

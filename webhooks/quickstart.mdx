@@ -1,277 +1,174 @@
 ---
 title: "Webhooks quickstart"
-description: "Set up Coinversa Pulse webhooks in five steps — create a signed HTTPS endpoint, write a watched-wallet rule with a dry-run estimate, send a test event, verify the Standard Webhooks signature, and read the event inbox — with real request and response bodies and a pre-launch checklist."
+description: "Set up a Coinversa Pulse webhook in four steps — read the subscription definitions, create a tradesByUser subscription with a coin and size filter over curl with Bearer auth, receive and verify one Standard Webhooks-signed delivery, and delete the subscription."
 ---
 
-Five steps: an endpoint, a rule, a test event, a signature check, and the inbox. You need a **Starter** plan or above for the webhook channel and an API key from [developers.coinversa.ai](https://developers.coinversa.ai). Every request below goes to `https://backend.coinversa.ai/api/v1/webhooks` with your key in the `X-API-Key` header.
+Four steps: read the definitions, create a subscription, receive and verify one delivery, delete it. You need an API key from [developers.coinversa.ai](https://developers.coinversa.ai) on a **Starter** plan or above — Free can read the definitions but has no subscription allowance — and a public **HTTPS** URL on port 443 that can receive a POST. Every request below goes to `https://webhook.coinversa.ai` with your key as a Bearer token.
 
 <Note>
-No server? Skip the endpoint: write the rule with `{"kind":"inbox"}` and go straight to [step 5](#5-read-the-inbox), or let an agent do it — see [Webhooks for agents](/webhooks/agents).
+This is the same API key as REST and the WebSocket. Here it travels in the `Authorization: Bearer` header, as on the WebSocket upgrade — not in `X-API-Key`, which is the REST data API's header.
 </Note>
 
-## 1. Create an endpoint
-
-In the portal, open **Webhooks → Endpoints → Add endpoint**. Over REST:
+## 1. Read the definitions
 
 ```bash
-curl -X POST https://backend.coinversa.ai/api/v1/webhooks/endpoints \
-  -H "X-API-Key: $COINVERSA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com/hooks/coinversa","description":"Production receiver"}'
+curl https://webhook.coinversa.ai/v1/subscriptions/definitions \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
 ```
 
-`201 Created`:
+The response lists the **types your plan may create**, each with its `args`, its `filters` — field, type, unit, whether it matches exactly, its options or its numeric operators — and its `minTier`. The `tradesByUser` entry looks like this — the other trade filters (`side`, `px`, `closedPnl`) are omitted here for brevity:
 
 ```json
 {
-  "endpoint": {
-    "id": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
-    "url": "https://example.com/hooks/coinversa",
-    "description": "Production receiver",
-    "status": "active",
-    "allowInsecure": false,
-    "consecutiveFailures": 0,
-    "lastSuccessAt": null,
-    "lastFailureAt": null,
-    "disabledReason": null,
-    "disabledAt": null,
-    "probeAt": null,
-    "probeCount": 0,
-    "createdAt": "2026-11-03T14:00:00.000Z",
-    "updatedAt": "2026-11-03T14:00:00.000Z",
-    "createdVia": "api"
+  "type": "tradesByUser",
+  "args": {"user": {"type": "address", "required": true}},
+  "filters": {
+    "coin": {"type": "string", "label": "Market", "exact": true},
+    "sz": {
+      "type": "decimal", "label": "Size", "unit": "base",
+      "exact": true, "operators": ["gt", "gte", "lt", "lte"]
+    }
   },
-  "secret": "whsec_/Im5PpCWQIZhaF0jeVnH3fmypIqQXqimytj1x9BGQEc="
+  "minTier": "free"
 }
 ```
 
-<Warning>
-The `secret` is shown **once**. Store it now — in your receiver's secret store, not in source control. If you lose it, [rotate](/webhooks/api#rotate-the-signing-secret) to get a new one.
-</Warning>
+Build your request from this, not from a list you keep yourself: the same declarations drive validation, so a filter the definitions do not list is a `400`.
 
-The URL must be public `https`. Private, loopback and link-local addresses are refused with `url_rejected`, and redirects are never followed. For local development on **Agent** and above, set `"allowInsecure": true` to register an `http://` dev-tunnel URL (ngrok, localtunnel, Cloudflare quick tunnels).
+## 2. Create a subscription
 
-## 2. Create a rule
-
-A rule says which events you want and where they go. This one watches one wallet's BTC and ETH positions and its liquidations, and posts to the endpoint from step 1:
+This one delivers every BTC fill of one wallet with a size of at least 1 BTC:
 
 ```bash
-curl -X POST https://backend.coinversa.ai/api/v1/webhooks/rules \
-  -H "X-API-Key: $COINVERSA_API_KEY" \
+curl -X POST https://webhook.coinversa.ai/v1/subscriptions \
+  -H "Authorization: Bearer $COINVERSA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "label": "Whale 0x28f0 (BTC/ETH)",
-    "eventTypes": ["wallet.position.opened", "wallet.position.closed", "wallet.position.flipped", "wallet.liquidated"],
-    "filters": {
-      "wallets": ["0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"],
-      "coins": ["BTC", "ETH"]
-    },
-    "channels": [{ "kind": "webhook", "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9" }],
-    "cooldownMin": 1
+    "type": "tradesByUser",
+    "args": {"user": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"},
+    "filters": {"coin": "BTC", "sz": {"gte": "1"}},
+    "url": "https://example.com/hooks/coinversa"
   }'
 ```
 
-`201 Created`:
+The response carries the subscription — its `id`, `type`, the normalised `args` (wallets are lowercased), the saved `filters`, the `url` and its `disabled` status — and, **only on creation**, the `whsec_…` signing secret:
 
 ```json
 {
-  "rule": {
-    "id": "672f3b8e9d1c2a4b5e6f7a8b",
-    "label": "Whale 0x28f0 (BTC/ETH)",
-    "active": true,
-    "eventTypes": ["wallet.position.opened", "wallet.position.closed", "wallet.position.flipped", "wallet.liquidated"],
-    "filters": {
-      "wallets": ["0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"],
-      "coins": ["BTC", "ETH"]
-    },
-    "channels": [{ "kind": "webhook", "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9" }],
-    "cooldownMin": 1,
-    "lastFiredAt": null,
-    "firedCount": 0,
-    "createdAt": "2026-11-03T14:01:00.000Z",
-    "createdVia": "api"
-  }
+  "id": "…",
+  "type": "tradesByUser",
+  "args": {"user": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"},
+  "filters": {"coin": "BTC", "sz": {"gte": "1"}},
+  "url": "https://example.com/hooks/coinversa",
+  "disabled": false,
+  "secret": "whsec_…"
 }
 ```
 
 <Warning>
-`cooldownMin` defaults to **0, which means fire once, then deactivate** — the behaviour of the original Telegram alerts. For a watch that keeps firing, set `cooldownMin` to the minimum number of minutes between fires.
+Store the secret in your receiver's secret store, not in source control. It is not in list responses; if you lose it, read it again with `GET /v1/subscriptions/{id}/secret`.
 </Warning>
 
-Wallets are lowercase `0x` addresses, up to 1,000 per rule (your plan caps the total across rules). Retrying a create with the same body is safe: once the first attempt has saved the rule, the retry answers `409` with its `existing_rule_id` instead of creating a second one ([duplicates](/webhooks/api#create-a-rule)). Not sure how busy a wallet is? Send the same body to `POST /rules?dryRun=1` first: it validates the rule and returns `estimate.eventsPerDay` without saving anything, and a rule that would far outrun your plan is refused with `estimate_too_high` — see [estimate a rule before you save it](/webhooks/limits#estimate-a-rule-before-you-save-it). Coins use the canonical form — `BTC` for Hyperliquid perps, `xyz:GOLD` for builder dexes; omit `coins` for every coin. Each event type's filters are listed in the [event catalogue](/webhooks/events).
+A few things to know about the body:
 
-## 3. Send a test event
+- Numeric filter values are **decimal strings** (`"1"`, `"95000.5"`), compared with exact decimal arithmetic. The operators are `gt`, `gte`, `lt` and `lte`; an exact value is a plain string. All fields combine with AND.
+- Text matching is case-sensitive: `BTC` is not `btc`.
+- Impossible ranges (`"gt": "10", "lt": "5"`), unknown fields and unknown operators are refused with `400` before anything is saved.
+- The URL must be public HTTPS on port 443. Redirects and private or reserved addresses are refused.
+- The subscription is **immutable**. To change it, delete it and create it again.
+- If your plan does not include the type you get `403`; if you are at your plan's subscription cap, `429` ([Plan limits](/webhooks/limits)).
 
-```bash
-curl -X POST https://backend.coinversa.ai/api/v1/webhooks/endpoints/whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9/test \
-  -H "X-API-Key: $COINVERSA_API_KEY"
-```
+## 3. Receive and verify a delivery
 
-`202 Accepted`:
-
-```json
-{ "deliveryId": "dlv_01JC4QX2B7N4K8M3P6R9S2T5V8", "eventId": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9" }
-```
-
-Your endpoint receives a `webhook.test` event, signed with the live secret:
+The next matching frame is POSTed to your URL. The body is the raw `tradesByUser` frame — `channel`, `seq` and `data` as the [WebSocket feed](/websocket/feeds#the-fill-object) sends them — plus `subscriptionId`, with `data` cut down to the fills that passed your filters:
 
 ```json
 {
-  "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
-  "type": "webhook.test",
-  "version": 1,
-  "occurredAt": "2026-11-03T14:21:07.890Z",
-  "observedAt": "2026-11-03T14:21:08.412Z",
-  "freshness": {
-    "source": "synthetic",
-    "typicalLagMs": 0
-  },
-  "rule": null,
-  "summary": "Test event for endpoint whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9. If you can read this, signature verification works.",
-  "data": {
-    "endpointId": "whe_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
-    "message": "This is a test event from Coinversa Pulse. Verify it with the Standard Webhooks headers webhook-id, webhook-timestamp and webhook-signature."
-  },
-  "context": {
-    "suggestedTools": []
-  },
-  "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
+  "channel": "tradesByUser",
+  "seq": 928110001,
+  "subscriptionId": "…",
+  "data": [
+    [
+      "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
+      {
+        "coin": "BTC",
+        "px": "70000.5",
+        "sz": "1.25",
+        "side": "B",
+        "time": 1788324615827,
+        "startPosition": "0.0",
+        "dir": "Open Long",
+        "closedPnl": "0.0",
+        "hash": "0xcdade62a4403e265cf2704437fc43c0201ec000fdf0701377176917d0307bc50",
+        "oid": 533649007948,
+        "crossed": true,
+        "fee": "0.0245",
+        "tid": 905724619509577,
+        "feeToken": "USDC",
+        "twapId": null
+      }
+    ]
+  ]
 }
 ```
 
-To exercise your handler with a realistic payload, send `{"type":"wallet.liquidated"}` (or any other type) as the body. The event is still a `webhook.test`; `data.sampleOf` names the type it imitates and `data.sample` carries that type's `data`. Check the result in the portal's activity log or with `GET /endpoints/{id}/deliveries`.
-
-## 4. Verify the signature
-
-Deliveries are signed the [Standard Webhooks](https://www.standardwebhooks.com) way: every POST carries `webhook-id`, `webhook-timestamp` and `webhook-signature: v1,<base64>`, an HMAC-SHA256 over `webhook-id + "." + webhook-timestamp + "." + rawBody` keyed with your decoded secret. A `standardwebhooks` library checks all of it. Verify against the **raw** request body — parsing and re-serialising the JSON changes the bytes.
+It is signed the [Standard Webhooks](https://www.standardwebhooks.com) way: `webhook-id`, `webhook-timestamp` and `webhook-signature: v1,<base64>`, an HMAC-SHA256 over `webhook-id + "." + webhook-timestamp + "." + rawBody` keyed with your secret. A `standardwebhooks` library checks all of it. Verify against the **raw** request body — parsing and re-serialising the JSON changes the bytes.
 
 ```javascript Node (Express)
 import express from "express";
 import { Webhook } from "standardwebhooks"; // npm install standardwebhooks
 
 const app = express();
-const wh = new Webhook(process.env.COINVERSA_WEBHOOK_SECRET); // the whsec_… from step 1
+const wh = new Webhook(process.env.COINVERSA_WEBHOOK_SECRET); // the whsec_… from step 2
 
 app.post("/hooks/coinversa", express.raw({ type: "application/json" }), (req, res) => {
-  let event;
+  let frame;
   try {
-    event = wh.verify(req.body.toString("utf8"), req.headers); // throws on a bad signature or stale timestamp
+    frame = wh.verify(req.body.toString("utf8"), req.headers); // throws on a bad signature or stale timestamp
   } catch (err) {
     return res.status(400).send("bad signature");
   }
-  // Deduplicate on event.id (also the webhook-id header), then hand off to a queue.
+  // Deduplicate on req.headers["webhook-id"], then hand frame.data off to a queue.
   res.sendStatus(200);
 });
 ```
 
-Python and Go libraries, dependency-free verifiers and a known-answer test vector are on [Signatures and delivery](/webhooks/signatures#verify-with-a-library). Answer quickly: anything slower than **5 seconds** counts as a failure and is retried.
+Any **2xx** acknowledges the delivery; anything else is retried. Return `410` only if you mean it — it disables the subscription until you re-enable it. Python and Go libraries and a known-answer test vector are on [Signatures and delivery](/webhooks/signatures).
 
-## 5. Read the inbox
-
-Every matched event is also kept in your inbox for your plan's retention window, whatever its channels:
+## 4. Delete the subscription
 
 ```bash
-curl "https://backend.coinversa.ai/api/v1/webhooks/events?limit=50" \
-  -H "X-API-Key: $COINVERSA_API_KEY"
+curl -X DELETE https://webhook.coinversa.ai/v1/subscriptions/$SUB_ID \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
 ```
 
-```json
-{
-  "events": [
-    {
-      "id": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
-      "type": "wallet.position.opened",
-      "version": 1,
-      "occurredAt": "2026-11-03T14:21:07.890Z",
-      "observedAt": "2026-11-03T14:21:08.412Z",
-      "freshness": {
-        "source": "fills_stream",
-        "typicalLagMs": 500
-      },
-      "rule": {
-        "id": "672f3b8e9d1c2a4b5e6f7a8b",
-        "label": "Whale 0x28f0 (BTC/ETH)"
-      },
-      "summary": "0x28f0…9bad opened a 12.5 BTC long (~$875k) at 70,000.5 on Hyperliquid.",
-      "data": {
-        "wallet": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad",
-        "coin": "BTC",
-        "dex": "hl",
-        "change": "opened",
-        "side": "long",
-        "sizeBefore": "0",
-        "sizeAfter": "12.5",
-        "notionalUsd": 875006.25,
-        "avgPx": "70000.5",
-        "closedPnlUsd": 0,
-        "fills": 3,
-        "block": 928110001,
-        "txHash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
-      },
-      "context": {
-        "hyperliquidUrl": "https://app.hyperliquid.xyz/trade/BTC",
-        "suggestedTools": [
-          {
-            "tool": "pulse_trader_position_summary",
-            "args": {
-              "address": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"
-            }
-          },
-          {
-            "tool": "live_liquidation_heatmap",
-            "args": {
-              "coin": "BTC"
-            }
-          }
-        ]
-      },
-      "disclaimer": "Descriptive market data from public on-chain activity. Not investment advice."
-    }
-  ],
-  "nextCursor": "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9",
-  "hasMore": false,
-  "gap": false,
-  "deliveryStatus": { "evt_01JC4QW7R3M8Z9X2K5N6P7Q8R9": "delivered" }
-}
-```
+Deleting removes the subscription and, for `priceCross`, its crossing baseline and any pending deliveries. `GET /v1/subscriptions` lists what you still have (without secrets); `DELETE /v1/subscriptions` removes them all.
 
-Event ids are ULIDs and sort by time. Save `nextCursor` and pass it back as `since` on the next call to get only newer events; `hasMore` says whether another page is ready now. Without `since`, the first call returns the last 24 hours. Filter with `types` (comma-separated) and `wallet`. If a response says `gap: true`, your cursor is older than what the inbox still holds — events may be missing, so re-read the state you depend on before carrying on ([the inbox gap flag](/webhooks/limits#the-inbox-gap-flag)).
-
-## Pre-launch checklist
-
-Before you point production traffic at a receiver, check each of these:
+## Before production
 
 1. **Signature verified against the test vector.** Your verifier returns true for the [known-answer vector](/webhooks/signatures#known-answer-test-vector) with a fixed clock, and false when you change one byte of the body.
 2. **Raw body.** The route reads the body as bytes before any JSON parser — `express.raw`, `request.body()`, `request.get_data()`, `io.ReadAll`.
-3. **Clock in sync.** The receiver runs NTP; a clock more than 300 seconds off rejects every genuine delivery.
-4. **Deduplicate on `webhook-id`.** Store processed ids for at least your retention window and skip repeats — retries and replays reuse the id.
-5. **Answer in under 5 seconds.** Return `2xx` as soon as the event is verified and queued; do the work afterwards.
-6. **Return `410` only on purpose.** It disables the endpoint at once and is never probed back.
-7. **Both secrets during a rotation.** Your deploy can hold the old and the new secret for the 24-hour overlap, or accepts that either one verifies.
-8. **Test every type you subscribe to.** `POST /endpoints/{id}/test` with `{"type":"…"}` for each, and check the delivery log shows `succeeded`.
-9. **Dry-run every rule.** `POST /rules?dryRun=1` and compare `estimate.eventsPerDay` with your plan's monthly budget ÷ 30.
-10. **Handle the notices.** Your code expects [`webhook.rate_limited`](/webhooks/events#webhook-rate_limited) and [`wallet.activity.digest`](/webhooks/events#wallet-activity-digest) and does not treat them as trades.
-11. **Inbox as a backstop.** A scheduled job pulls `GET /events` from a saved cursor and handles `gap: true`, so an outage on your side costs you nothing inside the retention window.
-12. **Watch endpoint health.** Alert on `status: "disabled"`, `disabledReason` and `probeAt` from `GET /endpoints`, or let `pulse_webhook_endpoints` tell you.
+3. **Clock in sync.** The libraries reject a `webhook-timestamp` more than five minutes from your clock. Run NTP.
+4. **Deduplicate on `webhook-id`.** Delivery is at least once and retries reuse the id.
+5. **Answer, then process.** Return `2xx` as soon as the frame is verified and queued; do the work afterwards.
+6. **Return `410` only on purpose.** It disables the subscription; `POST /v1/subscriptions/{id}/enable` brings it back.
+7. **Expect gaps after a restart.** Retries are in memory and are lost when the service restarts; nothing is replayed. If you need every fill, read the wallet's history from the [REST API](/quickstart) when you detect a gap.
 
-When something does go wrong, [Troubleshooting](/webhooks/troubleshooting) is ordered by symptom.
+When something goes wrong, [Troubleshooting](/webhooks/troubleshooting) is ordered by symptom.
 
 ## What's next
 
 <Columns cols={2}>
-  <Card title="Event catalogue" icon="list" href="/webhooks/events">
-    Every event type, its plan, filters, freshness and sample payload.
+  <Card title="Subscription types" icon="list" href="/webhooks/events">
+    Every type, its arguments, filters, plan and a delivery example.
   </Card>
   <Card title="Signatures and delivery" icon="shield-check" href="/webhooks/signatures">
-    Standard Webhooks libraries and verifiers; retries, replay, auto-disable and probes.
+    Standard Webhooks libraries and verifiers; retries, 410, transport rules.
   </Card>
   <Card title="API reference" icon="terminal" href="/webhooks/api">
     Every route, body and error code.
   </Card>
   <Card title="Plan limits" icon="gauge" href="/webhooks/limits">
-    Endpoints, rules, wallets and events per plan; storage guards.
-  </Card>
-  <Card title="Troubleshooting" icon="wrench" href="/webhooks/troubleshooting">
-    Nothing arrives, signature mismatch, duplicates, quota, digests, gaps.
+    Subscriptions per plan, retries, queue slots.
   </Card>
 </Columns>
