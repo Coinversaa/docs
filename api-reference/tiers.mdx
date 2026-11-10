@@ -48,6 +48,18 @@ These are **REST** limits. The [WebSocket](/websocket/overview) is metered on ca
 
 Enterprise websocket numbers are per-account overrides reported in the `connected` frame — see [WebSocket plan limits](/websocket/limits).
 
+[Webhooks](/webhooks/overview) are limited on their own too — a subscription allowance per account and, for inbox delivery, a pending-message limit; receiving a delivery never draws down the request counts above. They are managed at `https://webhook.coinversa.ai` with `Authorization: Bearer`, which has its own plain-text [errors](/webhooks/api#errors) rather than the `TIER_GATE` problem details above:
+
+| Tier | Webhook subscriptions (tentative) | Types | Pending inbox messages |
+|------|---:|---|---:|
+| Free       | 0  | can read the definitions; `tradesByUser`, `twapSliceFillsByUser` and `priceCross` are Free-tier data | 0 — inbox subscriptions are `403` |
+| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` | 1,000 |
+| Agent      | 6  | Starter's plus `liquidations`, `liquidationsByUser` | 50,000 |
+| Pro        | 10 | Agent's plus `twapStatusesByUser` | 1,000,000 |
+| Enterprise | 20 | all six | 1,000,000 |
+
+Inbox messages are kept for 14 days under a 2 GiB compressed-payload cap per account, the oldest evicted on overflow. See [Webhook plan limits](/webhooks/limits) and [Inbox delivery](/webhooks/inbox).
+
 ## Endpoints by tier
 
 <AccordionGroup>

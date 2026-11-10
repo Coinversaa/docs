@@ -1,0 +1,321 @@
+---
+title: "Subscription types"
+description: "The six Coinversa Pulse webhook subscription types — tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser and priceCross — with their args (one wallet or an array of up to 1,000 per subscription), filters, minimum plan, the delivered frame shape and a delivery example for each."
+---
+
+Six subscription **types**. Five of them deliver the frames of the WebSocket feed of the same name; `priceCross` synthesises its own. The machine-readable version of this page is `GET /v1/subscriptions/definitions`: it lists the types **your plan** may create, each with its `args`, `filters` and `minTier`, and the same declarations drive validation — so read the endpoint rather than keeping a client-side copy ([reference](/webhooks/api#definitions)).
+
+Delivery examples are illustrative: addresses, hashes and amounts are made up.
+
+## The delivered frame
+
+Every delivery is one `POST` whose body is the **raw source frame** plus the subscription it matched:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `channel` | string | The subscription type that produced the frame — `tradesByUser`, `liquidations`, `priceCross`, … |
+| `seq` | number | The source position. Block height on the trade, TWAP and liquidation types and on `priceCross` with `source: "trade"`; the replica block's Unix **nanoseconds** on `priceCross` with `source: "mark"`. Never compare the two kinds |
+| `subscriptionId` | string | The subscription this delivery belongs to |
+| `data` | array | The raw matching events — **only** those that passed your filters. An empty match produces no delivery |
+
+The objects inside `data` are exactly what the node emits, in the shape the WebSocket feed documents: `[wallet, fill]` pairs on the trade and TWAP-fill types ([the fill object](/websocket/feeds#the-fill-object)), liquidation objects on the two liquidation types ([liquidations](/websocket/feeds#liquidations)), TWAP status records on `twapStatusesByUser` ([TWAP statuses](/websocket/feeds#twap-statuses)), and crossing events on `priceCross` (below). Numbers keep the type and precision the node sent — sizes and prices are decimal strings.
+
+## Filters
+
+A filter is a field name with either an **exact** value or, for numeric fields, a **bounds object**:
+
+```json
+{"coin": "BTC", "px": {"gte": "95000", "lt": "100000"}, "sz": "2.0"}
+```
+
+- All fields and all bounds combine with **AND**, per event.
+- Numeric values — exact ones too — are **decimal strings** compared with exact decimal arithmetic, never floating point. An optional minus sign and a decimal fraction are accepted; exponent notation, `NaN`, infinity and fractions like `1/2` are rejected. Maximum length 128 characters.
+- The numeric operators are `gt`, `gte`, `lt` and `lte`. There is no `eq` (use an exact value), no dollar sign, no expression tree and no arbitrary document path.
+- Exact text matching is **case-sensitive**: `BTC` differs from `btc`.
+- A missing, null, malformed or non-numeric value in the event does not satisfy a numeric filter.
+- Invalid fields, operators or values and **impossible ranges** return `400` before anything is saved. `{"gt": "10", "lt": "5"}` is impossible; equal endpoints are allowed only when both are inclusive (`{"gte": "10", "lte": "10"}`).
+- No `filters` (or `{}`) means no extra predicates.
+
+Units are the market's **base** size and **quote** price. `quote` means the market's quote denomination — not a promise of USD conversion — so there is no dollar-notional filter.
+
+## One wallet or many
+
+On the four by-user types — `tradesByUser`, `twapSliceFillsByUser`, `twapStatusesByUser` and `liquidationsByUser` — `args.user` is **either one address string or an array of 1 to 1,000 addresses**. The definitions advertise this on the argument itself: `"user": {"type": "address", "required": true, "minItems": 1, "maxItems": 1000}`.
+
+```json Create
+{
+  "type": "tradesByUser",
+  "args": {
+    "user": [
+      "0x0123456789012345678901234567890123456789",
+      "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+    ]
+  },
+  "filters": {"coin": "BTC", "sz": {"gt": "1.5", "lte": "10"}},
+  "url": "https://example.com/hook"
+}
+```
+
+- One array is **one subscription** against your allowance, not one per wallet, and one underlying processor feed. It does not change the type's minimum plan.
+- Addresses are lowercased; an array is **sorted and deduplicated**. The 1,000 limit is checked before deduplication.
+- An **empty array**, an **invalid address** or **more than 1,000 entries** is a `400`. A creation body over **64 KiB** is refused.
+- In the response, a one-element array — including one left after deduplication — comes back as a **string**; the legacy top-level `user` field appears only for a single-wallet scope.
+- Matching events from every listed wallet in a source block arrive **together**, in source order, in one delivery's `data`; the same filters apply to each event. The frame shape and the type's `channel` do not change, and each `[wallet, fill]` pair names its wallet.
+- Non-wallet arguments (`coin`, `threshold`, `source`, `direction`) stay single-valued.
+
+## `tradesByUser`
+
+Every fill of one wallet — or of up to 1,000 wallets in one subscription — TWAP fills included: the same pairs the [`tradesByUser` feed](/websocket/feeds) streams, filtered. Any address on Hyperliquid, not only wallets you control.
+
+| | |
+|---|---|
+| `args` | `user` (required): one address, or an array of 1 to 1,000 addresses — lowercased, sorted and deduplicated ([one wallet or many](#one-wallet-or-many)) |
+| Filters | `coin`, `side` (`A` sell / `B` buy), `px`, `sz`, `closedPnl` |
+| Minimum plan | Free data — but Free has no subscription allowance, so Starter in practice |
+
+```json Create
+{
+  "type": "tradesByUser",
+  "args": {"user": "0x0123456789012345678901234567890123456789"},
+  "filters": {"coin": "BTC", "sz": {"gt": "1.5", "lte": "10"}},
+  "url": "https://example.com/hook"
+}
+```
+
+```json Delivery
+{
+  "channel": "tradesByUser",
+  "seq": 928110001,
+  "subscriptionId": "…",
+  "data": [
+    [
+      "0x0123456789012345678901234567890123456789",
+      {
+        "coin": "BTC",
+        "px": "70000.5",
+        "sz": "2.0",
+        "side": "B",
+        "time": 1788324615827,
+        "startPosition": "0.0",
+        "dir": "Open Long",
+        "closedPnl": "0.0",
+        "hash": "0xcdade62a4403e265cf2704437fc43c0201ec000fdf0701377176917d0307bc50",
+        "oid": 533649007948,
+        "crossed": true,
+        "fee": "0.0245",
+        "tid": 905724619509577,
+        "feeToken": "USDC",
+        "twapId": null
+      }
+    ]
+  ]
+}
+```
+
+## `twapSliceFillsByUser`
+
+The fills a wallet's TWAP orders executed — the same `[wallet, fill]` pairs, filtered to fills that carry a `twapId`. Group by `twapId` to follow one order.
+
+| | |
+|---|---|
+| `args` | `user` (required): one address or an array of 1 to 1,000 ([one wallet or many](#one-wallet-or-many)) |
+| Filters | `coin`, `side`, `px`, `sz`, `closedPnl` |
+| Minimum plan | Free data — Starter in practice |
+
+```json Delivery
+{
+  "channel": "twapSliceFillsByUser",
+  "seq": 928110001,
+  "subscriptionId": "…",
+  "data": [
+    [
+      "0x0123456789012345678901234567890123456789",
+      {
+        "coin": "BTC",
+        "px": "70000.5",
+        "sz": "0.01",
+        "side": "B",
+        "time": 1773878735890,
+        "startPosition": "0.0",
+        "dir": "Open Long",
+        "closedPnl": "0.0",
+        "hash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
+        "oid": 344895887371,
+        "crossed": true,
+        "fee": "0.0245",
+        "tid": 111,
+        "feeToken": "USDC",
+        "twapId": 77738308
+      }
+    ]
+  ]
+}
+```
+
+## `twapStatusesByUser`
+
+The node's **raw TWAP status records** for one wallet, or for up to 1,000 wallets in one subscription — activated, finished, terminated, an error — as the [`twapStatusesByUser` feed](/websocket/feeds#twap-statuses) forwards them. These are the node's records, not normalised lifecycle alerts. No snapshot is delivered: a webhook subscription gets status changes from the moment it is created.
+
+| | |
+|---|---|
+| `args` | `user` (required): one address or an array of 1 to 1,000 ([one wallet or many](#one-wallet-or-many)) |
+| Filters | `coin` (mapped from `state.coin`), `status`, `sz`, `executedSz`, `executedNtl`, `minutes` |
+| Minimum plan | Pro |
+
+`status` in the source is a union: a string (`activated`, `finished`, …) or an object `{"error": "reason"}`. For **filtering only**, the object form matches `"status": "error"`; the delivered record keeps its original error object and reason. Other status strings pass through unchanged, so the filter is not restricted to today's node vocabulary — the definitions describe this mapping.
+
+```json Delivery
+{
+  "channel": "twapStatusesByUser",
+  "seq": 1156436426,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "time": "2026-09-22T02:00:02.321152806",
+      "twap_id": 2241180,
+      "state": {
+        "coin": "TAO",
+        "user": "0x0123456789012345678901234567890123456789",
+        "side": "B",
+        "sz": "6.424",
+        "executedSz": "0.0",
+        "executedNtl": "0.0",
+        "minutes": 58,
+        "reduceOnly": true,
+        "randomize": true,
+        "timestamp": 1790042402321,
+        "trigger": null,
+        "stopPx": null
+      },
+      "status": "activated"
+    }
+  ]
+}
+```
+
+## `liquidations`
+
+Every liquidation on the exchange. `data` is an array of **liquidation objects** — not `[wallet, fill]` pairs — one per liquidated side of a trade, as the [`liquidations` feed](/websocket/feeds#liquidations) sends them. Use the filters to narrow it: a `sz` bound on a `coin`, for instance.
+
+| | |
+|---|---|
+| `args` | none |
+| Filters | `coin`, `side`, `px`, `sz`, `closedPnl` |
+| Minimum plan | Agent |
+
+```json Create
+{
+  "type": "liquidations",
+  "filters": {"coin": "BTC", "sz": {"gte": "5"}},
+  "url": "https://example.com/hook"
+}
+```
+
+```json Delivery
+{
+  "channel": "liquidations",
+  "seq": 928109999,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "time": 1773878735890,
+      "liquidatedUser": "0x103c5e7a9b1d3f5a7c9e1b3d5f7a9c1e3b5d7f9a",
+      "liquidator": "0x7c66a1b2c3d4e5f60718293a4b5c6d7e8f901234",
+      "coin": "BTC",
+      "side": "A",
+      "px": "68950.0",
+      "sz": "6.2",
+      "markPx": "68960.5",
+      "method": "market",
+      "hash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
+      "tid": 112,
+      "penaltyFee": "1282.47",
+      "closedPnl": "-41205.3"
+    }
+  ]
+}
+```
+
+## `liquidationsByUser`
+
+Liquidations of one account, or of up to 1,000 accounts in one subscription. The subscription selects the **liquidated** account's side, not the liquidator's fills — a liquidator watching its own activity sees its side through `tradesByUser`.
+
+| | |
+|---|---|
+| `args` | `user` (required): the account — or an array of 1 to 1,000 accounts — whose liquidations you want ([one wallet or many](#one-wallet-or-many)) |
+| Filters | `coin`, `side`, `px`, `sz`, `closedPnl` |
+| Minimum plan | Agent |
+
+```json Delivery
+{
+  "channel": "liquidationsByUser",
+  "seq": 928109999,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "time": 1773878735890,
+      "liquidatedUser": "0x0123456789012345678901234567890123456789",
+      "liquidator": "0x7c66a1b2c3d4e5f60718293a4b5c6d7e8f901234",
+      "coin": "ZRO",
+      "side": "A",
+      "px": "2.1027",
+      "sz": "21.0",
+      "markPx": "2.1023",
+      "method": "market",
+      "hash": "0xabc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
+      "tid": 111,
+      "penaltyFee": "0.019075",
+      "closedPnl": "-5.4747"
+    }
+  ]
+}
+```
+
+## `priceCross`
+
+A market's price crossing a threshold. The condition lives in `args`; the type takes **no filters**.
+
+| | |
+|---|---|
+| `args` | `coin` (required); `threshold` (required, a positive decimal string); `source`: `mark` (default) or `trade`; `direction`: `above`, `below` or `both` (default) |
+| Filters | none — extra predicates are refused |
+| Minimum plan | Free data for both sources (the definitions export `sourceMinTiers` for `mark` and `trade`) — Starter in practice |
+
+```json Create
+{
+  "type": "priceCross",
+  "args": {
+    "coin": "BTC", "source": "mark",
+    "threshold": "100000", "direction": "above"
+  },
+  "url": "https://example.com/hook"
+}
+```
+
+How a crossing is decided:
+
+- `above` fires when the previous price was at or below the threshold and the new price is above it; `below` is the inverse. Merely **touching** the threshold is not a crossing.
+- The **first valid observation** sets the baseline and does not notify.
+- Every observation within a source block is evaluated; several crossings inside one block are all kept in the delivery's `data` array. Trade observations deduplicate counterparties by market and trade id.
+- `mark` observations use the same replica-action price extraction as mark candles (native universe name resolution and builder marks included); `trade` observations come from execution fills. Neither uses candle closes or infers unseen intrablock movement.
+- Observations are **live-only**: a crossing that happened entirely during an outage cannot be reconstructed, and no initial snapshot is delivered.
+- Deleting the subscription removes its baseline and pending deliveries; recreating it starts a fresh baseline.
+
+The delivered frame is synthesised with `channel: "priceCross"`; each event in `data` is:
+
+```json Delivery
+{
+  "channel": "priceCross",
+  "seq": 1773878735123456789,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "coin": "BTC", "source": "mark", "threshold": "100000",
+      "direction": "above", "previousPx": "99999", "px": "100001",
+      "time": 1793923200000
+    }
+  ]
+}
+```
+
+Unlike the other five types, `priceCross` deliveries are **durable**: baseline and pending delivery commit atomically to an outbox with stable delivery ids and retry schedules that survive a restart of the service. That is at-least-once delivery, not exactly-once processing — deduplicate on `webhook-id`. The outbox holds at most **32 pending deliveries per subscription**, each at most 1 MiB; when a subscription's share is full, its observation is rejected and logged without advancing the baseline, so a saturated subscription can miss its own crossings; total disk use scales with the number of subscriptions. See [Plan limits](/webhooks/limits#queues-and-the-outbox).

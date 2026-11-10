@@ -1,0 +1,107 @@
+---
+title: "Webhook troubleshooting"
+description: "Fix Coinversa Pulse webhook problems by symptom — 400 on an impossible filter range, 403 on a type above your plan or an inbox subscription on Free, 429 at the subscription cap, a subscription disabled by a 410 and the enable route, deliveries missing after a service restart, a URL refused for a private address, a redirect or a non-443 port, Standard Webhooks signature mismatches, 413 on an inbox drain, acknowledged 0 on an ack, and 400 on /secret for an inbox subscription."
+---
+
+Start from what you see. There is no delivery log on our side — nothing is stored after an HTTP delivery — so the places to look are `GET /v1/subscriptions` ([reference](/webhooks/api#list-subscriptions)), `GET /v1/inbox` for inbox subscriptions ([reference](/webhooks/inbox#state)), the unauthenticated `GET /health` ([reference](/webhooks/api#health)) and your own receiver's logs.
+
+## `400` when creating a subscription
+
+The body failed validation and nothing was saved. The usual causes:
+
+1. **Impossible range.** `{"gt": "10", "lt": "5"}` can never match. Equal endpoints are allowed only when both are inclusive: `{"gte": "10", "lte": "10"}` is fine, `{"gt": "10", "lte": "10"}` is not.
+2. **Unknown filter or operator.** Only the fields the type declares in `GET /v1/subscriptions/definitions` and only `gt`, `gte`, `lt`, `lte` are accepted — no `eq`, no `$gt`, no nested paths. `priceCross` takes no filters at all.
+3. **A number that is not a decimal string.** `1.5` must be `"1.5"`; exponent notation, `NaN`, infinity and `1/2` are rejected; the maximum length is 128 characters.
+4. **Unknown type or argument.** Check the spelling against the definitions; `user` sent both at the top level and inside `args` is also a `400`.
+5. **A missing required argument.** `user` on the four by-user types, `coin` and `threshold` on `priceCross` (a positive decimal string).
+6. **A bad wallet array.** `args.user` may be one address or an array of 1 to 1,000; an empty array, an invalid address or more than 1,000 entries is refused, as is a creation body over 64 KiB.
+
+## `403` when creating a subscription
+
+The type is above your plan: `liquidations` and `liquidationsByUser` need **Agent**, `twapStatusesByUser` needs **Pro**. The definitions endpoint only lists what your plan may create, so a type you did not see there will be refused. See [Types per plan](/webhooks/limits#types-per-plan).
+
+The other cause is an **inbox subscription on Free**: `"deliveryMode": "inbox"` needs Starter or above, because Free's inbox holds zero messages ([the inbox](/webhooks/limits#the-inbox)).
+
+## `429` when creating or enabling
+
+
+Your account is at its subscription allowance — tentatively 2 on Starter, 6 on Agent, 10 on Pro, 20 on Enterprise, and **0 on Free**. Delete a subscription you no longer need (`GET /v1/subscriptions` to find it), or move up a plan. A disabled subscription does not count toward the allowance, which is why `POST /v1/subscriptions/{id}/enable` can be refused with `429` too. See [Plan limits](/webhooks/limits).
+
+## Deliveries stopped and the subscription shows `disabled: true`
+
+
+Your URL answered **`410 Gone`** to a delivery. That disables the subscription at once; frames matched while it is disabled are not kept. Fix whatever returned the `410`, then:
+
+```bash
+curl -X POST https://webhook.coinversa.ai/v1/subscriptions/$SUB_ID/enable \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
+```
+
+The call is idempotent. If it answers `429`, you are at your allowance with the disabled one re-counted — delete another subscription first. A framework that answers `410` for an unknown route, or a proxy that does during a deploy, is the usual cause; make the route answer `404` or `503` instead for anything but a deliberate stop.
+
+## Nothing arrived, and the service restarted
+
+Ordinary deliveries and their retries are kept **in memory**. When the webhook service restarts — a deploy, a crash — whatever was queued or waiting to retry is lost, and nothing is replayed afterwards. Your subscription is still saved and starts delivering again on the next matching frame. If your receiver was down at the same time, the frames it missed are gone from the webhook side: read the wallet's fills from the [REST API](/quickstart) or the [WebSocket](/websocket/overview) to fill the gap.
+
+`priceCross` behaves differently: its deliveries sit in a durable outbox and survive a restart, though a crossing that happened entirely during an outage of the **source** cannot be reconstructed.
+
+## Nothing arrives, and the service did not restart
+
+1. **Is the subscription there and enabled?** `GET /v1/subscriptions`. A `disabled: true` means a `410` — see above.
+2. **Do the filters match?** Exact text is case-sensitive (`BTC`, not `btc`); `side` is `A` for sell and `B` for buy; sizes are in the market's base unit and prices in its quote, so a `sz` bound of `"100000"` on BTC never matches. A missing or null field never satisfies a numeric filter, so a `closedPnl` bound only matches fills that carry one.
+3. **Is it the right wallet?** `liquidationsByUser` selects the **liquidated** account, not the liquidator's fills; `twapSliceFillsByUser` only carries fills with a `twapId`.
+4. **Is your receiver acknowledging?** Only a `2xx` counts. A `200` after a long handler may already have timed out on our side and been retried; answer first, process after.
+5. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped. Fix the receiver and the subscription resumes on its own.
+6. **Is the service healthy?** `GET /health` answers `200` while the service is up, with service counts in the body ([reference](/webhooks/api#health)).
+
+## The URL was refused
+
+The `url` must be **public HTTPS on port 443**, reached without a redirect. Refused at creation:
+
+| Cause | Fix |
+|---|---|
+| A private, loopback, link-local or otherwise reserved address — `localhost`, `127.0.0.1`, `10.x`, `192.168.x`, a host that resolves to one | Expose a public host. There is no `http://` dev-tunnel option; use a tunnel that terminates TLS publicly |
+| `http://` | Use `https://` |
+| A port other than 443 — `https://example.com:8443/hook` | Put the receiver behind a proxy on 443 |
+| A redirect — the URL answers `3xx` | Register the final URL |
+
+## `400` reading a subscription's secret
+
+`GET /v1/subscriptions/{id}/secret` answers `400` for an **inbox** subscription, because it has no signing secret: nothing is POSTed, so nothing is signed. Check `deliveryMode` in `GET /v1/subscriptions` — `"inbox"` subscriptions are read with [`POST /v1/inbox/drain`](/webhooks/inbox#drain-read-without-deleting), not verified. If you need both a URL and the inbox for the same wallet, create two subscriptions; each takes a slot.
+
+## `413` on an inbox drain
+
+The **oldest** pending message does not fit the `maxBytes` budget you gave `POST /v1/inbox/drain` — the budget covers the whole JSON response, receipt and state included, and messages are never split or skipped to fit. The `413` body carries the state and `requiredMaxBytes`; retry with at least that value (the parameter accepts up to 4,194,304). A message is at most 1 MiB, so a budget at the maximum always fits. Nothing was deleted or skipped by the failed call. See [Drain](/webhooks/inbox#drain-read-without-deleting).
+
+## `acknowledged: 0` on an ack
+
+Usually nothing is wrong. `acknowledged` counts the rows **this** request removed, and acknowledgements are idempotent, so a retried `{"batchId", "count"}` or `{"inboxIds"}` that already succeeded returns `0` — the messages are gone, which is what you wanted. Three other ways to get `0`:
+
+1. **The prefix was already acknowledged.** `count` is an absolute prefix of that batch: after `count: 5`, another `count: 5` on the same receipt is a no-op, and `count: 10` deletes only the next five.
+2. **The messages expired or were evicted** before your ack: they are counted in `expiredTotal` or `overflowDroppedTotal` in the returned `state`, not in `acknowledged`. An old receipt cannot delete the messages that replaced them.
+3. **The ids are not this account's**, or are unknown. Explicit `inboxIds` only ever delete your own messages; others are ignored, not errors.
+
+A `400` is different: the receipt is invalid, tampered, expired (14 days) or belongs to another account, or `count` is outside 1 to the batch size. Drain again for a fresh `batchId`. See [Acknowledge](/webhooks/inbox#acknowledge).
+
+## The inbox is filling up, or messages disappeared
+
+Compare two `GET /v1/inbox` snapshots. A rising `expiredTotal` means messages sat unacknowledged for 14 days; a rising `overflowDroppedTotal` means you hit your plan's pending-message limit or the 2 GiB cap and the oldest were evicted. Both counters are cumulative and never reset. Drain and ack more often, ack what you have processed rather than leaving it, or move up a plan ([the inbox](/webhooks/limits#the-inbox)). Deleting a subscription does **not** clear its stored messages — acknowledge them if you no longer want them.
+
+## Signature mismatch
+
+Check your verifier against the [known-answer test vector](/webhooks/signatures#known-answer-test-vector) first — it isolates your code from your framework. Then, in order of how often each is the cause:
+
+1. **The body was re-serialised.** You verified `JSON.stringify(req.body)`, not the bytes received. Use `express.raw`, `await request.body()`, `request.get_data()` or `io.ReadAll(r.Body)` on the webhook route.
+2. **Wrong signed content.** It is `webhook-id + "." + webhook-timestamp + "." + body` — the id first.
+3. **Wrong secret.** Each subscription has its own; if one receiver serves several, look the secret up by the body's `subscriptionId`. `GET /v1/subscriptions/{id}/secret` returns the current one.
+4. **A hand-rolled HMAC.** Verify with a `standardwebhooks` library for your language; it takes the `whsec_…` secret as you received it and handles the key.
+5. **Hex instead of base64.** The signature is standard base64, after the `v1,` prefix.
+6. **Clock skew.** The libraries reject a `webhook-timestamp` more than five minutes from your clock. Run NTP.
+
+## Duplicate deliveries
+
+Expected: delivery is **at least once**, and order is not guaranteed across workers and retries. A retry follows any failure we observed, including a timeout after your handler already succeeded. Deduplicate on `webhook-id`, which is stable across the retries of one delivery, and order by `seq` within one source if order matters. If two different ids carry the same fill, check whether two of your subscriptions match it — each delivers on its own.
+
+## Still stuck
+
+Email [chat@coinversa.ai](mailto:chat@coinversa.ai) with the subscription id, the `webhook-id` of a delivery if you have one, and what you expected. Never send your signing secret.

@@ -1,0 +1,74 @@
+---
+title: "Webhooks for agents"
+description: "Use the Coinversa Pulse event inbox from an AI agent — inbox_subscribe creates an inbox subscription from a type, args and filters, inbox_subscriptions lists them, inbox_unsubscribe deletes one, inbox_state reports what is pending and inbox_drain reads and acknowledges messages — through the MCP server, with the same plan allowances as REST."
+---
+
+An agent connected to the [MCP server](/mcp/setup) can subscribe to events, read what they matched and unsubscribe from chat, with no server and no curl. The five tools below work on your account's [inbox](/webhooks/inbox): they create and manage **inbox subscriptions** only, act on the same account the portal and REST show, and are bound by the same plan allowance.
+
+<Note>
+The MCP tools never take a URL. A subscription created from chat always delivers to the inbox, and the tools neither list nor delete HTTP subscriptions. To have frames POSTed to a URL you own, create the subscription in the [developer portal](https://developers.coinversa.ai) or over [REST](/webhooks/api#create-a-subscription).
+</Note>
+
+## Subscribe
+
+`inbox_subscribe` takes the same three things a REST create does — a `type`, its `args` and optional `filters` — and always sends `"deliveryMode": "inbox"`. Ask Claude to "watch 0x28f0…9bad's BTC fills of 1.5 or more" and it calls:
+
+```json
+{
+  "type": "tradesByUser",
+  "args": {"user": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"},
+  "filters": {"coin": "BTC", "sz": {"gte": "1.5"}}
+}
+```
+
+- **Types** are the six on [Subscription types](/webhooks/events): `tradesByUser`, `twapSliceFillsByUser`, `twapStatusesByUser`, `liquidations`, `liquidationsByUser` and `priceCross`.
+- **`args.user`** on the four by-user types is one address or an array of 1 to 1,000 — one subscription for all of them. `liquidations` takes no args. `priceCross` takes `coin` and a positive decimal-string `threshold`, with optional `source` (`mark` or `trade`) and `direction` (`above`, `below` or `both`).
+- **`filters`** are AND-combined: exact strings (`coin`, `side`) or `gt` / `gte` / `lt` / `lte` bounds on decimal strings. Numbers are always strings, never JSON numbers. `priceCross` accepts no extra filters.
+
+The service validates the type, the field names and your plan, exactly as it does for REST: a type above your plan is refused with `403`, as is any subscription on **Free**, and a full allowance with `429` ([Plan limits](/webhooks/limits)). Inbox and HTTP subscriptions share the same slots. The tool returns a compact receipt — `subscribed`, `subscriptionId`, `deliveryMode`, `disabled` — and has no signing secret to show, because an inbox subscription has none.
+
+A subscription is immutable: to change it, unsubscribe and subscribe again, which resets a price crossing's baseline. Creation is never retried automatically, so after an ambiguous failure the agent should call `inbox_subscriptions` before trying again rather than risk a duplicate. There is no snapshot and no replay: a subscription collects from the moment it exists.
+
+## List and unsubscribe
+
+`inbox_subscriptions` lists your inbox subscriptions — id, type, normalized `args`, `filters` and whether each is disabled — sorted by id, `limit` at a time (default 20, at most 100) with `offset`, `hasMore` and `nextOffset` to continue. HTTP subscriptions are left out, so their URLs never reach a chat transcript.
+
+`inbox_unsubscribe` deletes one inbox subscription by its `subscriptionId`. It checks the id is an inbox subscription of yours first and refuses anything else; there is no bulk delete. Unsubscribing stops collection but keeps the messages already stored — they stay pending until drained or expired.
+
+## Read the inbox
+
+`inbox_state` reports the inbox without touching it: `pendingMessages`, `pendingBytes`, your plan's `maxMessages` and `maxStoredBytes`, and the two cumulative loss counters, `overflowDroppedTotal` and `expiredTotal`.
+
+`inbox_drain` reads and **consumes**. It fetches the oldest pending messages (`count`, default 10, up to 1,000), keeps as many complete messages as fit the response budget, and acknowledges exactly those — a message it had to leave out stays pending for the next call, and a message's `data` is never split. Each message is the delivery envelope — `channel`, `seq`, `subscriptionId`, `data` — plus its `inboxId` and `receivedAt` ([the message](/webhooks/inbox#the-message)).
+
+The result carries `messages`, `count`, `hasMore`, `acknowledged`, `ackStatus` and the inbox `state` as it was **before** the acknowledgement (`stateAt: "drain"`); call `inbox_state` for the current counts. Three things follow from the tool acknowledging for you:
+
+- **A drain from chat deletes.** Unlike the REST [drain](/webhooks/inbox#drain-read-without-deleting), which is safe to repeat until you ack, the tool acks as part of the same call. There is no peek: use `inbox_state` to look without consuming.
+- **`ackStatus: "unconfirmed"`** means the acknowledgement did not come back. The messages are still returned, but they may reappear on the next drain — deduplicate by `inboxId`.
+- **Two drains at once** can return the same message. If several agents share an account, give one of them the job.
+
+The inbox is per **account**: a drain returns what every inbox subscription matched, whichever key or surface created it, and what it acknowledges is gone for the portal and REST too. Messages nobody acknowledges expire after 14 days or are evicted on overflow — see [Limits](/webhooks/inbox#limits).
+
+## The tools
+
+| Tool | Kind | Backing route | What it does |
+|---|---|---|---|
+| `inbox_subscribe` | Creates a subscription | `POST /v1/subscriptions` | One inbox subscription from `type`, `args` and optional `filters`; never a URL |
+| `inbox_subscriptions` | Read-only | `GET /v1/subscriptions` | Lists your inbox subscriptions, paged; HTTP subscriptions are excluded |
+| `inbox_unsubscribe` | Destructive | `DELETE /v1/subscriptions/{id}` | Deletes one inbox subscription; stored messages are kept |
+| `inbox_state` | Read-only | `GET /v1/inbox` | Pending counts, plan capacity and loss counters |
+| `inbox_drain` | Destructive | `POST /v1/inbox/drain`, `POST /v1/inbox/ack` | Reads the oldest pending messages and acknowledges the ones it returns |
+
+`inbox_subscribe`, `inbox_unsubscribe` and `inbox_drain` are the tools that change anything, and what they change is your Coinversa inbox subscriptions and inbox. The connector still never touches an exchange account, never signs and never trades.
+
+## Hosted connections
+
+The tools work the same however you connected. A connection made with **"Continue with Coinversa"** in Claude, ChatGPT or another client is authenticated for you and resolves the same account, plan and allowance as your API key; a connection made by pasting a key, and the npx package, use that key directly.
+
+## What arrives
+
+Whatever created the subscription and wherever it delivers, the frame is the same: the raw source frame plus `subscriptionId` — stored with an `inboxId` and `receivedAt` in the inbox, signed with [Standard Webhooks](/webhooks/signatures) headers when POSTed to a URL. An agent reading it should treat `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object) they are — sizes and prices as decimal strings, `side` as `A` (sell) or `B` (buy), `closedPnl` from the node — and say what happened, not what to do about it. Market data is not advice.
+
+## Roadmap
+
+Today an agent **subscribes** and **pulls** what the subscriptions matched. Having the MCP server push an event into a running session is not something the protocol allows: the version the server speaks has no events capability. The inbox is the pull side of that: a session reads it when it is asked to, not when a fill lands.

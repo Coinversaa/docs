@@ -1,0 +1,86 @@
+---
+title: "Webhook plan limits"
+description: "Coinversa Pulse webhook limits by plan — tentative subscription allowances (Free 0, Starter 2, Agent 6, Pro 10, Enterprise 20), creation-time tier checks, the in-memory retry policy of nine attempts over about 76 hours, the separate 128 fresh and 128 retry delivery budgets with 16 per subscription across both, the 32-row priceCross outbox, the inbox's pending-message limits (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000), 2 GiB and 14 days, and what a 410 does."
+---
+
+Webhook limits are separate from REST request quotas and WebSocket capacity — receiving a delivery never draws down your API calls, and a webhook subscription is not a WebSocket subscription against your per-connection cap.
+
+## Subscriptions per plan
+
+| | Free | Starter | Agent | Pro | Enterprise |
+|---|---:|---:|---:|---:|---:|
+| Subscriptions per account | 0 | 2 | 6 | 10 | 20 |
+
+<Note>
+These allowances are **tentative** and may change before or after launch. A tier missing from the table gets 0.
+</Note>
+
+
+- The allowance is per **account**, across every API key, and counts subscriptions of every type and both delivery modes together: an [inbox](/webhooks/inbox) subscription takes the same slot an HTTP one does.
+- It is checked at **creation time** — `POST /v1/subscriptions` answers `429` at the cap — and again on `POST /v1/subscriptions/{id}/enable`. Saved subscriptions are not re-authorised after an account change.
+- **Disabled** subscriptions do not count toward it, so re-enabling one can be refused with `429` when you are at the cap.
+- Free can read `GET /v1/subscriptions/definitions` and discover the Free-tier types but cannot create a subscription: feed access and subscription allowance are separate checks.
+
+## Types per plan
+
+The type's `minTier` in the definitions is the plan it needs; a create below it is `403`.
+
+| Plan | Types it may create |
+|---|---|
+| Free | None — the allowance is zero, though `tradesByUser`, `twapSliceFillsByUser` and `priceCross` are Free-tier data. No inbox either: an inbox subscription is `403` |
+| Starter | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` (both `mark` and `trade` sources) |
+| Agent | Starter's types plus `liquidations` and `liquidationsByUser` |
+| Pro | Agent's types plus `twapStatusesByUser` |
+| Enterprise | Everything in Pro, with a larger allowance |
+
+## The inbox
+
+Inbox subscriptions store their matches in the account's one [inbox](/webhooks/inbox) instead of POSTing them. What is stored is bounded three ways:
+
+| | Free | Starter | Agent | Pro | Enterprise |
+|---|---:|---:|---:|---:|---:|
+| Pending messages | 0 | 1,000 | 50,000 | 1,000,000 | 1,000,000 |
+| Compressed payload | — | 2 GiB | 2 GiB | 2 GiB | 2 GiB |
+| Age of a message | — | 14 days | 14 days | 14 days | 14 days |
+
+- **Pending** means stored and not yet acknowledged. A message is removed by your ack, by expiry at **14 days**, or by eviction when either limit is hit — on overflow the **oldest** go first, until both the count and the **2 GiB** compressed-payload cap hold again.
+- `GET /v1/inbox` reports `pendingMessages`, `pendingBytes` and your `maxMessages` and `maxStoredBytes`, plus two **cumulative** loss counters, `overflowDroppedTotal` and `expiredTotal`, which never reset — compare snapshots to see what you lost ([state](/webhooks/inbox#state)).
+- Free's limit is zero, which is why creating an inbox subscription on Free is `403`.
+- A drain returns at most `count` (1–1,000) messages within `maxBytes` (1,024–4,194,304 bytes for the whole response); an ack takes at most 1,000 `inboxIds`. The 1 MiB size cap on one delivery applies to a stored message too.
+- Deleting a subscription does not delete the messages it stored. Your plan's inbox limits are refreshed on inbox requests and on creating or re-enabling an inbox subscription; a lower limit evicts the oldest messages at that refresh.
+
+## Retries
+
+| | |
+|---|---|
+| Acknowledged by | Any `2xx` |
+| Retry policy | Bounded back-off, up to **nine attempts over about 76 hours**; your `Retry-After` is respected up to 24 hours |
+| Where retries live | **In memory** — lost when the service restarts, never replayed |
+| After the last attempt | The delivery is dropped |
+| Order | Not guaranteed across workers and retries; deduplicate on `webhook-id` |
+
+`priceCross` is the exception: its deliveries sit in a durable outbox with stable delivery ids and retry schedules that survive a restart ([below](#queues-and-the-outbox)).
+
+## Queues and the outbox
+
+Deliveries share one bounded in-memory queue and one pool of workers. The budgets below reduce back-off starvation; they do not guarantee tenant isolation or throughput for other subscriptions:
+
+| | |
+|---|---|
+| Fresh deliveries | A budget of **128** across all subscriptions |
+| Retries | A separate budget of **128** across all subscriptions |
+| Size of one delivery | At most **1 MiB** |
+| Per subscription | At most **16** deliveries across both budgets, delayed retries included |
+
+Fresh deliveries and ordinary retries have separate budgets of 128 each. A delayed retry does not hold a fresh-delivery slot; when the retry budget is full, further retries are **dropped and logged**. A subscription at its 16 drops its **own** fresh frames, with a log line. Queue capacity and workers are still shared: these bounds reduce back-off starvation, but do not guarantee tenant isolation or throughput for other subscriptions.
+
+`priceCross` deliveries use a **durable outbox** instead: at most **32 pending deliveries per subscription**, each at most 1 MiB. When a subscription's share is full, its new observation is rejected and logged without advancing the crossing baseline; observations are not retained for later replay, so a saturated subscription can miss its own crossings. Retry exhaustion still drops a delivery. Total disk use scales with the number of subscriptions. Deleting the subscription removes its baseline and pending rows.
+
+## 410 disables a subscription
+
+
+A `410` from your URL disables the subscription at once. It stops counting toward your allowance, deliveries stop, and frames matched meanwhile are not kept. `POST /v1/subscriptions/{id}/enable` brings it back, subject to the allowance. See [Signatures and delivery](/webhooks/signatures#410-disables-the-subscription).
+
+## What is not limited, because it does not exist
+
+There is no monthly event budget and no delivery log: for HTTP delivery nothing is stored once a delivery is acknowledged or dropped, and the only retention anywhere is the inbox's 14 days. A subscription names one market, or one wallet or an array of up to **1,000** wallets ([one wallet or many](/webhooks/events#one-wallet-or-many)) — that 1,000, and the 64 KiB creation body, are the only per-subscription size caps. The ceiling on how much you receive is your receiver's capacity and the queue above, or the inbox limits. Prices and the rest of each plan are on [Pricing](/pricing).
