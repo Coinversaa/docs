@@ -1,65 +1,74 @@
 ---
 title: "Webhooks for agents"
-description: "Manage Coinversa Pulse webhook subscriptions from an AI agent — pulse_event_types reads the subscription definitions, pulse_watch_wallet creates subscriptions for a wallet's fills (to the inbox by default, or to a URL), pulse_alert_rules lists subscriptions, pulse_remove_rule deletes one and pulse_events drains and acknowledges the inbox — through the MCP server, with the same plan allowances as REST."
+description: "Use the Coinversa Pulse event inbox from an AI agent — inbox_subscribe creates an inbox subscription from a type, args and filters, inbox_subscriptions lists them, inbox_unsubscribe deletes one, inbox_state reports what is pending and inbox_drain reads and acknowledges messages — through the MCP server, with the same plan allowances as REST."
 ---
 
-An agent connected to the [MCP server](/mcp/setup) can set up webhook subscriptions, read what they matched and tear them down from chat, without a curl in sight. The five tools below wrap the [webhook API](/webhooks/api) one for one, act on the same subscriptions the portal and REST show, and are bound by the same plan allowance.
+An agent connected to the [MCP server](/mcp/setup) can subscribe to events, read what they matched and unsubscribe from chat, with no server and no curl. The five tools below work on your account's [inbox](/webhooks/inbox): they create and manage **inbox subscriptions** only, act on the same account the portal and REST show, and are bound by the same plan allowance.
 
 <Note>
-An agent needs no receiver. `pulse_watch_wallet` creates **inbox** subscriptions by default — matched frames are stored in your account's [inbox](/webhooks/inbox) — and `pulse_events` reads them back from chat. Give it a `url` only if you also run a server that should be POSTed to.
+The MCP tools never take a URL. A subscription created from chat always delivers to the inbox, and the tools neither list nor delete HTTP subscriptions. To have frames POSTed to a URL you own, create the subscription in the [developer portal](https://developers.coinversa.ai) or over [REST](/webhooks/api#create-a-subscription).
 </Note>
 
-## Discover the types first
+## Subscribe
 
-`pulse_event_types` reads `GET /v1/subscriptions/definitions` — the subscription types **your plan** may create, each with its `args`, its `filters` (field, type, unit, exact or numeric operators) and `minTier`. An agent that calls it before creating a subscription does not have to guess what a filter may say: the same declarations drive validation, so what the tool returns is exactly what a create accepts. See [Subscription types](/webhooks/events).
-
-## Watch a wallet in one call
-
-`pulse_watch_wallet` takes an `address`, optional `coins`, optional `liquidations: true` and an optional `url`. It creates a `tradesByUser` subscription for the wallet's **fills** — one subscription for all its fills, or, with `coins`, one subscription per coin with that coin as the filter. Without a `url` the subscription delivers to the inbox. Ask Claude to "watch 0x28f0…9bad's BTC fills" and it creates the equivalent of:
+`inbox_subscribe` takes the same three things a REST create does — a `type`, its `args` and optional `filters` — and always sends `"deliveryMode": "inbox"`. Ask Claude to "watch 0x28f0…9bad's BTC fills of 1.5 or more" and it calls:
 
 ```json
 {
   "type": "tradesByUser",
   "args": {"user": "0x28f0d2a7c6b3e14f9a8b7c6d5e4f3a2b1c0d9bad"},
-  "filters": {"coin": "BTC"},
-  "deliveryMode": "inbox"
+  "filters": {"coin": "BTC", "sz": {"gte": "1.5"}}
 }
 ```
 
-With a `url`, the same subscription is created as an HTTP subscription instead — `deliveryMode` `http`, delivered to that URL and signed — and the tool sees its signing secret, since creation returns it. If you would rather a secret never pass through a chat transcript, create HTTP subscriptions over [REST](/webhooks/api#create-a-subscription) or in the [developer portal](https://developers.coinversa.ai) and use the tools to list and delete; an inbox subscription has no secret at all.
+- **Types** are the six on [Subscription types](/webhooks/events): `tradesByUser`, `twapSliceFillsByUser`, `twapStatusesByUser`, `liquidations`, `liquidationsByUser` and `priceCross`.
+- **`args.user`** on the four by-user types is one address or an array of 1 to 1,000 — one subscription for all of them. `liquidations` takes no args. `priceCross` takes `coin` and a positive decimal-string `threshold`, with optional `source` (`mark` or `trade`) and `direction` (`above`, `below` or `both`).
+- **`filters`** are AND-combined: exact strings (`coin`, `side`) or `gt` / `gte` / `lt` / `lte` bounds on decimal strings. Numbers are always strings, never JSON numbers. `priceCross` accepts no extra filters.
 
-The tool sets no other filter: `side`, `px`, `sz` and `closedPnl` bounds are set over [REST](/webhooks/api#create-a-subscription) or in the portal. With `liquidations: true`, on **Agent** and above, it also watches the wallet's **liquidations** — one `liquidationsByUser` subscription, a further subscription against your allowance. Each subscription, inbox or HTTP, is one of your plan's slots ([Plan limits](/webhooks/limits)); a type your plan does not include is refused with `403`, as is an inbox subscription on **Free**, a full allowance with `429`, and the tool reports the refusal rather than retrying.
+The service validates the type, the field names and your plan, exactly as it does for REST: a type above your plan is refused with `403`, as is any subscription on **Free**, and a full allowance with `429` ([Plan limits](/webhooks/limits)). Inbox and HTTP subscriptions share the same slots. The tool returns a compact receipt — `subscribed`, `subscriptionId`, `deliveryMode`, `disabled` — and has no signing secret to show, because an inbox subscription has none.
+
+A subscription is immutable: to change it, unsubscribe and subscribe again, which resets a price crossing's baseline. Creation is never retried automatically, so after an ambiguous failure the agent should call `inbox_subscriptions` before trying again rather than risk a duplicate. There is no snapshot and no replay: a subscription collects from the moment it exists.
+
+## List and unsubscribe
+
+`inbox_subscriptions` lists your inbox subscriptions — id, type, normalized `args`, `filters` and whether each is disabled — sorted by id, `limit` at a time (default 20, at most 100) with `offset`, `hasMore` and `nextOffset` to continue. HTTP subscriptions are left out, so their URLs never reach a chat transcript.
+
+`inbox_unsubscribe` deletes one inbox subscription by its `subscriptionId`. It checks the id is an inbox subscription of yours first and refuses anything else; there is no bulk delete. Unsubscribing stops collection but keeps the messages already stored — they stay pending until drained or expired.
 
 ## Read the inbox
 
-`pulse_events` runs the [drain, process, ack](/webhooks/inbox#for-agents-drain-process-ack) loop: it calls `POST /v1/inbox/drain` with a `count` and `maxBytes` sized for a chat turn, hands the messages to the model, and then calls `POST /v1/inbox/ack` for **exactly the messages it exposed** — their `inboxIds`, or the prefix of that drain's batch — so a message the tool had to leave out stays pending for the next call. Each message is the delivery envelope — `channel`, `seq`, `subscriptionId`, `data` — plus its `inboxId` and `receivedAt` ([the message](/webhooks/inbox#the-message)). The inbox's `state` comes back with it, so the agent can say how many messages are still pending and whether `overflowDroppedTotal` or `expiredTotal` moved since the last read.
+`inbox_state` reports the inbox without touching it: `pendingMessages`, `pendingBytes`, your plan's `maxMessages` and `maxStoredBytes`, and the two cumulative loss counters, `overflowDroppedTotal` and `expiredTotal`.
 
-The inbox is per **account**: `pulse_events` returns what every inbox subscription matched, whichever key or surface created it, and an ack from chat deletes those messages for the portal and REST too. Messages the agent never acknowledges expire after 14 days or are evicted on overflow — see [Limits](/webhooks/inbox#limits).
+`inbox_drain` reads and **consumes**. It fetches the oldest pending messages (`count`, default 10, up to 1,000), keeps as many complete messages as fit the response budget, and acknowledges exactly those — a message it had to leave out stays pending for the next call, and a message's `data` is never split. Each message is the delivery envelope — `channel`, `seq`, `subscriptionId`, `data` — plus its `inboxId` and `receivedAt` ([the message](/webhooks/inbox#the-message)).
 
-## List and remove
+The result carries `messages`, `count`, `hasMore`, `acknowledged`, `ackStatus` and the inbox `state` as it was **before** the acknowledgement (`stateAt: "drain"`); call `inbox_state` for the current counts. Three things follow from the tool acknowledging for you:
 
-`pulse_alert_rules` lists your subscriptions — `GET /v1/subscriptions`: type, arguments, filters, delivery mode, URL and whether each is disabled, never the secrets. `pulse_remove_rule` deletes one by its id — `DELETE /v1/subscriptions/{id}`. Subscriptions are immutable, so "watch ETH instead of BTC" is a remove followed by a new watch. Removing an inbox subscription does not delete the messages it already stored.
+- **A drain from chat deletes.** Unlike the REST [drain](/webhooks/inbox#drain-read-without-deleting), which is safe to repeat until you ack, the tool acks as part of the same call. There is no peek: use `inbox_state` to look without consuming.
+- **`ackStatus: "unconfirmed"`** means the acknowledgement did not come back. The messages are still returned, but they may reappear on the next drain — deduplicate by `inboxId`.
+- **Two drains at once** can return the same message. If several agents share an account, give one of them the job.
+
+The inbox is per **account**: a drain returns what every inbox subscription matched, whichever key or surface created it, and what it acknowledges is gone for the portal and REST too. Messages nobody acknowledges expire after 14 days or are evicted on overflow — see [Limits](/webhooks/inbox#limits).
 
 ## The tools
 
 | Tool | Kind | Backing route | What it does |
 |---|---|---|---|
-| `pulse_event_types` | Read-only | `GET /v1/subscriptions/definitions` | The types your plan may create, with `args`, `filters` and `minTier` |
-| `pulse_watch_wallet` | Creates subscriptions | `POST /v1/subscriptions` | `tradesByUser` subscriptions for one wallet, one per coin in `coins`, to the inbox by default or to a `url`; with `liquidations: true` on Agent and above, `liquidationsByUser` as well |
-| `pulse_alert_rules` | Read-only | `GET /v1/subscriptions` | Lists your subscriptions |
-| `pulse_remove_rule` | Destructive | `DELETE /v1/subscriptions/{id}` | Deletes one subscription |
-| `pulse_events` | Reads and acknowledges | `POST /v1/inbox/drain`, `POST /v1/inbox/ack` | Drains pending inbox messages, oldest first, and acknowledges the ones it exposed |
+| `inbox_subscribe` | Creates a subscription | `POST /v1/subscriptions` | One inbox subscription from `type`, `args` and optional `filters`; never a URL |
+| `inbox_subscriptions` | Read-only | `GET /v1/subscriptions` | Lists your inbox subscriptions, paged; HTTP subscriptions are excluded |
+| `inbox_unsubscribe` | Destructive | `DELETE /v1/subscriptions/{id}` | Deletes one inbox subscription; stored messages are kept |
+| `inbox_state` | Read-only | `GET /v1/inbox` | Pending counts, plan capacity and loss counters |
+| `inbox_drain` | Destructive | `POST /v1/inbox/drain`, `POST /v1/inbox/ack` | Reads the oldest pending messages and acknowledges the ones it returns |
 
-`pulse_watch_wallet`, `pulse_remove_rule` and the ack half of `pulse_events` are the webhook tools that change anything, and what they change is your Coinversa subscriptions and inbox. The connector still never touches an exchange account, never signs and never trades.
+`inbox_subscribe`, `inbox_unsubscribe` and `inbox_drain` are the tools that change anything, and what they change is your Coinversa inbox subscriptions and inbox. The connector still never touches an exchange account, never signs and never trades.
 
 ## Hosted connections
 
-A user who connected Claude, ChatGPT or another client with **"Continue with Coinversa"** never gave the hosted MCP server a raw `cvsa_` key. For these users the hosted server authenticates to `webhook.coinversa.ai` on their behalf, and the webhook service resolves the same account, plan and allowance a Bearer call would. Nothing changes for you: the tools work the same whichever way you connected. The backend half of that path is still rolling out; until it has, the webhook tools on a hosted connection report the service as temporarily unavailable rather than failing on your key. Connections made by pasting a key, and the npx package, use your key as a Bearer token as before.
+The tools work the same however you connected. A connection made with **"Continue with Coinversa"** in Claude, ChatGPT or another client is authenticated for you and resolves the same account, plan and allowance as your API key; a connection made by pasting a key, and the npx package, use that key directly.
 
 ## What arrives
 
-Whatever created the subscription and wherever it delivers, the frame is the same: the raw source frame plus `subscriptionId` — signed with [Standard Webhooks](/webhooks/signatures) headers when POSTed to a URL, stored with an `inboxId` and `receivedAt` when it goes to the inbox. An agent reading either should treat `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object) they are — sizes and prices as decimal strings, `side` as `A` (sell) or `B` (buy), `closedPnl` from the node — and say what happened, not what to do about it. Market data is not advice.
+Whatever created the subscription and wherever it delivers, the frame is the same: the raw source frame plus `subscriptionId` — stored with an `inboxId` and `receivedAt` in the inbox, signed with [Standard Webhooks](/webhooks/signatures) headers when POSTed to a URL. An agent reading it should treat `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object) they are — sizes and prices as decimal strings, `side` as `A` (sell) or `B` (buy), `closedPnl` from the node — and say what happened, not what to do about it. Market data is not advice.
 
 ## Roadmap
 
-Today an agent **sets up** subscriptions and **pulls** what they matched. Having the MCP server push an event into a running session is not something the protocol allows: the version the server speaks has no events capability. The inbox is the pull side of that: a session reads it when it is asked to, not when a fill lands.
+Today an agent **subscribes** and **pulls** what the subscriptions matched. Having the MCP server push an event into a running session is not something the protocol allows: the version the server speaks has no events capability. The inbox is the pull side of that: a session reads it when it is asked to, not when a fill lands.

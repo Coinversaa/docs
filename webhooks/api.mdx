@@ -10,7 +10,7 @@ https://webhook.coinversa.ai
 Authorization: Bearer YOUR_API_KEY
 ```
 
-Subscriptions belong to the **account**, not to a particular key: any of your keys sees and manages all of them, and they share one allowance and one [inbox](/webhooks/inbox). The same operations are in the developer portal's **Webhooks** page and, for creating, listing, deleting and reading the inbox, in the [MCP tools](/webhooks/agents#the-tools).
+Subscriptions belong to the **account**, not to a particular key: any of your keys sees and manages all of them, and they share one allowance and one [inbox](/webhooks/inbox). The same operations are in the developer portal's **Webhooks** page and, for inbox subscriptions and reading the inbox, in the [MCP tools](/webhooks/agents#the-tools).
 
 <Note>
 This API is served by `webhook.coinversa.ai`, not the data API at `api.coinversa.ai`. It takes `Authorization: Bearer`, not `X-API-Key`, and it is not in the data API's OpenAPI spec. REST auth failures are `403` on the data API; here a missing or invalid key is `401`.

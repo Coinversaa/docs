@@ -11,7 +11,7 @@ What arrives is the **raw source frame** — the same `channel`, `seq` and `data
 
 - **Servers and bots** that would rather be called than poll or hold a connection — a Lambda, a Cloud Run service, a Zapier / Make / n8n catch hook.
 - **Alerting**: a wallet's fills above a size, a liquidation on a watched account, a price crossing a level.
-- **Agents** that manage subscriptions from chat through the [MCP tools](/webhooks/agents) and read what they matched from the inbox, with no server at all.
+- **Agents** that subscribe from chat through the [MCP tools](/webhooks/agents) and read what the subscriptions matched from the inbox, with no server at all.
 
 ## The six types
 
@@ -64,7 +64,7 @@ Subscriptions belong to your **account**, not to the API key that created them: 
 
 - The **developer portal** at [developers.coinversa.ai](https://developers.coinversa.ai).
 - The **REST API** at `https://webhook.coinversa.ai` with `Authorization: Bearer <your API key>` — see the [API reference](/webhooks/api).
-- The **MCP server** — tools to read the definitions, to create, list and delete subscriptions and to drain the inbox from chat; see [Webhooks for agents](/webhooks/agents).
+- The **MCP server** — tools to create, list and delete inbox subscriptions and to read the inbox from chat; see [Webhooks for agents](/webhooks/agents).
 
 <Columns cols={2}>
   <Card title="Quickstart" icon="rocket" href="/webhooks/quickstart">
