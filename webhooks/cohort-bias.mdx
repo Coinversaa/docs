@@ -1,0 +1,351 @@
+---
+title: "Cohort bias types"
+description: "The four Coinversa Pulse cohort bias webhook types — cohortBias, cohortBiasFlip, cohortBiasOpposition and cohortBiasMove — which report a trader cohort's net long or net short positioning on one coin from stored snapshots, normally taken every 15 minutes: their args (coin, cohort, otherCohort, direction, points, tierType), the netBias, longNotional, shortNotional and accountCount filters, the delivered cohort row and a delivery example for each. Starter and above, to a URL or the inbox."
+---
+
+Four subscription types watch how a **trader cohort** is positioned on one coin — net long or net short, and by how much. `cohortBias` delivers the cohort rows of every new snapshot. `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove` deliver only when something changed between two snapshots: a cohort changed side, two cohorts took opposite sides, or a cohort's net bias moved by a number of points.
+
+All four need **Starter** or above, and deliver the way every other [subscription type](/webhooks/events) does: a signed POST to your URL, or the [inbox](/webhooks/inbox). They describe positioning — they are not a recommendation to trade.
+
+Delivery examples are illustrative: the values are made up.
+
+## Snapshot timing
+
+Cohort positioning is a **stored snapshot**, normally taken every **15 minutes**. The service checks for a new snapshot about once a minute. So these types tell you about a change **at the next snapshot** — not when a trade happens.
+
+- A change that happens and reverses between two snapshots is not seen.
+- The times in a delivery — `snapshotTime` and `recordedAt` — are the snapshot's own: when it was taken and when it was stored. They are not the time the positioning changed.
+- A transition is the difference between the newest snapshot and the last one your subscription saw. If the service misses snapshots during an outage, the ones in between are not replayed.
+- A snapshot that cannot be read, or that has no rows for your coin, changes nothing: no delivery, and no flip, opposition or move.
+
+## The four types
+
+| Type | Fires | Required `args` | Optional `args` | Filters |
+|---|---|---|---|---|
+| [`cohortBias`](#cohortbias) | Once with the current state when you create the subscription, then on each new snapshot — even if nothing changed | `coin` | `cohort`, `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` |
+| [`cohortBiasFlip`](#cohortbiasflip) | A cohort's net bias goes from long to short, or from short to long | `coin`, `cohort` | `direction`, `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` |
+| [`cohortBiasOpposition`](#cohortbiasopposition) | Two cohorts enter opposite positioning — one net long, the other net short | `coin`, `cohort`, `otherCohort` | `tierType` | none — the condition is in `args` |
+| [`cohortBiasMove`](#cohortbiasmove) | A cohort's net bias has moved at least `points` percentage points since the last time you were notified | `coin`, `cohort`, `points` | `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` |
+
+## Arguments
+
+| Argument | Used by | Value |
+|---|---|---|
+| `coin` | All four, required | The market. Matched **case-insensitively**, and it can be a qualified symbol such as `xyz:GOLD` |
+| `tierType` | All four, optional | The classification the cohort belongs to: `pnl` (default — lifetime profitability), `size`, `pnl_recent` or `size_recent` |
+| `cohort` | Required on `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove`; optional on `cohortBias` | One cohort of that classification |
+| `otherCohort` | `cohortBiasOpposition`, required | The second cohort — same classification, and not the same cohort |
+| `direction` | `cohortBiasFlip`, optional | The side the cohort flips **to**: `long`, `short` or `both` (default) |
+| `points` | `cohortBiasMove`, required | A positive decimal string, at most `200` — **percentage points** of net bias, not a relative percent |
+
+The cohorts are the tiers on [Trader cohorts](/concepts/cohorts):
+
+| `tierType` | Cohorts |
+|---|---|
+| `pnl`, `pnl_recent` | `apex`, `sharps`, `grinders`, `scrapers`, `crowd`, `bleeders`, `trapped`, `blown_out` |
+| `size`, `size_recent` | `heavyweights`, `cruiserweights`, `middleweights`, `welterweights`, `lightweights`, `featherweights`, `flyweights`, `strawweights` |
+
+- `pnl_recent` and `size_recent` are the same cohorts on the [30-day tiers](/concepts/cohorts#all-time-vs-30-day-tiers).
+- A cohort from the other classification — `heavyweights` with `tierType: "pnl"` — is a `400`. So is `cohortBiasOpposition` with the same cohort twice, and `points` that is not above `0` or is above `200`.
+- The legacy slugs the REST API returns (`money_printer`, `exit_liquidity`, …) are accepted in `cohort` and `otherCohort` and normalised. Deliveries carry the names above.
+- `coin` is not checked against a list of markets when you create the subscription: a symbol with no snapshot rows is accepted and delivers nothing.
+
+## Net bias
+
+`netBias` is the cohort's signed long-short ratio on the coin, from `-1` to `1`:
+
+```text
+netBias = (longNotional - shortNotional) / (longNotional + shortNotional)
+```
+
+Positive is **net long**, negative is **net short**, `0` is neutral. `1` means every position the cohort holds on the coin is long; `-0.4` means shorts outweigh longs by 40% of the cohort's total notional. It is delivered as a decimal string and compared with exact decimal arithmetic.
+
+## Filters
+
+`cohortBias`, `cohortBiasFlip` and `cohortBiasMove` accept four numeric filters, applied to the cohort's **current** row:
+
+| Filter | Unit |
+|---|---|
+| `netBias` | Ratio, `-1` to `1` |
+| `longNotional` | Quote |
+| `shortNotional` | Quote |
+| `accountCount` | Accounts |
+
+Each takes an exact value or `gt` / `gte` / `lt` / `lte` bounds, as **decimal strings**, AND-combined — the rules on [Filters](/webhooks/events#filters). A count is a string here too: `{"accountCount": {"gte": "100"}}`.
+
+```json
+{"netBias": {"lte": "-0.2"}, "accountCount": {"gte": "100"}}
+```
+
+- On `cohortBias`, a row that does not pass is left out of `data`; if none passes, nothing is delivered for that snapshot.
+- On `cohortBiasFlip`, a flip is delivered only if the row **after** the flip passes.
+- On `cohortBiasMove`, a move whose row does not pass is not delivered and does not reset the baseline.
+- `cohortBiasOpposition` takes **no filters** — extra predicates are refused.
+
+## The cohort row
+
+Every event in `data` is one cohort's row from the snapshot:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `coin` | string | The market |
+| `tierType` | string | The classification: `pnl`, `size`, `pnl_recent` or `size_recent` |
+| `cohort` | string | The cohort |
+| `longNotional` | decimal string | The cohort's long notional on the coin |
+| `shortNotional` | decimal string | The cohort's short notional on the coin |
+| `netBias` | decimal string | [Net bias](#net-bias), `-1` to `1` |
+| `accountCount` | number | Accounts in the row |
+| `snapshotTime` | number | The snapshot's time, Unix milliseconds |
+| `recordedAt` | number | When the snapshot was stored, Unix milliseconds |
+
+The three transition types add fields to the row:
+
+| Type | Adds |
+|---|---|
+| `cohortBiasFlip` | `direction` (`long` or `short` — the side it flipped to) and `previous`, the cohort's full row from the snapshot before |
+| `cohortBiasOpposition` | `previous`, plus `other` and `previousOther` — the second cohort's current and previous rows |
+| `cohortBiasMove` | `previous` — the **baseline** row the move is measured from — and `changePoints`, the signed move in percentage points, as a decimal string |
+
+## `cohortBias`
+
+A cohort's positioning on one coin, snapshot by snapshot. It delivers **once with the current state** when you create the subscription, then again on **each new snapshot** — normally every 15 minutes — even if no value changed. Without `cohort`, `data` holds a row for every cohort of the classification that the snapshot has; with it, that cohort's row only.
+
+| | |
+|---|---|
+| `args` | `coin` (required); `cohort`: one cohort, otherwise all of them; `tierType`: `pnl` (default), `size`, `pnl_recent` or `size_recent` |
+| Filters | `netBias`, `longNotional`, `shortNotional`, `accountCount` |
+| Minimum plan | Starter |
+
+```json Create
+{
+  "type": "cohortBias",
+  "args": {"coin": "BTC"},
+  "url": "https://example.com/hook"
+}
+```
+
+The sample is cut to two of the eight rows:
+
+```json Delivery
+{
+  "channel": "cohortBias",
+  "seq": 1794301241118302,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "coin": "BTC",
+      "tierType": "pnl",
+      "cohort": "apex",
+      "longNotional": "393346623.062562",
+      "shortNotional": "940839593.891811",
+      "netBias": "-0.4103572378967039",
+      "accountCount": 157,
+      "snapshotTime": 1794301200000,
+      "recordedAt": 1794301202346
+    },
+    {
+      "coin": "BTC",
+      "tierType": "pnl",
+      "cohort": "bleeders",
+      "longNotional": "76120394.882641",
+      "shortNotional": "58893110.447302",
+      "netBias": "0.1275967496232273",
+      "accountCount": 6410,
+      "snapshotTime": 1794301200000,
+      "recordedAt": 1794301202346
+    }
+  ]
+}
+```
+
+## `cohortBiasFlip`
+
+A cohort changing side: its net bias was long in one snapshot and is short in the next, or the reverse. `direction` is the side it flips **to** — `"short"` delivers long-to-short flips only.
+
+| | |
+|---|---|
+| `args` | `coin`, `cohort` (required); `direction`: `long`, `short` or `both` (default); `tierType` |
+| Filters | `netBias`, `longNotional`, `shortNotional`, `accountCount` — on the row after the flip |
+| Minimum plan | Starter |
+
+- A reading of exactly `0` is **neutral**, not a side: moving to it or from it is not a flip.
+- The comparison is between two consecutive snapshots your subscription saw. The first one after you subscribe only sets the starting state.
+
+```json Create
+{
+  "type": "cohortBiasFlip",
+  "args": {"coin": "BTC", "cohort": "apex", "direction": "long"},
+  "url": "https://example.com/hook"
+}
+```
+
+```json Delivery
+{
+  "channel": "cohortBiasFlip",
+  "seq": 1794302139804417,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "coin": "BTC",
+      "tierType": "pnl",
+      "cohort": "apex",
+      "longNotional": "702114338.905512",
+      "shortNotional": "611902447.118306",
+      "netBias": "0.06865353072100766",
+      "accountCount": 159,
+      "snapshotTime": 1794302100000,
+      "recordedAt": 1794302102346,
+      "previous": {
+        "coin": "BTC",
+        "tierType": "pnl",
+        "cohort": "apex",
+        "longNotional": "393346623.062562",
+        "shortNotional": "940839593.891811",
+        "netBias": "-0.4103572378967039",
+        "accountCount": 157,
+        "snapshotTime": 1794301200000,
+        "recordedAt": 1794301202346
+      },
+      "direction": "long"
+    }
+  ]
+}
+```
+
+## `cohortBiasOpposition`
+
+Two cohorts taking opposite sides of one coin: one is net long and the other net short. It fires on **entry** only — when the snapshot before did not have them opposed — and not again while the opposition persists. The two swapping sides while still opposed is not a new entry.
+
+| | |
+|---|---|
+| `args` | `coin`, `cohort`, `otherCohort` (required) — two different cohorts of the same classification; `tierType` |
+| Filters | none — extra predicates are refused |
+| Minimum plan | Starter |
+
+Both cohorts must be in the snapshot and in the one before it. The delivered event is the `cohort` row, with the second cohort under `other`:
+
+```json Create
+{
+  "type": "cohortBiasOpposition",
+  "args": {"coin": "BTC", "cohort": "apex", "otherCohort": "crowd"},
+  "url": "https://example.com/hook"
+}
+```
+
+```json Delivery
+{
+  "channel": "cohortBiasOpposition",
+  "seq": 1794302139804417,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "coin": "BTC",
+      "tierType": "pnl",
+      "cohort": "apex",
+      "longNotional": "393346623.062562",
+      "shortNotional": "940839593.891811",
+      "netBias": "-0.4103572378967039",
+      "accountCount": 157,
+      "snapshotTime": 1794302100000,
+      "recordedAt": 1794302102346,
+      "previous": {
+        "coin": "BTC",
+        "tierType": "pnl",
+        "cohort": "apex",
+        "longNotional": "393346623.062562",
+        "shortNotional": "940839593.891811",
+        "netBias": "-0.4103572378967039",
+        "accountCount": 157,
+        "snapshotTime": 1794301200000,
+        "recordedAt": 1794301202346
+      },
+      "other": {
+        "coin": "BTC",
+        "tierType": "pnl",
+        "cohort": "crowd",
+        "longNotional": "166902118.33781",
+        "shortNotional": "139120934.118265",
+        "netBias": "0.09078134472739624",
+        "accountCount": 21630,
+        "snapshotTime": 1794302100000,
+        "recordedAt": 1794302102346
+      },
+      "previousOther": {
+        "coin": "BTC",
+        "tierType": "pnl",
+        "cohort": "crowd",
+        "longNotional": "143907522.33781",
+        "shortNotional": "151120934.118265",
+        "netBias": "-0.0244498848250218",
+        "accountCount": 21544,
+        "snapshotTime": 1794301200000,
+        "recordedAt": 1794301202346
+      }
+    }
+  ]
+}
+```
+
+## `cohortBiasMove`
+
+A cohort's net bias moving by at least `points` **percentage points** from a baseline. The baseline is the reading you were last notified about — or, before the first notification, the first reading the subscription saw. After it fires, the new value is the baseline.
+
+| | |
+|---|---|
+| `args` | `coin`, `cohort` (required); `points` (required): a positive decimal string, at most `200`; `tierType` |
+| Filters | `netBias`, `longNotional`, `shortNotional`, `accountCount` — on the current row |
+| Minimum plan | Starter |
+
+The rule is `abs(netBias - baseline netBias) * 100 >= points`. These are points of net bias, not a relative percent: with `points: "10"` and a baseline of `0.20`, readings of `0.24` and `0.28` do not fire — small moves accumulate against the same baseline — and `0.32` does, with `changePoints: "12"`. `0.32` is then the baseline. `changePoints` is signed: negative when the bias moved toward short.
+
+```json Create
+{
+  "type": "cohortBiasMove",
+  "args": {"coin": "BTC", "cohort": "apex", "points": "10"},
+  "url": "https://example.com/hook"
+}
+```
+
+`previous` is the baseline row, which can be several snapshots old:
+
+```json Delivery
+{
+  "channel": "cohortBiasMove",
+  "seq": 1794303940266031,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "coin": "BTC",
+      "tierType": "pnl",
+      "cohort": "apex",
+      "longNotional": "463629710.3916446",
+      "shortNotional": "870556506.5627283",
+      "netBias": "-0.305",
+      "accountCount": 157,
+      "snapshotTime": 1794303900000,
+      "recordedAt": 1794303902346,
+      "previous": {
+        "coin": "BTC",
+        "tierType": "pnl",
+        "cohort": "apex",
+        "longNotional": "393346623.062562",
+        "shortNotional": "940839593.891811",
+        "netBias": "-0.4103572378967039",
+        "accountCount": 157,
+        "snapshotTime": 1794301200000,
+        "recordedAt": 1794301202346
+      },
+      "changePoints": "10.53572378967039"
+    }
+  ]
+}
+```
+
+## State and delivery
+
+- **The first observation seeds state.** The first snapshot a subscription sees after you create it never produces a flip, an opposition or a move by itself — it is what the next one is compared with. `cohortBias` is the type that delivers on it.
+- **A missing cohort is unavailable, not zero.** When a cohort is absent from a snapshot and later returns, that reading starts a fresh baseline: nothing is reported against the reading before the gap.
+- **A snapshot is evaluated once per subscription.** One the subscription has already seen is not delivered again.
+- **`seq`** on these four types is the Unix time, in **microseconds**, at which the service first read that snapshot. It is not a block height and not the snapshot's own time — that is `snapshotTime` — and it is not comparable with the `seq` of any other type ([the delivered frame](/webhooks/events#the-delivered-frame)).
+- **Deliveries are durable**, as on `priceCross`: the subscription's state and the pending delivery — or the inbox message — commit together, and HTTP deliveries wait in the same outbox, at most **32 pending per subscription** ([Plan limits](/webhooks/limits#queues-and-the-outbox)). If a subscription's share is full, a new notification is rejected and logged, and its state does not advance. Delivery is at least once: deduplicate on `webhook-id`.
+- **Subscriptions are immutable.** Delete and recreate one to change it; that also clears its state, so the next snapshot seeds it again.

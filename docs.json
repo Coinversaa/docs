@@ -96,6 +96,7 @@
               "webhooks/overview",
               "webhooks/quickstart",
               "webhooks/events",
+              "webhooks/cohort-bias",
               "webhooks/signatures",
               "webhooks/inbox",
               "webhooks/api",

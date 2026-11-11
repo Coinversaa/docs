@@ -1,6 +1,6 @@
 ---
 title: "Webhooks API"
-description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox and args.user as one address or an array of up to 1,000, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
+description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000 and the cohort bias args, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
 ---
 
 Every route on this page is relative to one base URL and, except `/health`, authenticated:
@@ -56,7 +56,7 @@ Only the types **permitted by your tier** are listed, so Free sees the Free-tier
 |---|---|
 | `type` | The name you send at creation |
 | `args` | Scope and configuration arguments. Each declares `type`, `required`, optional `options` and optional `default`. Wallet arguments also declare `minItems: 1` and `maxItems: 1000`: they take one address or an array |
-| `filters` | Public field names. Each declares `type`, `label`, optional `unit` (`base` or `quote`), `exact`, optional enum `options` and the allowed numeric `operators` |
+| `filters` | Public field names. Each declares `type`, `label`, optional `unit` (`base`, `quote`, `ratio` or `count`), `exact`, optional enum `options` and the allowed numeric `operators` |
 | `minTier` | The minimum plan, inherited from the underlying feed. `priceCross` also exports `sourceMinTiers` for its `mark` and `trade` sources |
 
 ```json
@@ -82,9 +82,9 @@ The example omits the other trade fields for brevity. `minItems` and `maxItems` 
 
 | Body field | Type | Required | Notes |
 |---|---|---|---|
-| `type` | string | yes | One of the [six types](/webhooks/events) |
-| `args` | object | per type | `user` for the four by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`. Wallets are normalised to lowercase |
-| `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross` takes none |
+| `type` | string | yes | A [subscription type](/webhooks/events): one of the six event types or the four [cohort bias types](/webhooks/cohort-bias) |
+| `args` | object | per type | `user` for the four by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`; `coin` and, per type, `cohort`, `otherCohort`, `points`, `direction` and `tierType` for the cohort bias types ([below](#cohort-bias-types)). Wallets are normalised to lowercase |
+| `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross` and `cohortBiasOpposition` take none |
 | `deliveryMode` | string | no | `http` (default) delivers to `url`; `inbox` stores matches in the account [inbox](/webhooks/inbox) instead |
 | `url` | string | for `http` | Public HTTPS on port 443. Redirects and private or reserved addresses are refused. **Omit it** on an inbox subscription |
 
@@ -123,6 +123,34 @@ On the four by-user types `args.user` is **one address string or an array of 1 t
 - In create and list responses a one-element array — including one left after deduplication — is returned as a **string**; the legacy top-level `user` appears only for a single-wallet scope.
 - Matching events from every listed wallet in a source block arrive together, in source order, in one delivery's `data`, with the same filters applied to each. Non-wallet arguments stay single-valued.
 
+### Cohort bias types
+
+The four cohort bias types take `coin` and, depending on the type, a cohort, a second cohort, a direction or a number of points. One body per type, with every required argument:
+
+```json
+{"type": "cohortBias", "args": {"coin": "BTC"}, "url": "https://example.com/hook"}
+```
+
+```json
+{"type": "cohortBiasFlip", "args": {"coin": "BTC", "cohort": "apex", "direction": "short"}, "url": "https://example.com/hook"}
+```
+
+```json
+{"type": "cohortBiasOpposition", "args": {"coin": "BTC", "cohort": "apex", "otherCohort": "crowd"}, "url": "https://example.com/hook"}
+```
+
+```json
+{"type": "cohortBiasMove", "args": {"coin": "BTC", "cohort": "apex", "points": "10"}, "url": "https://example.com/hook"}
+```
+
+- `coin` is required on all four, matched case-insensitively, and can be a qualified symbol such as `xyz:GOLD`.
+- `tierType` is optional on all four: `pnl` (default), `size`, `pnl_recent` or `size_recent`. A `cohort` or `otherCohort` must belong to that classification — a cohort from the other one is a `400` — and `cohortBiasOpposition` needs two different cohorts.
+- `direction` on `cohortBiasFlip` is `long`, `short` or `both` (default): the side the cohort flips to.
+- `points` on `cohortBiasMove` is a positive decimal **string**, at most `200`: percentage points of net bias.
+- `cohortBias`, `cohortBiasFlip` and `cohortBiasMove` accept the `netBias`, `longNotional`, `shortNotional` and `accountCount` filters; `cohortBiasOpposition` accepts none.
+
+They are evaluated on stored snapshots, normally taken every 15 minutes, not on each trade. What each one fires on, the cohorts and the delivered rows are on [Cohort bias types](/webhooks/cohort-bias).
+
 The response carries the subscription — `type`, the normalised `args`, the saved `filters`, its `id`, `deliveryMode`, `url` and `disabled` status — and, **on creation of an `http` subscription only**, the `whsec_…` signing secret. List responses never include it; read it later with [`GET /v1/subscriptions/{id}/secret`](#read-the-signing-secret).
 
 ### Inbox delivery
@@ -138,9 +166,9 @@ Send `"deliveryMode": "inbox"` and no `url`, and matching frames are stored in y
 }
 ```
 
-A subscription's configuration is **immutable**: delete and recreate to change it, which also resets `priceCross` crossing state. If activating the underlying feed fails, creation **rolls back** and answers `503` rather than leaving a saved subscription behind.
+A subscription's configuration is **immutable**: delete and recreate to change it, which also resets `priceCross` crossing state and a cohort bias subscription's state. If activating the underlying feed fails, creation **rolls back** and answers `503` rather than leaving a saved subscription behind.
 
-Errors: `400` (invalid format, unknown type, argument, filter or operator, impossible range, an empty or over-1,000 `user` array or an invalid address in it, a body over 64 KiB — checked before anything is saved), `403` (the type is not permitted by your tier, or an inbox subscription on Free), `429` (your account is at its subscription allowance), `503` (auth, storage or feed unavailable).
+Errors: `400` (invalid format, unknown type, argument, filter or operator, impossible range, an empty or over-1,000 `user` array or an invalid address in it, a cohort outside the chosen `tierType`, `points` outside its range, a body over 64 KiB — checked before anything is saved), `403` (the type is not permitted by your tier, or an inbox subscription on Free), `429` (your account is at its subscription allowance), `503` (auth, storage or feed unavailable).
 
 | Type | `args` | Minimum plan |
 |---|---|---|
@@ -150,6 +178,10 @@ Errors: `400` (invalid format, unknown type, argument, filter or operator, impos
 | `liquidations` | none | Agent |
 | `liquidationsByUser` | required `user`: one address or 1–1,000 | Agent |
 | `priceCross` | required `coin`, `threshold`; optional `source`, `direction` | Free for both sources (Free's allowance is zero) |
+| `cohortBias` | required `coin`; optional `cohort`, `tierType` | Starter |
+| `cohortBiasFlip` | required `coin`, `cohort`; optional `direction`, `tierType` | Starter |
+| `cohortBiasOpposition` | required `coin`, `cohort`, `otherCohort`; optional `tierType` | Starter |
+| `cohortBiasMove` | required `coin`, `cohort`, `points`; optional `tierType` | Starter |
 
 Tier checks are **creation-time** checks, not continuous re-authorisation of saved subscriptions after an account change.
 
@@ -159,7 +191,7 @@ Tier checks are **creation-time** checks, not continuous re-authorisation of sav
 
 ## Delete a subscription
 
-`DELETE /v1/subscriptions/{id}` deletes one subscription you own. For `priceCross` it also removes the crossing baseline and any pending deliveries in the outbox. Deleting an inbox subscription stops collection but **does not delete the messages it already stored** — acknowledge those on the [inbox](/webhooks/inbox#acknowledge).
+`DELETE /v1/subscriptions/{id}` deletes one subscription you own. For `priceCross` and the cohort bias types it also removes the stored baseline or state and any pending deliveries in the outbox. Deleting an inbox subscription stops collection but **does not delete the messages it already stored** — acknowledge those on the [inbox](/webhooks/inbox#acknowledge).
 
 ## Delete all subscriptions
 
