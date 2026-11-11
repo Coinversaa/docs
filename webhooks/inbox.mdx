@@ -56,7 +56,7 @@ Each stored **message** is one delivery envelope as [the delivered frame](/webho
 - Two subscriptions that match the same source record produce **two messages**, one per `subscriptionId`.
 - **Deleting a subscription stops collection but does not delete the messages it already stored.** They stay until you acknowledge them, they expire or overflow evicts them.
 - The sources are live-only: the inbox stores what the service saw while it was running. It is not a replay of frames missed during a service outage, and a `priceCross` crossing during an outage is not reconstructed.
-- The 1 MiB cap on one delivery applies to an inbox message too. Inbox messages bypass the HTTP workers, signing, retries and the `priceCross` outbox cap; a crossing's state change and its inbox append commit together.
+- The 1 MiB cap on one delivery applies to an inbox message too. Inbox messages bypass the HTTP workers, signing, retries and the outbox cap of `priceCross` and the cohort bias types; for those types the state change and the inbox append commit together.
 
 ## State
 

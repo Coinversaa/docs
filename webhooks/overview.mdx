@@ -41,7 +41,7 @@ And four **cohort bias** types, which report how a [trader cohort](/concepts/coh
 
 Cohort positioning is a stored snapshot, normally taken every 15 minutes, so these four tell you about a change **at the next snapshot** — not when a trade happens. See [Cohort bias types](/webhooks/cohort-bias).
 
-Every type, its arguments, filters and a delivery example are on [Subscription types](/webhooks/events). The machine-readable version is `GET /v1/subscriptions/definitions`, which lists the types **your** plan may create with their `args`, `filters` and `minTier` — read it instead of hard-coding this table ([reference](/webhooks/api#definitions)).
+Every type, its arguments and filters are on [Subscription types](/webhooks/events), with a delivery example for each event type; the cohort bias delivery examples are on [Cohort bias types](/webhooks/cohort-bias). The machine-readable version is `GET /v1/subscriptions/definitions`, which lists the types **your** plan may create with their `args`, `filters` and `minTier` — read it instead of hard-coding this table ([reference](/webhooks/api#definitions)).
 
 ## How it relates to the WebSocket feeds
 
@@ -84,6 +84,6 @@ Subscriptions belong to your **account**, not to the API key that created them: 
     Read the definitions, create a subscription, verify one delivery, delete it.
   </Card>
   <Card title="Subscription types" icon="list" href="/webhooks/events">
-    Every type with its arguments, filters, plan and delivery examples.
+    Every type with its arguments, filters and plan, and delivery examples for the six event types.
   </Card>
 </Columns>

@@ -56,7 +56,7 @@ Only the types **permitted by your tier** are listed, so Free sees the Free-tier
 |---|---|
 | `type` | The name you send at creation |
 | `args` | Scope and configuration arguments. Each declares `type`, `required`, optional `options` and optional `default`. Wallet arguments also declare `minItems: 1` and `maxItems: 1000`: they take one address or an array |
-| `filters` | Public field names. Each declares `type`, `label`, optional `unit` (`base`, `quote`, `ratio` or `count`), `exact`, optional enum `options` and the allowed numeric `operators` |
+| `filters` | Public field names. Each declares `type`, `label`, optional `unit` (`base`, `quote`, `minutes`, `ratio` or `count`), `exact`, optional enum `options` and the allowed numeric `operators` |
 | `minTier` | The minimum plan, inherited from the underlying feed. `priceCross` also exports `sourceMinTiers` for its `mark` and `trade` sources |
 
 ```json
