@@ -44,7 +44,7 @@ Ordered from largest to smallest. Thresholds are fixed dollar buckets on traded 
 
 ## All-time vs 30-day tiers
 
-All-time tiers classify a wallet on its lifetime realized PnL and traded volume. 30-day tiers use the same slugs and the same dollar thresholds on the wallet's last 30 days (`pnl_tier_recent` / `size_tier_recent`), refreshed hourly. They are used by the `pulse_cohort_recent_*` tools / `/pulse/cohorts-recent/*` routes, and by `tierType=pnl_recent` on `live_positioning_by_entry` and `live_cohort_bias_history` (hourly `pnl_recent` snapshots from 2026-05-14).
+All-time tiers classify a wallet on its lifetime realized PnL and traded volume. 30-day tiers use the same slugs and the same dollar thresholds on the wallet's last 30 days (`pnl_tier_recent` / `size_tier_recent`), refreshed hourly. They are used by the `pulse_cohort_recent_*` tools / `/pulse/cohorts-recent/*` routes, and by `tierType=pnl_recent` on `live_positioning_by_entry` and `live_cohort_bias_history` (`pnl_recent` snapshots from 2026-05-14).
 
 Layer responses echo the axis as `cohortBasis` (`all_time_pnl`, `recent_30d_pnl` or `lifetime_volume`) and `tierWindowDays` (30, or `null` for all-time axes). Labels are always the wallet's *current* tier, so one wallet can sit in different cohorts on the two axes.
 
@@ -61,7 +61,7 @@ Use the cohort tools when you want behavior at the group level rather than per w
 | `pulse_cohort_bias_history`      | You want a cohort's long-short bias trajectory. |
 | `pulse_cohort_performance_daily` | You want day-by-day cohort PnL / volume. |
 | `live_cohort_bias`               | You want who is long or short one coin right now, by tier (current snapshot). |
-| `live_cohort_bias_history`       | You want hourly cohort-bias snapshots for one coin over up to 2160h (90d), with `tierType` `pnl`, `pnl_recent` or `size`, `tiers=apex,crowd` and `format=layer`. See [Cohort-bias history](/api-reference/chart-layers#cohort-bias-history). |
+| `live_cohort_bias_history`       | You want the stored cohort-bias snapshots for one coin — normally one every 15 minutes, hourly before 10 November 2026 — over up to 2160h (90d), with `tierType` `pnl`, `pnl_recent` or `size`, `tiers=apex,crowd` and `format=layer`. See [Cohort-bias history](/api-reference/chart-layers#cohort-bias-history). |
 | `live_positioning_by_entry`      | You want one coin's open positions bucketed by entry price per cohort (snapshot only). See [Positioning by entry](/api-reference/chart-layers#positioning-by-entry). |
 | `live_whale_trades`              | You want the largest fills by notional over up to 24h, with both counterparties' tiers. See [Whale trades](/api-reference/chart-layers#whale-trades). |
 | `pulse_cohort_recent_positions` / `_trades` / `_lifecycle_stats` / `_top_positions` / `_alpha_concentration` | You want the same questions answered on 30-day tiers. |

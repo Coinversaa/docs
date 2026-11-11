@@ -37,7 +37,7 @@ Separately from these floors, most caller-controlled windows are silently clampe
 
 Current-state routes (`/live/cohort-bias`, `/live/positioning-by-entry`, cohort positions) describe open positions now and are never a history.
 
-Cohort-bias history is the hourly `cohort_bias_snapshots` table as stored: missing hours are absent, and a cohort with no open notional in an hour has no point (never 50%). Backfilled hours carry the wallet's *current* tier (lookahead), so `coverage.provenance` is `unknown_mixed` and `backtestSuitable` is `false` — do not treat it as a point-in-time backtest.
+Cohort-bias history is the `cohort_bias_snapshots` table as stored — normally one snapshot every 15 minutes, hourly before 10 November 2026: missing snapshots are absent, and a cohort with no open notional at a snapshot has no point (never 50%). Backfilled hours carry the wallet's *current* tier (lookahead), so `coverage.provenance` is `unknown_mixed` and `backtestSuitable` is `false` — do not treat it as a point-in-time backtest.
 
 Windows: `/live/cohort-bias-history` up to 2160h (90d); `/pulse/cohort-bias/history` and `/pulse/cohorts/daily-stats` up to 30d; `pnl_recent` snapshots from 2026-05-14.
 
@@ -52,7 +52,7 @@ Server cache refresh intervals by endpoint:
 | `live/liquidation-heatmap/{coin}`, `live/risk/overview`, `live/risk/coins/{coin}` | 10 s |
 | `live/positioning-by-entry`                                              | 30 s |
 | `live/whale-trades`                                                      | 60 s |
-| `live/cohort-bias-history`                                               | 30 s (data is hourly) |
+| `live/cohort-bias-history`                                               | 30 s (a new snapshot normally every 15 minutes) |
 | `live/official-oi` (all coins)                                           | 2 min |
 | `live/official-oi/{coin}`, `live/oi-history`                             | Uncached |
 | `pulse/market-overview` (`list_markets`)                                 | 30 s |
