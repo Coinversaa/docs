@@ -22,6 +22,17 @@ See [Cohort bias types](/webhooks/cohort-bias) for the arguments, the delivered 
 
 </Update>
 
+<Update label="November 11, 2026" tags={["API", "MCP"]}>
+
+## Cohort bias history: a snapshot every 15 minutes
+
+Cohort bias snapshots are now normally stored every **15 minutes** instead of once an hour, starting 10 November 2026. Snapshots from before that date stay hourly, so a window that reaches back past it returns both spacings.
+
+- **More rows for the same window.** `/live/cohort-bias-history/{coin}`, `/pulse/cohort-bias/history` and the cohort section of `/live/risk/coins/{coin}/history` return every stored snapshot, so 15-minute data is four times the rows of hourly data over the same window. The `hours` and `since` limits are unchanged. The `live_cohort_bias_history` and `pulse_cohort_bias_history` tools page and cap rows as before.
+- **`format=layer` still says "hours" in places.** `hoursPresent` is the number of snapshots returned, so it can now be larger than `coverage.hoursExpected`, and `source.kind` still reads `hourly`. Read spacing and gaps from each point's `timestamp`. See [Cohort-bias history](/api-reference/chart-layers#cohort-bias-history).
+
+</Update>
+
 {/* Draft for the webhooks V1 release: set the label to the day the service is announced, not before. */}
 <Update label="November 9, 2026" tags={["Webhooks", "MCP", "Pricing"]}>
 

@@ -88,11 +88,11 @@ Each `trades[]` row carries `tid` (a **decimal string** — 64-bit, do not parse
 
 ## Cohort-bias history
 
-`GET /live/cohort-bias-history/{coin}` — hourly long/short notional and net bias per cohort, read from the hourly snapshot table:
+`GET /live/cohort-bias-history/{coin}` — long/short notional and net bias per cohort, read from the stored snapshot table. A snapshot is normally stored every **15 minutes**; snapshots from before 10 November 2026 are hourly, so a window that reaches back past that date returns both spacings. Every stored row in the window is returned — nothing is bucketed to hours:
 
 | Param | Default | Bounds | Meaning |
 |---|---|---|---|
-| `hours` | `168` | Silently clamped to 1–2160 (90 days) | Window ending now, UTC |
+| `hours` | `168` | Silently clamped to 1–2160 (90 days) | Window ending now, UTC. It bounds time, not rows: at four snapshots an hour, 2,160 hours is up to 8,640 points per series |
 | `tierType` | `pnl` | `pnl` \| `pnl_recent` \| `size` | `pnl_recent` (30-day PnL tiers) snapshots exist **since 2026-05-14** and are never backfilled |
 | `tier` | — | Either vocabulary | One series, as a flat array |
 | `tiers` | — | 1–8 comma-separated slugs, either vocabulary; whitespace and duplicates tolerated. Unknown slug → `422`; with `tier` → `422` | Several series in one call, `[{tier, history}]` in the order given |
@@ -104,20 +104,21 @@ The chart's call is `/live/cohort-bias-history/BTC?tiers=apex,crowd&hours=2160&f
 {
   "coin": "BTC", "tierType": "pnl", "cohortBasis": "all_time_pnl", "tierWindowDays": null,
   "tiers": ["money_printer", "exit_liquidity"],
-  "windowStart": 1783856400000, "windowEnd": 1791632400000, "netBiasUnit": "ratio",
+  "windowStart": 1786600500000, "windowEnd": 1794376500000, "netBiasUnit": "ratio",
   "series": [
-    { "tier": "money_printer", "hoursPresent": 2104,
-      "points": [ { "timestamp": 1783857600000, "longNotional": 4.4e8, "shortNotional": 6.4e8, "netBias": -0.18, "accountCount": 151 } ] }
+    { "tier": "money_printer", "hoursPresent": 2209,
+      "points": [ { "timestamp": 1786600800000, "longNotional": 4.4e8, "shortNotional": 6.4e8, "netBias": -0.18, "accountCount": 151 } ] }
   ],
-  "source": { "table": "cohort_bias_snapshots", "kind": "hourly", "asOf": 1791632400000,
-              "observedFrom": 1783857600000, "observedThrough": 1791630000000, "cadence": "..." },
+  "source": { "table": "cohort_bias_snapshots", "kind": "hourly", "asOf": 1794376500000,
+              "observedFrom": 1786600800000, "observedThrough": 1794375900000, "cadence": "..." },
   "coverage": { "hoursExpected": 2160, "provenance": "unknown_mixed", "backtestSuitable": false, "tierAssignment": "snapshot_or_current" }
 }
 ```
 
 - **`netBias` is a −1..1 ratio** on this route (`netBiasUnit: "ratio"`), not the −100..100 percent of `/pulse/cohort-bias/history`. Long share is `(netBias + 1) / 2`.
-- **The window is explicit UTC**: `(windowStart, windowEnd]`, captured once and echoed in the body; rows stamped in the future are excluded. Snapshots are written at :00:05 UTC, so `observedThrough` normally trails now by up to an hour.
-- **Missing hours stay missing.** A stalled hour has no row, and a cohort with no open notional in an hour has no point — never 50%. `hoursPresent` vs `coverage.hoursExpected` tells you how many are absent. Draw gaps; do not interpolate or zero-fill.
+- **The window is explicit UTC**: `(windowStart, windowEnd]`, captured once and echoed in the body; rows stamped in the future are excluded. Snapshots are stamped on the quarter hour (:00, :15, :30, :45 UTC), so `observedThrough` normally trails now by up to about 15 minutes.
+- **Missing snapshots stay missing.** A skipped snapshot has no row, and a cohort with no open notional at a snapshot has no point — never 50%. Draw gaps; do not interpolate or zero-fill.
+- **Some fields still say "hours".** `hoursPresent` is the number of snapshots returned for the series. With 15-minute snapshots it can be larger than `coverage.hoursExpected` (the hours in the window), so the difference between the two no longer counts what is absent — read spacing and gaps from each point's `timestamp`. `source.kind` still reads `hourly` and `source.cadence` still describes an hourly write; neither reflects the current spacing.
 
 <Warning>
   **Not suitable for backtests.** Some hours are written by a backfill that stamps **today's** tier labels on past hours (lookahead) and can touch the last 7 days, not only old ones; beyond the 30-day candle window a backfilled hour may also carry a placeholder price. Live and backfilled rows cannot be told apart yet, so `coverage.provenance` is `unknown_mixed` and `backtestSuitable` is `false` at every age. Compare snapshot to snapshot for "change vs 1h" — the current `/live/cohort-bias/{coin}` value filters out positions of $10 notional or less, and the snapshots do not.
