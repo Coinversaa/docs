@@ -179,7 +179,7 @@ Both forms are **idempotent**, and an old receipt cannot delete messages that re
 The inbox is what lets an agent use webhooks with no receiver. The loop is three steps, and the order matters:
 
 1. **Drain** with a `count` and `maxBytes` sized for what you can show or process in one go.
-2. **Process** the messages — read `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object), liquidation objects, TWAP status records or crossing events they are.
+2. **Process** the messages — read `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object), liquidation objects, TWAP status records, crossing events or [cohort rows](/webhooks/cohort-bias#the-cohort-row) they are.
 3. **Ack exactly what you processed**: the `inboxIds` you exposed, or the prefix `count` you exposed, against that drain's `batchId` — not the whole fetched batch if you dropped some of it on the way.
 
 Because a drain deletes nothing, a crash between steps 1 and 3 costs you nothing but a repeated read; because ack is idempotent, a retried step 3 is harmless. From chat, `inbox_subscribe` creates inbox subscriptions and `inbox_drain` runs steps 1 and 3 in one call — it acknowledges the messages it returns, so a drain from chat consumes them. See [Webhooks for agents](/webhooks/agents).

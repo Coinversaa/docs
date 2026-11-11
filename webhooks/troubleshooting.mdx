@@ -10,11 +10,12 @@ Start from what you see. There is no delivery log on our side — nothing is sto
 The body failed validation and nothing was saved. The usual causes:
 
 1. **Impossible range.** `{"gt": "10", "lt": "5"}` can never match. Equal endpoints are allowed only when both are inclusive: `{"gte": "10", "lte": "10"}` is fine, `{"gt": "10", "lte": "10"}` is not.
-2. **Unknown filter or operator.** Only the fields the type declares in `GET /v1/subscriptions/definitions` and only `gt`, `gte`, `lt`, `lte` are accepted — no `eq`, no `$gt`, no nested paths. `priceCross` takes no filters at all.
+2. **Unknown filter or operator.** Only the fields the type declares in `GET /v1/subscriptions/definitions` and only `gt`, `gte`, `lt`, `lte` are accepted — no `eq`, no `$gt`, no nested paths. `priceCross` and `cohortBiasOpposition` take no filters at all.
 3. **A number that is not a decimal string.** `1.5` must be `"1.5"`; exponent notation, `NaN`, infinity and `1/2` are rejected; the maximum length is 128 characters.
 4. **Unknown type or argument.** Check the spelling against the definitions; `user` sent both at the top level and inside `args` is also a `400`.
-5. **A missing required argument.** `user` on the four by-user types, `coin` and `threshold` on `priceCross` (a positive decimal string).
-6. **A bad wallet array.** `args.user` may be one address or an array of 1 to 1,000; an empty array, an invalid address or more than 1,000 entries is refused, as is a creation body over 64 KiB.
+5. **A missing required argument.** `user` on the four by-user types, `coin` and `threshold` on `priceCross` (a positive decimal string), `coin` on the four cohort bias types, plus `cohort` on `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove`, `otherCohort` on `cohortBiasOpposition` and `points` on `cohortBiasMove`.
+6. **A cohort bias argument out of range.** A `cohort` that does not belong to the chosen `tierType` (`heavyweights` with `pnl`), the same cohort twice on `cohortBiasOpposition`, or `points` that is not a decimal string above `0` and at most `200` ([arguments](/webhooks/cohort-bias#arguments)).
+7. **A bad wallet array.** `args.user` may be one address or an array of 1 to 1,000; an empty array, an invalid address or more than 1,000 entries is refused, as is a creation body over 64 KiB.
 
 ## `403` when creating a subscription
 
@@ -43,16 +44,17 @@ The call is idempotent. If it answers `429`, you are at your allowance with the 
 
 Ordinary deliveries and their retries are kept **in memory**. When the webhook service restarts — a deploy, a crash — whatever was queued or waiting to retry is lost, and nothing is replayed afterwards. Your subscription is still saved and starts delivering again on the next matching frame. If your receiver was down at the same time, the frames it missed are gone from the webhook side: read the wallet's fills from the [REST API](/quickstart) or the [WebSocket](/websocket/overview) to fill the gap.
 
-`priceCross` behaves differently: its deliveries sit in a durable outbox and survive a restart, though a crossing that happened entirely during an outage of the **source** cannot be reconstructed.
+`priceCross` behaves differently: its deliveries sit in a durable outbox and survive a restart, though a crossing that happened entirely during an outage of the **source** cannot be reconstructed. The four cohort bias types use the same outbox; after an outage they compare the newest snapshot with the last one they saw, and the snapshots in between are not replayed.
 
 ## Nothing arrives, and the service did not restart
 
 1. **Is the subscription there and enabled?** `GET /v1/subscriptions`. A `disabled: true` means a `410` — see above.
 2. **Do the filters match?** Exact text is case-sensitive (`BTC`, not `btc`); `side` is `A` for sell and `B` for buy; sizes are in the market's base unit and prices in its quote, so a `sz` bound of `"100000"` on BTC never matches. A missing or null field never satisfies a numeric filter, so a `closedPnl` bound only matches fills that carry one.
 3. **Is it the right wallet?** `liquidationsByUser` selects the **liquidated** account, not the liquidator's fills; `twapSliceFillsByUser` only carries fills with a `twapId`.
-4. **Is your receiver acknowledging?** Only a `2xx` counts. A `200` after a long handler may already have timed out on our side and been retried; answer first, process after.
-5. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped. Fix the receiver and the subscription resumes on its own.
-6. **Is the service healthy?** `GET /health` answers `200` while the service is up, with service counts in the body ([reference](/webhooks/api#health)).
+4. **Is it a cohort bias type?** These read a stored snapshot, normally taken every 15 minutes: after the first delivery of a `cohortBias` subscription, nothing arrives before the next snapshot. `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove` deliver only on a change between two snapshots, and the first snapshot after you subscribe only sets the starting state; a cohort that stays on one side never fires a flip. `coin` is not checked against a list of markets, so a symbol with no snapshot rows is accepted and delivers nothing ([snapshot timing](/webhooks/cohort-bias#snapshot-timing)).
+5. **Is your receiver acknowledging?** Only a `2xx` counts. A `200` after a long handler may already have timed out on our side and been retried; answer first, process after.
+6. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped. Fix the receiver and the subscription resumes on its own.
+7. **Is the service healthy?** `GET /health` answers `200` while the service is up, with service counts in the body ([reference](/webhooks/api#health)).
 
 ## The URL was refused
 

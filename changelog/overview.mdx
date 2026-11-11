@@ -3,6 +3,25 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="November 11, 2026" tags={["Webhooks"]}>
+
+## Webhooks: four cohort bias types
+
+Four new subscription types report how a **trader cohort** — Apex, The Crowd, Heavyweights and the rest of the [PnL and size tiers](/concepts/cohorts) — is positioned on one coin. They join the six event types, on **Starter** and above, with both delivery modes: a signed POST to your URL, or the inbox.
+
+- **`cohortBias`**: the cohort rows of each new snapshot — long notional, short notional, net bias and account count — and the current state once when the subscription is created. Leave `cohort` out to get every cohort's row.
+- **`cohortBiasFlip`**: a cohort's net bias goes from long to short, or from short to long. `direction` (`long`, `short` or `both`) picks the side it flips to.
+- **`cohortBiasOpposition`**: two cohorts enter opposite positioning — one net long, the other net short. It fires on entry, not while the opposition persists.
+- **`cohortBiasMove`**: net bias has moved at least `points` percentage points from the last notified baseline — points of net bias, not a relative percent.
+- **Net bias** is `(longNotional - shortNotional) / (longNotional + shortNotional)`, from `-1` to `1`; positive is net long. `cohortBias`, `cohortBiasFlip` and `cohortBiasMove` take `netBias`, `longNotional`, `shortNotional` and `accountCount` filters, exact or as `gt` / `gte` / `lt` / `lte` bounds.
+- **Four classifications**: `tierType` is `pnl` (default), `size`, `pnl_recent` or `size_recent`.
+
+Cohort positioning is a **stored snapshot**, normally taken every 15 minutes. These types tell you about a change at the next snapshot, not when a trade happens, and a change that happens and reverses between two snapshots is not seen. The first snapshot after you subscribe only sets the starting state for a flip, an opposition or a move. They describe positioning; they are not a recommendation to trade.
+
+See [Cohort bias types](/webhooks/cohort-bias) for the arguments, the delivered rows and a delivery example for each, and the [API reference](/webhooks/api#cohort-bias-types) for the create bodies.
+
+</Update>
+
 {/* Draft for the webhooks V1 release: set the label to the day the service is announced, not before. */}
 <Update label="November 9, 2026" tags={["Webhooks", "MCP", "Pricing"]}>
 
