@@ -21,13 +21,24 @@ The MCP tools never take a URL. A subscription created from chat always delivers
 }
 ```
 
-- **Types** are the six on [Subscription types](/webhooks/events): `tradesByUser`, `twapSliceFillsByUser`, `twapStatusesByUser`, `liquidations`, `liquidationsByUser` and `priceCross`.
-- **`args.user`** on the four by-user types is one address or an array of 1 to 1,000 — one subscription for all of them. `liquidations` takes no args. `priceCross` takes `coin` and a positive decimal-string `threshold`, with optional `source` (`mark` or `trade`) and `direction` (`above`, `below` or `both`).
-- **`filters`** are AND-combined: exact strings (`coin`, `side`) or `gt` / `gte` / `lt` / `lte` bounds on decimal strings. Numbers are always strings, never JSON numbers. `priceCross` accepts no extra filters.
+- **Types** are the ones on [Subscription types](/webhooks/events): the six event types `tradesByUser`, `twapSliceFillsByUser`, `twapStatusesByUser`, `liquidations`, `liquidationsByUser` and `priceCross`, and the four [cohort bias types](/webhooks/cohort-bias) `cohortBias`, `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove`.
+- **`args.user`** on the four by-user types is one address or an array of 1 to 1,000 — one subscription for all of them. `liquidations` takes no args. `priceCross` takes `coin` and a positive decimal-string `threshold`, with optional `source` (`mark` or `trade`) and `direction` (`above`, `below` or `both`). The cohort bias types take `coin` and, per type, `cohort`, `otherCohort`, `direction`, a decimal-string `points` and optional `tierType`.
+- **`filters`** are AND-combined: exact strings (`coin`, `side`) or `gt` / `gte` / `lt` / `lte` bounds on decimal strings. Numbers are always strings, never JSON numbers. `priceCross` and `cohortBiasOpposition` accept no extra filters.
+
+A cohort bias subscription is created the same way. Ask Claude to "tell me when Apex turns net short on BTC" and it calls:
+
+```json
+{
+  "type": "cohortBiasFlip",
+  "args": {"coin": "BTC", "cohort": "apex", "direction": "short"}
+}
+```
+
+Cohort positioning is a stored snapshot, normally taken every 15 minutes, so the flip reaches the inbox at the next snapshot — not when a trade happens — and the agent sees it the next time it drains. The message's `data` holds the cohort's row after the flip, with the row before it under `previous` ([`cohortBiasFlip`](/webhooks/cohort-bias#cohortbiasflip)).
 
 The service validates the type, the field names and your plan, exactly as it does for REST: a type above your plan is refused with `403`, as is any subscription on **Free**, and a full allowance with `429` ([Plan limits](/webhooks/limits)). Inbox and HTTP subscriptions share the same slots. The tool returns a compact receipt — `subscribed`, `subscriptionId`, `deliveryMode`, `disabled` — and has no signing secret to show, because an inbox subscription has none.
 
-A subscription is immutable: to change it, unsubscribe and subscribe again, which resets a price crossing's baseline. Creation is never retried automatically, so after an ambiguous failure the agent should call `inbox_subscriptions` before trying again rather than risk a duplicate. There is no snapshot and no replay: a subscription collects from the moment it exists.
+A subscription is immutable: to change it, unsubscribe and subscribe again, which resets a price crossing's baseline and a cohort bias subscription's state. Creation is never retried automatically, so after an ambiguous failure the agent should call `inbox_subscriptions` before trying again rather than risk a duplicate. There is no snapshot and no replay: a subscription collects from the moment it exists. `cohortBias` is the one exception — it delivers the current state once when it is created.
 
 ## List and unsubscribe
 
@@ -67,7 +78,7 @@ The tools work the same however you connected. A connection made with **"Continu
 
 ## What arrives
 
-Whatever created the subscription and wherever it delivers, the frame is the same: the raw source frame plus `subscriptionId` — stored with an `inboxId` and `receivedAt` in the inbox, signed with [Standard Webhooks](/webhooks/signatures) headers when POSTed to a URL. An agent reading it should treat `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object) they are — sizes and prices as decimal strings, `side` as `A` (sell) or `B` (buy), `closedPnl` from the node — and say what happened, not what to do about it. Market data is not advice.
+Whatever created the subscription and wherever it delivers, the frame is the same: the raw source frame plus `subscriptionId` — stored with an `inboxId` and `receivedAt` in the inbox, signed with [Standard Webhooks](/webhooks/signatures) headers when POSTed to a URL. An agent reading it should treat `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object) they are — sizes and prices as decimal strings, `side` as `A` (sell) or `B` (buy), `closedPnl` from the node — and say what happened, not what to do about it. On a cohort bias type `data` holds [cohort rows](/webhooks/cohort-bias#the-cohort-row) instead: report the cohort's net bias and the snapshot's time, which is when the snapshot was stored, not when the positioning changed. Market data is not advice.
 
 ## Roadmap
 

@@ -143,7 +143,7 @@ curl -X DELETE https://webhook.coinversa.ai/v1/subscriptions/$SUB_ID \
   -H "Authorization: Bearer $COINVERSA_API_KEY"
 ```
 
-Deleting removes the subscription and, for `priceCross`, its crossing baseline and any pending deliveries. `GET /v1/subscriptions` lists what you still have (without secrets); `DELETE /v1/subscriptions` removes them all.
+Deleting removes the subscription and, for `priceCross` and the cohort bias types, the stored baseline or state and any pending deliveries in the outbox. `GET /v1/subscriptions` lists what you still have (without secrets); `DELETE /v1/subscriptions` removes them all.
 
 
 ## Before production
@@ -162,7 +162,7 @@ When something goes wrong, [Troubleshooting](/webhooks/troubleshooting) is order
 
 <Columns cols={2}>
   <Card title="Subscription types" icon="list" href="/webhooks/events">
-    Every type, its arguments, filters, plan and a delivery example.
+    Every type, its arguments, filters and plan, and a delivery example for each of the six event types.
   </Card>
   <Card title="Signatures and delivery" icon="shield-check" href="/webhooks/signatures">
     Standard Webhooks libraries and verifiers; retries, 410, transport rules.

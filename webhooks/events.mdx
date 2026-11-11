@@ -1,9 +1,9 @@
 ---
 title: "Subscription types"
-description: "The six Coinversa Pulse webhook subscription types — tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser and priceCross — with their args (one wallet or an array of up to 1,000 per subscription), filters, minimum plan, the delivered frame shape and a delivery example for each."
+description: "The Coinversa Pulse webhook subscription types — the six event types tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser and priceCross, and the four cohort bias types cohortBias, cohortBiasFlip, cohortBiasOpposition and cohortBiasMove — with their args (one wallet or an array of up to 1,000 per subscription), filters, minimum plan, the delivered frame shape and a delivery example for each event type; the cohort bias delivery examples are on the Cohort bias types page."
 ---
 
-Six subscription **types**. Five of them deliver the frames of the WebSocket feed of the same name; `priceCross` synthesises its own. The machine-readable version of this page is `GET /v1/subscriptions/definitions`: it lists the types **your plan** may create, each with its `args`, `filters` and `minTier`, and the same declarations drive validation — so read the endpoint rather than keeping a client-side copy ([reference](/webhooks/api#definitions)).
+Six event **types** and four cohort bias types. Five of the event types deliver the frames of the WebSocket feed of the same name; `priceCross` synthesises its own. The four [cohort bias types](#cohort-bias-types) report a trader cohort's positioning from stored snapshots and have a page of their own. The machine-readable version of this page is `GET /v1/subscriptions/definitions`: it lists the types **your plan** may create, each with its `args`, `filters` and `minTier`, and the same declarations drive validation — so read the endpoint rather than keeping a client-side copy ([reference](/webhooks/api#definitions)). The definitions may also list types that are not on this page, such as `liquidationRisk`: those are in preview, may change and are not documented yet.
 
 Delivery examples are illustrative: addresses, hashes and amounts are made up.
 
@@ -13,12 +13,12 @@ Every delivery is one `POST` whose body is the **raw source frame** plus the sub
 
 | Field | Type | Meaning |
 |---|---|---|
-| `channel` | string | The subscription type that produced the frame — `tradesByUser`, `liquidations`, `priceCross`, … |
-| `seq` | number | The source position. Block height on the trade, TWAP and liquidation types and on `priceCross` with `source: "trade"`; the replica block's Unix **nanoseconds** on `priceCross` with `source: "mark"`. Never compare the two kinds |
+| `channel` | string | The subscription type that produced the frame — `tradesByUser`, `liquidations`, `priceCross`, `cohortBiasFlip`, … |
+| `seq` | number | The source position. Block height on the trade, TWAP and liquidation types and on `priceCross` with `source: "trade"`; the replica block's Unix **nanoseconds** on `priceCross` with `source: "mark"`; the Unix **microseconds** at which the snapshot was read on the four cohort bias types. Never compare one kind with another |
 | `subscriptionId` | string | The subscription this delivery belongs to |
 | `data` | array | The raw matching events — **only** those that passed your filters. An empty match produces no delivery |
 
-The objects inside `data` are exactly what the node emits, in the shape the WebSocket feed documents: `[wallet, fill]` pairs on the trade and TWAP-fill types ([the fill object](/websocket/feeds#the-fill-object)), liquidation objects on the two liquidation types ([liquidations](/websocket/feeds#liquidations)), TWAP status records on `twapStatusesByUser` ([TWAP statuses](/websocket/feeds#twap-statuses)), and crossing events on `priceCross` (below). Numbers keep the type and precision the node sent — sizes and prices are decimal strings.
+On the six event types the objects inside `data` are exactly what the node emits, in the shape the WebSocket feed documents: `[wallet, fill]` pairs on the trade and TWAP-fill types ([the fill object](/websocket/feeds#the-fill-object)), liquidation objects on the two liquidation types ([liquidations](/websocket/feeds#liquidations)), TWAP status records on `twapStatusesByUser` ([TWAP statuses](/websocket/feeds#twap-statuses)), and crossing events on `priceCross` (below). Numbers keep the type and precision the node sent — sizes and prices are decimal strings. On the cohort bias types `data` holds [cohort rows](/webhooks/cohort-bias#the-cohort-row) from a stored snapshot.
 
 ## Filters
 
@@ -37,6 +37,8 @@ A filter is a field name with either an **exact** value or, for numeric fields, 
 - No `filters` (or `{}`) means no extra predicates.
 
 Units are the market's **base** size and **quote** price. `quote` means the market's quote denomination — not a promise of USD conversion — so there is no dollar-notional filter.
+
+The cohort bias types have numeric filters of their own — `netBias`, `longNotional`, `shortNotional` and `accountCount` — under the same rules ([cohort bias filters](/webhooks/cohort-bias#filters)).
 
 ## One wallet or many
 
@@ -318,4 +320,25 @@ The delivered frame is synthesised with `channel: "priceCross"`; each event in `
 }
 ```
 
-Unlike the other five types, `priceCross` deliveries are **durable**: baseline and pending delivery commit atomically to an outbox with stable delivery ids and retry schedules that survive a restart of the service. That is at-least-once delivery, not exactly-once processing — deduplicate on `webhook-id`. The outbox holds at most **32 pending deliveries per subscription**, each at most 1 MiB; when a subscription's share is full, its observation is rejected and logged without advancing the baseline, so a saturated subscription can miss its own crossings; total disk use scales with the number of subscriptions. See [Plan limits](/webhooks/limits#queues-and-the-outbox).
+Unlike the trade, TWAP and liquidation types, `priceCross` deliveries are **durable**: baseline and pending delivery commit atomically to an outbox with stable delivery ids and retry schedules that survive a restart of the service. That is at-least-once delivery, not exactly-once processing — deduplicate on `webhook-id`. The outbox holds at most **32 pending deliveries per subscription**, each at most 1 MiB; when a subscription's share is full, its observation is rejected and logged without advancing the baseline, so a saturated subscription can miss its own crossings; total disk use scales with the number of subscriptions. See [Plan limits](/webhooks/limits#queues-and-the-outbox).
+
+## Cohort bias types
+
+Four types report how a **trader cohort** — `apex`, `crowd`, `heavyweights`, … ([Trader cohorts](/concepts/cohorts)) — is positioned on one coin: its `netBias`, from `-1` (all short) to `1` (all long). They read a **stored snapshot**, normally taken every 15 minutes, so they tell you about a change at the next snapshot — not when a trade happens.
+
+| Type | Fires | `args` | Filters | Minimum plan |
+|---|---|---|---|---|
+| `cohortBias` | Once with the current state when the subscription is created, then on each new snapshot, even if nothing changed | `coin` (required); `cohort`, `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` | Starter |
+| `cohortBiasFlip` | A cohort's net bias goes from long to short or from short to long | `coin`, `cohort` (required); `direction`, `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` | Starter |
+| `cohortBiasOpposition` | Two cohorts enter opposite positioning — on entry only, not while it persists | `coin`, `cohort`, `otherCohort` (required); `tierType` | none — the condition is in `args` | Starter |
+| `cohortBiasMove` | Net bias has moved at least `points` percentage points from the last notified baseline | `coin`, `cohort`, `points` (required); `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` | Starter |
+
+```json Create
+{
+  "type": "cohortBiasFlip",
+  "args": {"coin": "BTC", "cohort": "apex", "direction": "short"},
+  "url": "https://example.com/hook"
+}
+```
+
+The arguments and cohorts, how `netBias` is computed, the snapshot timing, the delivered row and a delivery example for each type are on [Cohort bias types](/webhooks/cohort-bias).

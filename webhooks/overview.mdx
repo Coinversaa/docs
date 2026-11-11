@@ -1,19 +1,21 @@
 ---
 title: "Webhooks overview"
-description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, or to a price crossing a level, and receive the raw frames as Standard Webhooks-signed HTTPS POSTs to your URL, or store them in your account's inbox to pull later. Six subscription types, exact decimal filters, Bearer auth with your API key."
+description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, to a price crossing a level, or to a trader cohort's net long or short bias on a coin, and receive the frames as Standard Webhooks-signed HTTPS POSTs to your URL, or store them in your account's inbox to pull later. Six event types and four cohort bias types, exact decimal filters, Bearer auth with your API key."
 ---
 
 **Webhooks** push the same data the [WebSocket](/websocket/overview) streams, to a URL you own, so you do not have to hold a socket open. You create a **subscription** — a **type** (which feed), its `args` (which wallet — or up to 1,000 wallets — or which market), optional `filters` (which frames you want) and the `url` to deliver to — and every matching frame is POSTed to that URL, signed with the subscription's own **signing secret**. A subscription with `"deliveryMode": "inbox"` and no URL stores its matches in your account's **[inbox](/webhooks/inbox)** instead, for you or an agent to pull.
 
-What arrives is the **raw source frame** — the same `channel`, `seq` and `data` the WebSocket sends — plus the `subscriptionId` it matched, with `data` cut down to the events that passed your filters. There is no envelope, no summary and no derived fields: a client that already reads the WebSocket feeds reads a webhook body unchanged.
+What arrives is the **raw source frame** — the same `channel`, `seq` and `data` the WebSocket sends — plus the `subscriptionId` it matched, with `data` cut down to the events that passed your filters. There is no envelope, no summary and no derived fields: a client that already reads the WebSocket feeds reads a webhook body unchanged. `priceCross` and the four cohort bias types are the exception: they build their own events, in the same frame ([below](#how-it-relates-to-the-websocket-feeds)).
 
 ## Who it is for
 
 - **Servers and bots** that would rather be called than poll or hold a connection — a Lambda, a Cloud Run service, a Zapier / Make / n8n catch hook.
-- **Alerting**: a wallet's fills above a size, a liquidation on a watched account, a price crossing a level.
+- **Alerting**: a wallet's fills above a size, a liquidation on a watched account, a price crossing a level, a trader cohort changing side on a coin.
 - **Agents** that subscribe from chat through the [MCP tools](/webhooks/agents) and read what the subscriptions matched from the inbox, with no server at all.
 
-## The six types
+## The types
+
+Six event types:
 
 | Type | What it delivers | `args` | Filters | Minimum plan |
 |---|---|---|---|---|
@@ -28,22 +30,33 @@ What arrives is the **raw source frame** — the same `channel`, `seq` and `data
 
 On the four by-user types `user` is one address or an array of 1 to 1,000 addresses — one subscription, one allowance slot, for many wallets ([one wallet or many](/webhooks/events#one-wallet-or-many)).
 
-Every type, its arguments, filters and a delivery example are on [Subscription types](/webhooks/events). The machine-readable version is `GET /v1/subscriptions/definitions`, which lists the types **your** plan may create with their `args`, `filters` and `minTier` — read it instead of hard-coding this table ([reference](/webhooks/api#definitions)).
+And four **cohort bias** types, which report how a [trader cohort](/concepts/cohorts) is positioned on one coin — its net bias, from `-1` (all short) to `1` (all long):
+
+| Type | What it delivers | `args` | Filters | Minimum plan |
+|---|---|---|---|---|
+| `cohortBias` | The cohort rows of each new snapshot, and the current state once when the subscription is created | `coin`, `cohort`, `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` | Starter |
+| `cohortBiasFlip` | A cohort's net bias going from long to short, or from short to long | `coin`, `cohort`, `direction`, `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` | Starter |
+| `cohortBiasOpposition` | Two cohorts entering opposite positioning | `coin`, `cohort`, `otherCohort`, `tierType` | none — the condition is in `args` | Starter |
+| `cohortBiasMove` | A cohort's net bias moving at least a number of percentage points | `coin`, `cohort`, `points`, `tierType` | `netBias`, `longNotional`, `shortNotional`, `accountCount` | Starter |
+
+Cohort positioning is a stored snapshot, normally taken every 15 minutes, so these four tell you about a change **at the next snapshot** — not when a trade happens. See [Cohort bias types](/webhooks/cohort-bias).
+
+Every type, its arguments and filters are on [Subscription types](/webhooks/events), with a delivery example for each event type; the cohort bias delivery examples are on [Cohort bias types](/webhooks/cohort-bias). The machine-readable version is `GET /v1/subscriptions/definitions`, which lists the types **your** plan may create with their `args`, `filters` and `minTier` — read it instead of hard-coding this table ([reference](/webhooks/api#definitions)).
 
 ## How it relates to the WebSocket feeds
 
-Same data, pushed to a URL. A `tradesByUser` subscription delivers the frames a `tradesByUser` WebSocket subscription would stream, filtered; `liquidations` and `liquidationsByUser` deliver liquidation objects; `twapStatusesByUser` delivers the node's status records. `priceCross` is the one type with no WebSocket twin: it watches a market's mark or trade price and synthesises its own `channel: "priceCross"` frame when the price crosses your threshold.
+Same data, pushed to a URL. A `tradesByUser` subscription delivers the frames a `tradesByUser` WebSocket subscription would stream, filtered; `liquidations` and `liquidationsByUser` deliver liquidation objects; `twapStatusesByUser` delivers the node's status records. `priceCross` has no WebSocket twin: it watches a market's mark or trade price and synthesises its own `channel: "priceCross"` frame when the price crosses your threshold. The four cohort bias types do not come from the fill stream at all: they are built from stored cohort positioning snapshots, and their `data` holds [cohort rows](/webhooks/cohort-bias#the-cohort-row) in the same `channel`, `seq`, `subscriptionId`, `data` frame.
 
 Two differences from the socket. A webhook body carries **`subscriptionId`**, which a WebSocket data frame does not, so one receiver can tell its subscriptions apart. And `data` holds **only the events that matched your filters** — a frame with no match is not delivered at all.
 
-Treat `seq` as a per-source position, as on the socket: trade prices use the block height, mark prices use the replica's Unix nanoseconds — never compare the two ([sequence numbers](/websocket/protocol#sequence-numbers)).
+Treat `seq` as a per-source position, as on the socket: trade prices use the block height, mark prices use the replica's Unix nanoseconds — never compare the two ([sequence numbers](/websocket/protocol#sequence-numbers)). The cohort bias types use a third kind: the Unix microseconds at which the snapshot was read.
 
 ## Delivery model
 
 Each delivery is one `POST` to the subscription's `url`, signed the **[Standard Webhooks](https://www.standardwebhooks.com)** way: `webhook-id`, `webhook-timestamp` and `webhook-signature` headers, `v1` HMAC-SHA256 over `id.timestamp.body`, verified by the off-the-shelf `standardwebhooks` library for your language ([Signatures and delivery](/webhooks/signatures)).
 
 - Any **2xx** acknowledges. Anything else is retried on a bounded back-off, respecting your `Retry-After` up to 24 hours, for up to **nine attempts over about 76 hours**.
-- Retries are kept **in memory**: a restart of the service drops them. Only `priceCross` deliveries sit in a durable outbox that survives restarts.
+- Retries are kept **in memory**: a restart of the service drops them. Only `priceCross` and cohort bias deliveries sit in a durable outbox that survives restarts.
 - Delivery is **at least once**, and order across deliveries and retries is not guaranteed. Deduplicate on `webhook-id`.
 - A **410** from your URL disables the subscription until you re-enable it with `POST /v1/subscriptions/{id}/enable`.
 - The URL must be public **HTTPS on port 443**; redirects and private or reserved addresses are refused when you create the subscription.
@@ -56,7 +69,7 @@ If you have no server to receive a POST, create the subscription with `"delivery
 
 ## Subscriptions are immutable
 
-A subscription's `type`, `args`, `filters`, `deliveryMode` and `url` cannot be edited. To change one, delete it and create it again — which also resets a `priceCross` subscription's crossing baseline. Each HTTP subscription has one signing secret, returned once at creation and readable later with `GET /v1/subscriptions/{id}/secret`; an inbox subscription has none.
+A subscription's `type`, `args`, `filters`, `deliveryMode` and `url` cannot be edited. To change one, delete it and create it again — which also resets a `priceCross` subscription's crossing baseline and a cohort bias subscription's state. Each HTTP subscription has one signing secret, returned once at creation and readable later with `GET /v1/subscriptions/{id}/secret`; an inbox subscription has none.
 
 Subscriptions belong to your **account**, not to the API key that created them: any of your keys can list, delete or re-enable them. Your plan caps how many you can have — see [Plan limits](/webhooks/limits).
 
@@ -71,6 +84,6 @@ Subscriptions belong to your **account**, not to the API key that created them: 
     Read the definitions, create a subscription, verify one delivery, delete it.
   </Card>
   <Card title="Subscription types" icon="list" href="/webhooks/events">
-    The six types with their arguments, filters, plans and delivery examples.
+    Every type with its arguments, filters and plan, and delivery examples for the six event types.
   </Card>
 </Columns>
