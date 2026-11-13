@@ -1,6 +1,6 @@
 ---
 title: "Webhooks API"
-description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000 and the cohort bias args, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
+description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000, the cohort bias args and the args of the four liquidation risk types in preview, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
 ---
 
 Every route on this page is relative to one base URL and, except `/health`, authenticated:
@@ -55,8 +55,8 @@ Only the types **permitted by your tier** are listed, so Free sees the Free-tier
 | Field | Meaning |
 |---|---|
 | `type` | The name you send at creation |
-| `args` | Scope and configuration arguments. Each declares `type`, `required`, optional `options` and optional `default`. Wallet arguments also declare `minItems: 1` and `maxItems: 1000`: they take one address or an array |
-| `filters` | Public field names. Each declares `type`, `label`, optional `unit` (`base`, `quote`, `minutes`, `ratio` or `count`), `exact`, optional enum `options` and the allowed numeric `operators` |
+| `args` | Scope and configuration arguments. Each declares `type`, `required`, optional `options` and optional `default`. Wallet arguments also declare `minItems: 1` and `maxItems: 1000`: they take one address or an array — or `maxItems: 1` on the two wallet [liquidation risk types](#liquidation-risk-types), which take exactly one. Arguments with a numeric range declare it: `max` on `priceMovePct`, `min` and `max` on the integer arguments `buckets` and `range`, which are sent as strings like every other number |
+| `filters` | Public field names. Each declares `type`, `label`, optional `unit` (`base`, `quote`, `minutes`, `ratio`, `count` or `percent`), `exact`, optional enum `options` and the allowed numeric `operators` |
 | `minTier` | The minimum plan, inherited from the underlying feed. `priceCross` also exports `sourceMinTiers` for its `mark` and `trade` sources |
 
 ```json
@@ -82,9 +82,9 @@ The example omits the other trade fields for brevity. `minItems` and `maxItems` 
 
 | Body field | Type | Required | Notes |
 |---|---|---|---|
-| `type` | string | yes | A [subscription type](/webhooks/events): one of the six event types or the four [cohort bias types](/webhooks/cohort-bias) |
-| `args` | object | per type | `user` for the four by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`; `coin` and, per type, `cohort`, `otherCohort`, `points`, `direction` and `tierType` for the cohort bias types ([below](#cohort-bias-types)). Wallets are normalised to lowercase |
-| `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross` and `cohortBiasOpposition` take none |
+| `type` | string | yes | A [subscription type](/webhooks/events): one of the six event types, the four [cohort bias types](/webhooks/cohort-bias) or the four [liquidation risk types](/webhooks/liquidation-types), which are in preview |
+| `args` | object | per type | `user` for the four by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`; `coin` and, per type, `cohort`, `otherCohort`, `points`, `direction` and `tierType` for the cohort bias types ([below](#cohort-bias-types)); one `user` or a `coin`, with a threshold, for the liquidation risk types ([below](#liquidation-risk-types)). Wallets are normalised to lowercase |
+| `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross`, `cohortBiasOpposition`, `liquidationRiskCross`, `liquidationExposure` and `liquidationMap` take none |
 | `deliveryMode` | string | no | `http` (default) delivers to `url`; `inbox` stores matches in the account [inbox](/webhooks/inbox) instead |
 | `url` | string | for `http` | Public HTTPS on port 443. Redirects and private or reserved addresses are refused. **Omit it** on an inbox subscription |
 
@@ -151,6 +151,39 @@ The four cohort bias types take `coin` and, depending on the type, a cohort, a s
 
 They are evaluated on stored snapshots, normally taken every 15 minutes, not on each trade. What each one fires on, the cohorts and the delivered rows are on [Cohort bias types](/webhooks/cohort-bias).
 
+### Liquidation risk types
+
+<Note>
+**Preview**: these types are new, delivery is still being verified in production, and their behaviour may change.
+</Note>
+
+The four liquidation risk types take either one wallet or one market, and a threshold. One body per type, with every required argument:
+
+```json
+{"type": "liquidationRiskCross", "args": {"user": "0x0123456789012345678901234567890123456789", "liquidationDistancePct": "5", "direction": "below"}, "url": "https://example.com/hook"}
+```
+
+```json
+{"type": "liquidationRisk", "args": {"user": "0x0123456789012345678901234567890123456789", "points": "2"}, "url": "https://example.com/hook"}
+```
+
+```json
+{"type": "liquidationExposure", "args": {"coin": "BTC", "priceMovePct": "3", "minNotional": "6000000"}, "url": "https://example.com/hook"}
+```
+
+```json
+{"type": "liquidationMap", "args": {"coin": "BTC", "priceChangePct": "1"}, "url": "https://example.com/hook"}
+```
+
+- `user` on `liquidationRiskCross` and `liquidationRisk` is **exactly one** wallet — a string or a one-element array. A second address is a `400`. There is no `coin` argument: every open position on record for the wallet is checked.
+- `liquidationDistancePct` on `liquidationRiskCross` is a positive decimal **string** in percent (`"5"` is 5%); `direction` is `above`, `below` or `both` (default), and `below` is closer to liquidation.
+- `points` on `liquidationRisk` is a positive decimal string — percentage points of distance, with no upper limit. It is the one type of the four that takes a filter: `liquidationDistancePct`.
+- `coin` on `liquidationExposure` and `liquidationMap` is matched case-insensitively and can be a qualified symbol such as `xyz:GOLD`.
+- `priceMovePct` on `liquidationExposure` is a decimal string above `0` and at most `100`; `minNotional` is a positive decimal string in quote units. `direction` is `down`, `up` or `both` (default). `resetNotional` is optional, positive and at most `minNotional`, and defaults to it.
+- `priceChangePct` on `liquidationMap` is a positive decimal string. `buckets` and `range` are optional **integer strings**: `"1"` to `"200"` (default `"50"`) and `"1"` to `"100"` (default `"30"`).
+
+They are evaluated about once a minute on stored positions and liquidation levels, not on each price tick. What each one fires on and the delivered fields are on [Liquidation risk types](/webhooks/liquidation-types).
+
 The response carries the subscription — `type`, the normalised `args`, the saved `filters`, its `id`, `deliveryMode`, `url` and `disabled` status — and, **on creation of an `http` subscription only**, the `whsec_…` signing secret. List responses never include it; read it later with [`GET /v1/subscriptions/{id}/secret`](#read-the-signing-secret).
 
 ### Inbox delivery
@@ -166,9 +199,9 @@ Send `"deliveryMode": "inbox"` and no `url`, and matching frames are stored in y
 }
 ```
 
-A subscription's configuration is **immutable**: delete and recreate to change it, which also resets `priceCross` crossing state and a cohort bias subscription's state. If activating the underlying feed fails, creation **rolls back** and answers `503` rather than leaving a saved subscription behind.
+A subscription's configuration is **immutable**: delete and recreate to change it, which also resets `priceCross` crossing state and a cohort bias or liquidation risk subscription's state. If activating the underlying feed fails, creation **rolls back** and answers `503` rather than leaving a saved subscription behind.
 
-Errors: `400` (invalid format, unknown type, argument, filter or operator, impossible range, an empty or over-1,000 `user` array or an invalid address in it, a cohort outside the chosen `tierType`, `points` outside its range, a body over 64 KiB — checked before anything is saved), `403` (the type is not permitted by your tier, or an inbox subscription on Free), `429` (your account is at its subscription allowance), `503` (auth, storage or feed unavailable).
+Errors: `400` (invalid format, unknown type, argument, filter or operator, impossible range, an empty or over-1,000 `user` array or an invalid address in it, a cohort outside the chosen `tierType`, `points` outside its range, more than one wallet on a liquidation risk type, `priceMovePct` above `100`, `resetNotional` above `minNotional`, `buckets` or `range` that is not an integer string in its range, a body over 64 KiB — checked before anything is saved), `403` (the type is not permitted by your tier, or an inbox subscription on Free), `429` (your account is at its subscription allowance), `503` (auth, storage or feed unavailable).
 
 | Type | `args` | Minimum plan |
 |---|---|---|
@@ -182,6 +215,10 @@ Errors: `400` (invalid format, unknown type, argument, filter or operator, impos
 | `cohortBiasFlip` | required `coin`, `cohort`; optional `direction`, `tierType` | Starter |
 | `cohortBiasOpposition` | required `coin`, `cohort`, `otherCohort`; optional `tierType` | Starter |
 | `cohortBiasMove` | required `coin`, `cohort`, `points`; optional `tierType` | Starter |
+| `liquidationRiskCross` (preview) | required `user` (exactly one wallet), `liquidationDistancePct`; optional `direction` | Starter |
+| `liquidationRisk` (preview) | required `user` (exactly one wallet), `points` | Starter |
+| `liquidationExposure` (preview) | required `coin`, `priceMovePct` (above `0`, at most `100`), `minNotional`; optional `direction`, `resetNotional` (at most `minNotional`) | Starter |
+| `liquidationMap` (preview) | required `coin`, `priceChangePct`; optional `buckets` (integer string, `1`–`200`, default `50`), `range` (integer string, `1`–`100`, default `30`) | Starter |
 
 Tier checks are **creation-time** checks, not continuous re-authorisation of saved subscriptions after an account change.
 
@@ -191,7 +228,7 @@ Tier checks are **creation-time** checks, not continuous re-authorisation of sav
 
 ## Delete a subscription
 
-`DELETE /v1/subscriptions/{id}` deletes one subscription you own. For `priceCross` and the cohort bias types it also removes the stored baseline or state and any pending deliveries in the outbox. Deleting an inbox subscription stops collection but **does not delete the messages it already stored** — acknowledge those on the [inbox](/webhooks/inbox#acknowledge).
+`DELETE /v1/subscriptions/{id}` deletes one subscription you own. For `priceCross`, the cohort bias types and the liquidation risk types it also removes the stored baseline or state and any pending deliveries in the outbox. Deleting an inbox subscription stops collection but **does not delete the messages it already stored** — acknowledge those on the [inbox](/webhooks/inbox#acknowledge).
 
 ## Delete all subscriptions
 
@@ -238,7 +275,7 @@ What a delivery looks like is on [Signatures and delivery](/webhooks/signatures)
 
 | Status | Meaning |
 |---|---|
-| `400` | Invalid format; unknown type, argument, filter or operator; impossible range. Nothing is saved. Also `/secret` on an inbox subscription, bad drain parameters and a bad or expired ack receipt |
+| `400` | Invalid format; unknown type, argument, filter or operator; impossible range; an argument outside the range its definition declares (`priceMovePct` above `100`, `buckets` above `200`). Nothing is saved. Also `/secret` on an inbox subscription, bad drain parameters and a bad or expired ack receipt |
 | `401` | Missing or invalid credentials, in either [authentication mode](#authentication) |
 | `403` | The source type is not permitted by your account tier (checked at creation); an inbox subscription on Free |
 | `413` | Drain: the oldest pending message does not fit `maxBytes`; the body carries `requiredMaxBytes` |

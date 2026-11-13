@@ -97,6 +97,7 @@
               "webhooks/quickstart",
               "webhooks/events",
               "webhooks/cohort-bias",
+              "webhooks/liquidation-types",
               "webhooks/signatures",
               "webhooks/inbox",
               "webhooks/api",
