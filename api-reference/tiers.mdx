@@ -53,7 +53,7 @@ Enterprise websocket numbers are per-account overrides reported in the `connecte
 | Tier | Webhook subscriptions (tentative) | Types | Pending inbox messages |
 |------|---:|---|---:|
 | Free       | 0  | can read the definitions; `tradesByUser`, `twapSliceFillsByUser` and `priceCross` are Free-tier data | 0 — inbox subscriptions are `403` |
-| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross`, the four [cohort bias types](/webhooks/cohort-bias), and the four [liquidation risk types](/webhooks/liquidation-types), which are in beta — delivery is still being verified in production | 1,000 |
+| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross`, the four [cohort bias types](/webhooks/cohort-bias), and the four [liquidation risk types](/webhooks/liquidation-types) | 1,000 |
 | Agent      | 6  | Starter's plus `liquidations`, `liquidationsByUser` | 50,000 |
 | Pro        | 10 | Agent's plus `twapStatusesByUser` | 1,000,000 |
 | Enterprise | 20 | every type | 1,000,000 |

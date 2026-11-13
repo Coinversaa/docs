@@ -1,11 +1,7 @@
 ---
 title: "Liquidation risk types"
-description: "The four Coinversa Pulse liquidation risk webhook types, in beta — liquidationRiskCross and liquidationRisk for one wallet's positions, liquidationExposure and liquidationMap for a whole market — which report potential liquidation exposure from stored positions and liquidation levels, checked about once a minute: their args (user, liquidationDistancePct, points, coin, priceMovePct, minNotional, resetNotional, priceChangePct, buckets, range, direction), the liquidationDistancePct filter, the delivered fields and an illustrative delivery for each. Starter and above, to a URL or the inbox. They are not executed liquidations — those are liquidations and liquidationsByUser."
+description: "The four Coinversa Pulse liquidation risk webhook types — liquidationRiskCross and liquidationRisk for one wallet's positions, liquidationExposure and liquidationMap for a whole market — which report potential liquidation exposure from stored positions and liquidation levels, checked about once a minute: their args (user, liquidationDistancePct, points, coin, priceMovePct, minNotional, resetNotional, priceChangePct, buckets, range, direction), the liquidationDistancePct filter, the delivered fields and an illustrative delivery for each. Starter and above, to a URL or the inbox. They are not executed liquidations — those are liquidations and liquidationsByUser."
 ---
-
-<Warning>
-**Beta**: these types are new, delivery is still being verified in production, and their behaviour may change. Until that is done, do not make one of them your only alert — and if a subscription delivers nothing, start with [troubleshooting](/webhooks/troubleshooting#a-liquidation-risk-subscription-delivers-nothing).
-</Warning>
 
 Four subscription types watch **potential liquidation exposure** — positions that are still open, and how far the price is from the level where they would be liquidated. Two watch **one wallet**: `liquidationRiskCross` delivers when a position's distance to its liquidation price crosses a threshold, and `liquidationRisk` when that distance has moved by a number of points. Two watch a **whole market**: `liquidationExposure` delivers when enough notional has liquidation levels within a price move from the mark, and `liquidationMap` delivers the market's full liquidation map once the mark has moved by a percentage.
 

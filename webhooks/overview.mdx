@@ -1,6 +1,6 @@
 ---
 title: "Webhooks overview"
-description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, to a price crossing a level, or to a trader cohort's net long or short bias on a coin, and receive the frames as Standard Webhooks-signed HTTPS POSTs to your URL, or store them in your account's inbox to pull later. Six event types, four cohort bias types and four liquidation risk types in beta, exact decimal filters, Bearer auth with your API key."
+description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, to a price crossing a level, or to a trader cohort's net long or short bias on a coin, and receive the frames as Standard Webhooks-signed HTTPS POSTs to your URL, or store them in your account's inbox to pull later. Six event types, four cohort bias types and four liquidation risk types, exact decimal filters, Bearer auth with your API key."
 ---
 
 **Webhooks** push the same data the [WebSocket](/websocket/overview) streams, to a URL you own, so you do not have to hold a socket open. You create a **subscription** — a **type** (which feed), its `args` (which wallet — or up to 1,000 wallets — or which market), optional `filters` (which frames you want) and the `url` to deliver to — and every matching frame is POSTed to that URL, signed with the subscription's own **signing secret**. A subscription with `"deliveryMode": "inbox"` and no URL stores its matches in your account's **[inbox](/webhooks/inbox)** instead, for you or an agent to pull.
@@ -41,11 +41,7 @@ And four **cohort bias** types, which report how a [trader cohort](/concepts/coh
 
 Cohort positioning is a stored snapshot, normally taken every 15 minutes, so these four tell you about a change **at the next snapshot** — not when a trade happens. See [Cohort bias types](/webhooks/cohort-bias).
 
-And four **liquidation risk** types, in **beta**, which report potential liquidation exposure — two for one wallet's positions, two for a whole market.
-
-<Note>
-**Beta**: these types are new, delivery is still being verified in production, and their behaviour may change.
-</Note>
+And four **liquidation risk** types, which report potential liquidation exposure — two for one wallet's positions, two for a whole market.
 
 | Type | What it delivers | `args` | Filters | Minimum plan |
 |---|---|---|---|---|

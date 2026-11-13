@@ -32,7 +32,7 @@ Details in [WebSocket plan limits](/websocket/limits).
 | Tier | Webhook subscriptions (per account) | Types |
 |------|---:|---|
 | Free       | 0  | Can read the definitions; cannot create a subscription |
-| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross`, the four [cohort bias types](/webhooks/cohort-bias), and the four [liquidation risk types](/webhooks/liquidation-types), which are in beta — delivery is still being verified in production |
+| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross`, the four [cohort bias types](/webhooks/cohort-bias), and the four [liquidation risk types](/webhooks/liquidation-types) |
 | Agent      | 6  | Starter's plus `liquidations` and `liquidationsByUser` |
 | Pro        | 10 | Agent's plus `twapStatusesByUser` |
 | Enterprise | 20 | Everything in Pro |
@@ -58,7 +58,7 @@ Each subscription names one wallet or one market and delivers to one URL; disabl
     - [Sharpe ratios](/concepts/sharpe): any tracked wallet's realized-PnL Sharpe (30 days, a custom 1–90-day window, or three monthly buckets) and the top-50 Sharpe leaderboard
     - [Builder analytics](/api-reference/builders): leaderboard, builder profiles, per-wallet builder usage
     - [WebSocket](/websocket/overview): 25 subscriptions per connection, the `trades` firehose, and [multi-wallet feeds](/websocket/feeds#multi-wallet-subscriptions) following up to 1,000 wallets on one subscription
-    - [Webhooks](/webhooks/overview): 2 subscriptions (tentative) — a wallet's fills (`tradesByUser`), its TWAP fills (`twapSliceFillsByUser`), a price crossing (`priceCross`) or a trader cohort's net bias on a coin (the four [cohort bias types](/webhooks/cohort-bias)), filtered and signed, to your URL. In beta: a wallet's or a market's potential liquidation exposure (the four [liquidation risk types](/webhooks/liquidation-types)) — new, with delivery still being verified in production, and their behaviour may change
+    - [Webhooks](/webhooks/overview): 2 subscriptions (tentative) — a wallet's fills (`tradesByUser`), its TWAP fills (`twapSliceFillsByUser`), a price crossing (`priceCross`) or a trader cohort's net bias on a coin (the four [cohort bias types](/webhooks/cohort-bias)), filtered and signed, to your URL, or a wallet's or a market's potential liquidation exposure (the four [liquidation risk types](/webhooks/liquidation-types))
   </Accordion>
   <Accordion title="Agent — $49 / mo">
     For agents and bots that need more volume than Starter, plus the live positioning tools. Everything in Starter, and:

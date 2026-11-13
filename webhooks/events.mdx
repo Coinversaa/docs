@@ -1,9 +1,9 @@
 ---
 title: "Subscription types"
-description: "The Coinversa Pulse webhook subscription types — the six event types tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser and priceCross, and the four cohort bias types cohortBias, cohortBiasFlip, cohortBiasOpposition and cohortBiasMove — with their args (one wallet or an array of up to 1,000 per subscription), filters, minimum plan, the delivered frame shape and a delivery example for each event type; the cohort bias delivery examples are on the Cohort bias types page. Four liquidation risk types, liquidationRiskCross, liquidationRisk, liquidationExposure and liquidationMap, are in beta and summarised here, with their own Liquidation risk types page."
+description: "The Coinversa Pulse webhook subscription types — the six event types tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser and priceCross, and the four cohort bias types cohortBias, cohortBiasFlip, cohortBiasOpposition and cohortBiasMove — with their args (one wallet or an array of up to 1,000 per subscription), filters, minimum plan, the delivered frame shape and a delivery example for each event type; the cohort bias delivery examples are on the Cohort bias types page. Four liquidation risk types, liquidationRiskCross, liquidationRisk, liquidationExposure and liquidationMap, are summarised here, with their own Liquidation risk types page."
 ---
 
-Six event **types**, four cohort bias types and four liquidation risk types in beta. Five of the event types deliver the frames of the WebSocket feed of the same name; `priceCross` synthesises its own. The four [cohort bias types](#cohort-bias-types) report a trader cohort's positioning from stored snapshots and have a page of their own. The four [liquidation risk types](#liquidation-risk-types) report potential liquidation exposure — one wallet's positions, or a whole market — from stored positions; they are in **beta**, and documented on a page of their own too. The machine-readable version of this page is `GET /v1/subscriptions/definitions`: it lists the types **your plan** may create, each with its `args`, `filters` and `minTier`, and the same declarations drive validation — so read the endpoint rather than keeping a client-side copy ([reference](/webhooks/api#definitions)).
+Six event **types**, four cohort bias types and four liquidation risk types. Five of the event types deliver the frames of the WebSocket feed of the same name; `priceCross` synthesises its own. The four [cohort bias types](#cohort-bias-types) report a trader cohort's positioning from stored snapshots and have a page of their own. The four [liquidation risk types](#liquidation-risk-types) report potential liquidation exposure — one wallet's positions, or a whole market — from stored positions, and have a page of their own too. The machine-readable version of this page is `GET /v1/subscriptions/definitions`: it lists the types **your plan** may create, each with its `args`, `filters` and `minTier`, and the same declarations drive validation — so read the endpoint rather than keeping a client-side copy ([reference](/webhooks/api#definitions)).
 
 Delivery examples are illustrative: addresses, hashes and amounts are made up.
 
@@ -345,10 +345,6 @@ Four types report how a **trader cohort** — `apex`, `crowd`, `heavyweights`, �
 The arguments and cohorts, how `netBias` is computed, the snapshot timing, the delivered row and a delivery example for each type are on [Cohort bias types](/webhooks/cohort-bias).
 
 ## Liquidation risk types
-
-<Note>
-**Beta**: these types are new, delivery is still being verified in production, and their behaviour may change.
-</Note>
 
 Four types report **potential liquidation exposure** — positions that are still open, and how far the price is from their liquidation levels. Two watch one wallet's positions; two watch a whole market. They are not executed liquidations: those are [`liquidations`](#liquidations) and [`liquidationsByUser`](#liquidationsbyuser). The service checks about once a minute, using positions and liquidation levels as last stored.
 
