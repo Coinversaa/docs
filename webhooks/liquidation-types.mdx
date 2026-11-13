@@ -1,0 +1,461 @@
+---
+title: "Liquidation risk types"
+description: "The four Coinversa Pulse liquidation risk webhook types — liquidationRiskCross and liquidationRisk for one wallet's positions, liquidationExposure and liquidationMap for a whole market — which report potential liquidation exposure from stored positions and liquidation levels, checked about once a minute: their args (user, liquidationDistancePct, points, coin, priceMovePct, minNotional, resetNotional, priceChangePct, buckets, range, direction), the liquidationDistancePct filter, the delivered fields and an illustrative delivery for each. Starter and above, to a URL or the inbox. They are not executed liquidations — those are liquidations and liquidationsByUser."
+---
+
+Four subscription types watch **potential liquidation exposure** — positions that are still open, and how far the price is from the level where they would be liquidated. Two watch **one wallet**: `liquidationRiskCross` delivers when a position's distance to its liquidation price crosses a threshold, and `liquidationRisk` when that distance has moved by a number of points. Two watch a **whole market**: `liquidationExposure` delivers when enough notional has liquidation levels within a price move from the mark, and `liquidationMap` delivers the market's full liquidation map once the mark has moved by a percentage.
+
+All four need **Starter** or above, and deliver the way every other [subscription type](/webhooks/events) does: a signed POST to your URL, or the [inbox](/webhooks/inbox). They describe exposure — they are not a recommendation to trade.
+
+Delivery examples are illustrative: the values are made up.
+
+## Not executed liquidations
+
+[`liquidations`](/webhooks/events#liquidations) and [`liquidationsByUser`](/webhooks/events#liquidationsbyuser) deliver liquidations that **happened**. The four types on this page are about positions that have **not** been liquidated:
+
+| | `liquidations`, `liquidationsByUser` | The four liquidation risk types |
+|---|---|---|
+| What they report | Executed liquidations — one object per liquidated side of a trade | Potential exposure — open positions and their liquidation levels |
+| Built from | The fill stream, block by block | Stored positions and liquidation levels, checked about once a minute |
+| `seq` | Block height | Unix microseconds at which the observation was read |
+| Minimum plan | Agent | Starter |
+
+They are not predictions, and not a guarantee that a position will be liquidated. A liquidation level is the price stored for a position when its wallet was last refreshed; the position can be closed, reduced or given more margin before the price gets there. A distance is not a probability either.
+
+## Timing
+
+The service checks **about once a minute**. Each check reads positions and liquidation levels **as last stored** — it does not follow every price tick.
+
+- A move that happens and reverses between two checks is not seen, and nothing is replayed after an outage.
+- The **wallet types** use the mark price and the liquidation price stored with each position when the wallet was last refreshed. The market can move before the next refresh, so a stored distance can lag it. `updatedAt` in a delivery is the time the position was stored.
+- The **market types** value every position at one **mark price tick** for the market, and need a tick **less than five minutes old**. Without one they send nothing — not a zero. `markTime` in a delivery is the tick's time; `positionsOldestUpdatedAt` and `positionsNewestUpdatedAt` say how old the positions behind the numbers are.
+- Liquidation levels are not recomputed between refreshes. A cross-margin position's level moves with the account's collateral, and that shows only after the wallet is refreshed.
+- A check that cannot read its data changes nothing: no delivery, and no change of state.
+
+## The four types
+
+| Type | Watches | Fires | Required `args` | Optional `args` | Filters |
+|---|---|---|---|---|---|
+| [`liquidationRiskCross`](#liquidationriskcross) | One wallet | A position's distance to its liquidation price crosses the threshold | `user`, `liquidationDistancePct` | `direction` | none — the condition is in `args` |
+| [`liquidationRisk`](#liquidationrisk) | One wallet | A position's distance has moved at least `points` percentage points since the last time you were notified | `user`, `points` | — | `liquidationDistancePct` |
+| [`liquidationExposure`](#liquidationexposure) | One market | At least `minNotional` of positions have liquidation levels within a `priceMovePct` move from the mark | `coin`, `priceMovePct`, `minNotional` | `direction`, `resetNotional` | none — the condition is in `args` |
+| [`liquidationMap`](#liquidationmap) | One market | The mark has moved at least `priceChangePct` from the reference price; delivers the full map | `coin`, `priceChangePct` | `buckets`, `range` | none — the condition is in `args` |
+
+## Arguments
+
+| Argument | Used by | Value |
+|---|---|---|
+| `user` | `liquidationRiskCross` and `liquidationRisk`, required | **Exactly one** wallet address — a string, or an array holding one address. It is lowercased. Every open position on record for the wallet is checked, each on its own; there is no `coin` argument |
+| `liquidationDistancePct` | `liquidationRiskCross`, required | The threshold: a positive decimal string, in percent — `"5"` is 5% |
+| `direction` | `liquidationRiskCross`, optional | `below` (closer to liquidation), `above` (farther away) or `both` (default) |
+| `points` | `liquidationRisk`, required | A positive decimal string — **percentage points** of distance. There is no upper limit |
+| `coin` | `liquidationExposure` and `liquidationMap`, required | The market. Matched **case-insensitively**, and it can be a qualified symbol such as `xyz:GOLD` |
+| `priceMovePct` | `liquidationExposure`, required | A decimal string above `0` and at most `100`, in percent — `"3"` is a 3% move from the mark |
+| `minNotional` | `liquidationExposure`, required | A positive decimal string, in quote units: the notional that must sit within the move |
+| `resetNotional` | `liquidationExposure`, optional | The level exposure must fall below before the type can fire again: positive, and at most `minNotional`. It defaults to `minNotional`, and the saved subscription shows it |
+| `direction` | `liquidationExposure`, optional | `down` (long positions, below the mark), `up` (short positions, above it) or `both` (default) |
+| `priceChangePct` | `liquidationMap`, required | A positive decimal string, in percent: how far the mark must move from the reference price |
+| `buckets` | `liquidationMap`, optional | An **integer string** from `"1"` to `"200"`; default `"50"` |
+| `range` | `liquidationMap`, optional | An integer string from `"1"` to `"100"`; default `"30"` — the map covers that percentage below and above the mark |
+
+- Every number is sent as a **string**, the two integers included: `"buckets": "50"`.
+- These are a `400`: more than one wallet in `user`; `priceMovePct` that is not above `0` or is above `100`; `resetNotional` above `minNotional`; `buckets` or `range` that is not a whole number in its range (`"1.5"`, `"0"`, `"201"`); and an argument the type does not declare, such as `coin` on a wallet type.
+- The definitions advertise the limits: `minItems: 1` and `maxItems: 1` on `user`, `max: 100` on `priceMovePct`, `min` and `max` on `buckets` and `range` ([definitions](/webhooks/api#definitions)).
+- `coin` is not checked against a list of markets when you create the subscription: a symbol with no recent mark price is accepted and delivers nothing. A wallet with no open positions on record is accepted too, and delivers nothing.
+
+## Distance to liquidation
+
+The two wallet types measure one number per position, `liquidationDistancePct`:
+
+```text
+liquidationDistancePct = 100 * abs((markPx - liquidationPx) / markPx)
+```
+
+It is in **percent**: `"5"` means 5%, not 0.05. Long and short positions use the same absolute distance, and a smaller number is closer to liquidation. With a mark of `100`, a long with its liquidation price at `95` and a short with its liquidation price at `105` are both at `5`.
+
+- Thresholds, `points` and the filter are compared with exact decimal arithmetic on the stored prices. The `liquidationDistancePct` in a delivery is the same distance written with 18 decimal places.
+- A position without a positive mark price and a positive liquidation price has no distance. It does not fire and it is not treated as zero.
+- The distance is absolute, so by itself it does not say which side of the liquidation price the mark is on.
+
+## Filters
+
+Only `liquidationRisk` takes a filter:
+
+| Filter | Unit |
+|---|---|
+| `liquidationDistancePct` | Percent |
+
+It takes an exact value or `gt` / `gte` / `lt` / `lte` bounds, as **decimal strings** — the rules on [Filters](/webhooks/events#filters).
+
+```json
+{"liquidationDistancePct": {"lt": "5"}}
+```
+
+- On `liquidationRisk`, a position that does not pass is not delivered and its baseline does not move.
+- `liquidationRiskCross`, `liquidationExposure` and `liquidationMap` take **no filters** — their condition is in `args`, and extra predicates are refused.
+
+## Delivered fields
+
+The frame is the one every type uses — `channel`, `seq`, `subscriptionId`, `data` ([the delivered frame](/webhooks/events#the-delivered-frame)). Decimal values are strings; counts and times are numbers.
+
+### Wallet types
+
+On `liquidationRiskCross` and `liquidationRisk`, `data` holds **one object**: the wallet and the positions that fired. Positions that did not fire are left out.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `user` | string | The wallet, lowercase |
+| `positions` | array | The positions that fired, ordered by `coin` |
+
+Each position:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `coin` | string | The market |
+| `side` | string | `long` or `short` |
+| `size` | decimal string | The position's size as stored. Read the direction from `side` |
+| `markPx` | decimal string | The mark price stored with the position |
+| `liquidationPx` | decimal string | The liquidation price stored with the position |
+| `liquidationDistancePct` | decimal string | The [distance](#distance-to-liquidation), with 18 decimal places |
+| `updatedAt` | number | When the position was last stored, Unix **microseconds** |
+| `initial` | boolean | `true` when there is no earlier reading to compare with — a position's first observation on `liquidationRiskCross`, its first notification on `liquidationRisk`; absent otherwise |
+| `direction` | string | `liquidationRiskCross` only. `below` or `above`: the side the distance is on for an initial notification, the direction it crossed afterwards |
+| `previous` | object | Absent on an initial notification. On `liquidationRiskCross`, the position as it was observed before the crossing; on `liquidationRisk`, the **baseline** position the move is measured from |
+| `changePoints` | decimal string | `liquidationRisk` only, absent on an initial notification. The signed move in percentage points — negative when the position moved closer to liquidation. Written with up to 128 decimal places, trailing zeros removed |
+
+### `liquidationExposure` events
+
+One event per direction that fired, so with `direction: "both"` one delivery can hold two.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `coin` | string | The market, in its canonical spelling |
+| `currentPrice` | decimal string | The mark price tick the check used |
+| `markTime` | number | That tick's time, Unix milliseconds |
+| `positionsOldestUpdatedAt` | number | The oldest stored time among the market's positions that have a liquidation level, Unix **microseconds**; `0` when there are none |
+| `positionsNewestUpdatedAt` | number | The newest of those times, Unix microseconds; `0` when there are none |
+| `targetPrice` | decimal string | `currentPrice` moved by `priceMovePct` in this direction |
+| `notionalAtRisk` | decimal string | Notional of the positions with a liquidation level between `currentPrice` and `targetPrice`, in quote units |
+| `positions` | number | How many positions that is |
+| `direction` | string | `down` or `up` |
+| `side` | string | `long` for `down`, `short` for `up` |
+| `priceMovePct` | decimal string | Your `priceMovePct` |
+| `minNotional` | decimal string | Your `minNotional` |
+| `resetNotional` | decimal string | Your `resetNotional`, or `minNotional` if you did not set one |
+| `initial` | boolean | `true` when the subscription's first observation fired; absent otherwise |
+| `timestamp` | number | When the service evaluated the check, Unix milliseconds |
+
+### `liquidationMap` events
+
+One event: the whole map.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `coin`, `currentPrice`, `markTime`, `positionsOldestUpdatedAt`, `positionsNewestUpdatedAt` | | As on `liquidationExposure` |
+| `range` | number | Your `range`: the map covers this percentage below and above `currentPrice` |
+| `buckets` | array | Every bucket, ordered by ascending price — empty ones included |
+| `totalLongAtRisk` | decimal string | Long notional across the map |
+| `totalShortAtRisk` | decimal string | Short notional across the map |
+| `previousPrice` | decimal string | The reference price the move is measured from: the mark of the last map sent, or the first observation's mark |
+| `changePct` | decimal string | The signed move from `previousPrice` to `currentPrice`, in percent. It is written with up to 128 decimal places, trailing zeros removed, so it can be long |
+| `timestamp` | number | When the service evaluated the check, Unix milliseconds |
+
+Each bucket uses the field names of the REST API's liquidation heatmap:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `priceLow`, `priceHigh` | decimal string | The bucket's price bounds |
+| `longPositions`, `shortPositions` | number | Positions with a liquidation level in the bucket |
+| `longNotionalAtRisk`, `shortNotionalAtRisk` | decimal string | Their notional, by side |
+| `totalNotionalAtRisk` | decimal string | Both sides together |
+| `cumulativeLongNotional` | decimal string | Long notional summed from the bucket at the mark **downward** to this bucket |
+| `cumulativeShortNotional` | decimal string | Short notional summed from the bucket at the mark **upward** to this bucket |
+
+On both market types notional is `abs(size) * currentPrice` — the stored size valued at the check's mark, not a realised loss. Positions without a liquidation level are left out, and so are levels the mark has already reached or that are on the wrong side of it.
+
+## `liquidationRiskCross`
+
+A position's distance to its liquidation price crossing a threshold. `direction` picks the crossing you want: `below` is the position getting **closer** to liquidation, `above` is it moving away.
+
+| | |
+|---|---|
+| `args` | `user` (required): exactly one wallet; `liquidationDistancePct` (required): a positive decimal string, in percent; `direction`: `below`, `above` or `both` (default) |
+| Filters | none — extra predicates are refused |
+| Minimum plan | Starter |
+
+- `below` fires when the previous distance was at or above the threshold and the new one is below it; `above` is the inverse. Merely **reaching** the threshold is not a crossing: with a threshold of `"5"`, a distance of exactly `5` fires nothing, and `4` does.
+- A position's **first valid observation** fires if the distance is already strictly on the side you asked for — with `initial: true` and no `previous`. With `both`, either side qualifies; exactly at the threshold does not.
+- Staying on the same side does not repeat, however often the position is refreshed.
+- Each position is followed on its own. One that closes, changes side or loses its prices starts over: its next valid observation is a first observation again.
+
+```json Create
+{
+  "type": "liquidationRiskCross",
+  "args": {
+    "user": "0x0123456789012345678901234567890123456789",
+    "liquidationDistancePct": "5",
+    "direction": "below"
+  },
+  "url": "https://example.com/hook"
+}
+```
+
+A crossing from 5.5% to 4%:
+
+```json Delivery
+{
+  "channel": "liquidationRiskCross",
+  "seq": 1794562260118302,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "user": "0x0123456789012345678901234567890123456789",
+      "positions": [
+        {
+          "coin": "BTC",
+          "side": "long",
+          "size": "1.5",
+          "markPx": "66150",
+          "liquidationPx": "63504",
+          "liquidationDistancePct": "4.000000000000000000",
+          "updatedAt": 1794562201537000,
+          "previous": {
+            "coin": "BTC",
+            "side": "long",
+            "size": "1.5",
+            "markPx": "67200",
+            "liquidationPx": "63504",
+            "liquidationDistancePct": "5.500000000000000000",
+            "updatedAt": 1794562140412000
+          },
+          "direction": "below"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## `liquidationRisk`
+
+A position's distance to its liquidation price moving by at least `points` **percentage points** from a baseline. The baseline is the reading you were last notified about.
+
+| | |
+|---|---|
+| `args` | `user` (required): exactly one wallet; `points` (required): a positive decimal string, no upper limit |
+| Filters | `liquidationDistancePct` — on the current position |
+| Minimum plan | Starter |
+
+- The **first observation** of a position that passes the filter fires, with `initial: true`, and becomes that position's baseline. Without a filter, that is the first valid observation.
+- After that the rule is `abs(distance - baseline distance) >= points`, and the position must still pass the filter. Small moves accumulate against the same baseline, in either direction: with `points: "2"`, readings of `4`, `3.5`, `3` and `2` fire at `4` (initial) and again at `2`, with `changePoints: "-2"`.
+- Only a notification moves the baseline. A reading the filter rejects does not, and neither does a notification about another position.
+- Each position has its own baseline. One that closes, changes side or loses its prices starts over.
+
+```json Create
+{
+  "type": "liquidationRisk",
+  "args": {
+    "user": "0x0123456789012345678901234567890123456789",
+    "points": "2"
+  },
+  "filters": {"liquidationDistancePct": {"lt": "5"}},
+  "url": "https://example.com/hook"
+}
+```
+
+`previous` is the baseline, which can be many checks old:
+
+```json Delivery
+{
+  "channel": "liquidationRisk",
+  "seq": 1794563160284117,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "user": "0x0123456789012345678901234567890123456789",
+      "positions": [
+        {
+          "coin": "BTC",
+          "side": "long",
+          "size": "1.5",
+          "markPx": "64800",
+          "liquidationPx": "63504",
+          "liquidationDistancePct": "2.000000000000000000",
+          "updatedAt": 1794563104220000,
+          "previous": {
+            "coin": "BTC",
+            "side": "long",
+            "size": "1.5",
+            "markPx": "66150",
+            "liquidationPx": "63504",
+            "liquidationDistancePct": "4.000000000000000000",
+            "updatedAt": 1794562201537000
+          },
+          "changePoints": "-2"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## `liquidationExposure`
+
+How much notional on a market has liquidation levels within a price move from the mark. It fires when that amount reaches `minNotional`.
+
+| | |
+|---|---|
+| `args` | `coin`, `priceMovePct`, `minNotional` (required); `direction`: `down`, `up` or `both` (default); `resetNotional`: positive, at most `minNotional`, defaults to `minNotional` |
+| Filters | none — extra predicates are refused |
+| Minimum plan | Starter |
+
+- `down` sums **long** positions with `targetPrice <= liquidationPx < currentPrice`; `up` sums **short** positions with `currentPrice < liquidationPx <= targetPrice`. `targetPrice` is the mark moved by `priceMovePct`.
+- It is the total along the whole move, not the content of one map bucket.
+- It fires when exposure **becomes** at least `minNotional` — on the first observation if that one already qualifies — and not again at every check while it stays there. A price move or a change in positions can both cause it.
+- To fire again, exposure must first fall **strictly below** `resetNotional`; reaching it is not enough. Set `resetNotional` lower than `minNotional` to stop repeats when exposure hovers around the threshold. There is no cooldown.
+- With `both`, each direction keeps its own state, and both can fire in one delivery.
+
+```json Create
+{
+  "type": "liquidationExposure",
+  "args": {
+    "coin": "BTC",
+    "priceMovePct": "3",
+    "minNotional": "6000000",
+    "direction": "down"
+  },
+  "url": "https://example.com/hook"
+}
+```
+
+This asks for at least 6 million of long notional with liquidation levels along a 3% fall from the mark. A first observation that already qualifies:
+
+```json Delivery
+{
+  "channel": "liquidationExposure",
+  "seq": 1794562260118302,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "coin": "BTC",
+      "currentPrice": "66150",
+      "markTime": 1794562258000,
+      "positionsOldestUpdatedAt": 1794561011093000,
+      "positionsNewestUpdatedAt": 1794562247350000,
+      "targetPrice": "64165.5",
+      "notionalAtRisk": "7412570.55",
+      "positions": 41,
+      "direction": "down",
+      "side": "long",
+      "priceMovePct": "3",
+      "minNotional": "6000000",
+      "resetNotional": "6000000",
+      "initial": true,
+      "timestamp": 1794562260431
+    }
+  ]
+}
+```
+
+## `liquidationMap`
+
+The market's full liquidation map — notional by price bucket, below and above the mark — sent when the mark has moved at least `priceChangePct` from a **reference price**.
+
+| | |
+|---|---|
+| `args` | `coin`, `priceChangePct` (required); `buckets`: an integer string `"1"` to `"200"`, default `"50"`; `range`: an integer string `"1"` to `"100"`, default `"30"` |
+| Filters | none — extra predicates are refused |
+| Minimum plan | Starter |
+
+- The **first observation only records the reference price**. No map is sent then.
+- A later check sends the map when `100 * abs(currentPrice - referencePrice) / referencePrice >= priceChangePct`. The reference then becomes that send's mark.
+- With `priceChangePct: "1"` and a first mark of `100`, marks of `100.4` and `100.8` send nothing and `101` sends a map. A later fall to `99.99` sends another: it is 1% below `101`.
+- The move is measured from the reference — not between two consecutive checks, not as a candle change and not over a rolling window. A change in positions without a price move sends nothing.
+- The map covers `range` percent below and above the mark, cut into `buckets` equal price bands. Every bucket is sent, empty ones included.
+
+```json Create
+{
+  "type": "liquidationMap",
+  "args": {"coin": "BTC", "priceChangePct": "3", "buckets": "4", "range": "10"},
+  "url": "https://example.com/hook"
+}
+```
+
+Four buckets keep the sample short; the default is 50:
+
+```json Delivery
+{
+  "channel": "liquidationMap",
+  "seq": 1794565860118302,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "coin": "BTC",
+      "currentPrice": "66000",
+      "markTime": 1794565858000,
+      "positionsOldestUpdatedAt": 1794564611093000,
+      "positionsNewestUpdatedAt": 1794565847350000,
+      "range": 10,
+      "buckets": [
+        {
+          "priceLow": "59400",
+          "priceHigh": "62700",
+          "longPositions": 3,
+          "shortPositions": 0,
+          "longNotionalAtRisk": "3300000",
+          "shortNotionalAtRisk": "0",
+          "totalNotionalAtRisk": "3300000",
+          "cumulativeLongNotional": "11220000",
+          "cumulativeShortNotional": "0"
+        },
+        {
+          "priceLow": "62700",
+          "priceHigh": "66000",
+          "longPositions": 5,
+          "shortPositions": 0,
+          "longNotionalAtRisk": "7920000",
+          "shortNotionalAtRisk": "0",
+          "totalNotionalAtRisk": "7920000",
+          "cumulativeLongNotional": "7920000",
+          "cumulativeShortNotional": "0"
+        },
+        {
+          "priceLow": "66000",
+          "priceHigh": "69300",
+          "longPositions": 0,
+          "shortPositions": 4,
+          "longNotionalAtRisk": "0",
+          "shortNotionalAtRisk": "5280000",
+          "totalNotionalAtRisk": "5280000",
+          "cumulativeLongNotional": "0",
+          "cumulativeShortNotional": "5280000"
+        },
+        {
+          "priceLow": "69300",
+          "priceHigh": "72600",
+          "longPositions": 0,
+          "shortPositions": 2,
+          "longNotionalAtRisk": "0",
+          "shortNotionalAtRisk": "1980000",
+          "totalNotionalAtRisk": "1980000",
+          "cumulativeLongNotional": "0",
+          "cumulativeShortNotional": "7260000"
+        }
+      ],
+      "totalLongAtRisk": "11220000",
+      "totalShortAtRisk": "7260000",
+      "previousPrice": "64000",
+      "changePct": "3.125",
+      "timestamp": 1794565860431
+    }
+  ]
+}
+```
+
+## State and delivery
+
+- **Each subscription keeps its own state** — per position on the wallet types, per direction on `liquidationExposure`, one reference price on `liquidationMap`. A check that shows nothing new changes nothing and repeats nothing.
+- **Unavailable is not zero.** A wallet type skips a position without usable prices; a market type sends nothing without a recent mark price tick. A wallet with no open positions on record delivers nothing — which is not proof that the wallet exists or that its data is fresh.
+- **`seq`** on these four types is the Unix time, in **microseconds**, at which the service first read that observation. It is not a block height, and it is not comparable with the `seq` of any other type ([the delivered frame](/webhooks/events#the-delivered-frame)).
+- **Deliveries are durable**, as on `priceCross`: the subscription's state and the pending delivery — or the inbox message — commit together, and HTTP deliveries wait in the same outbox, at most **32 pending per subscription** ([Plan limits](/webhooks/limits#queues-and-the-outbox)). If a subscription's share is full, a new notification is rejected and logged, and its state does not advance. Delivery is at least once: deduplicate on `webhook-id`.
+- **Subscriptions are immutable.** Delete and recreate one to change it; that also clears its state. A recreated wallet or `liquidationExposure` subscription can fire again on its first observation, and a recreated `liquidationMap` records a new reference price first.

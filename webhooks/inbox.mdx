@@ -56,7 +56,7 @@ Each stored **message** is one delivery envelope as [the delivered frame](/webho
 - Two subscriptions that match the same source record produce **two messages**, one per `subscriptionId`.
 - **Deleting a subscription stops collection but does not delete the messages it already stored.** They stay until you acknowledge them, they expire or overflow evicts them.
 - The sources are live-only: the inbox stores what the service saw while it was running. It is not a replay of frames missed during a service outage, and a `priceCross` crossing during an outage is not reconstructed.
-- The 1 MiB cap on one delivery applies to an inbox message too. Inbox messages bypass the HTTP workers, signing, retries and the outbox cap of `priceCross` and the cohort bias types; for those types the state change and the inbox append commit together.
+- The 1 MiB cap on one delivery applies to an inbox message too. Inbox messages bypass the HTTP workers, signing, retries and the outbox cap of `priceCross`, the cohort bias types and the liquidation risk types; for those types the state change and the inbox append commit together.
 
 ## State
 
@@ -179,7 +179,7 @@ Both forms are **idempotent**, and an old receipt cannot delete messages that re
 The inbox is what lets an agent use webhooks with no receiver. The loop is three steps, and the order matters:
 
 1. **Drain** with a `count` and `maxBytes` sized for what you can show or process in one go.
-2. **Process** the messages — read `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object), liquidation objects, TWAP status records, crossing events or [cohort rows](/webhooks/cohort-bias#the-cohort-row) they are.
+2. **Process** the messages — read `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object), liquidation objects, TWAP status records, crossing events, [cohort rows](/webhooks/cohort-bias#the-cohort-row) or liquidation risk [positions and exposure](/webhooks/liquidation-types#delivered-fields) they are.
 3. **Ack exactly what you processed**: the `inboxIds` you exposed, or the prefix `count` you exposed, against that drain's `batchId` — not the whole fetched batch if you dropped some of it on the way.
 
 Because a drain deletes nothing, a crash between steps 1 and 3 costs you nothing but a repeated read; because ack is idempotent, a retried step 3 is harmless. From chat, `inbox_subscribe` creates inbox subscriptions and `inbox_drain` runs steps 1 and 3 in one call — it acknowledges the messages it returns, so a drain from chat consumes them. See [Webhooks for agents](/webhooks/agents).

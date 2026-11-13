@@ -1,6 +1,6 @@
 ---
 title: "Webhook plan limits"
-description: "Coinversa Pulse webhook limits by plan — tentative subscription allowances (Free 0, Starter 2, Agent 6, Pro 10, Enterprise 20), creation-time tier checks, the in-memory retry policy of nine attempts over about 76 hours, the separate 128 fresh and 128 retry delivery budgets with 16 per subscription across both, the 32-row durable outbox of priceCross and the cohort bias types, the inbox's pending-message limits (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000), 2 GiB and 14 days, and what a 410 does."
+description: "Coinversa Pulse webhook limits by plan — tentative subscription allowances (Free 0, Starter 2, Agent 6, Pro 10, Enterprise 20), creation-time tier checks, the in-memory retry policy of nine attempts over about 76 hours, the separate 128 fresh and 128 retry delivery budgets with 16 per subscription across both, the 32-row durable outbox of priceCross, the cohort bias types and the liquidation risk types, the inbox's pending-message limits (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000), 2 GiB and 14 days, and what a 410 does."
 ---
 
 Webhook limits are separate from REST request quotas and WebSocket capacity — receiving a delivery never draws down your API calls, and a webhook subscription is not a WebSocket subscription against your per-connection cap.
@@ -28,7 +28,7 @@ The type's `minTier` in the definitions is the plan it needs; a create below it 
 | Plan | Types it may create |
 |---|---|
 | Free | None — the allowance is zero, though `tradesByUser`, `twapSliceFillsByUser` and `priceCross` are Free-tier data. No inbox either: an inbox subscription is `403` |
-| Starter | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` (both `mark` and `trade` sources), and the four [cohort bias types](/webhooks/cohort-bias): `cohortBias`, `cohortBiasFlip`, `cohortBiasOpposition`, `cohortBiasMove` |
+| Starter | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` (both `mark` and `trade` sources), the four [cohort bias types](/webhooks/cohort-bias): `cohortBias`, `cohortBiasFlip`, `cohortBiasOpposition`, `cohortBiasMove`, and the four [liquidation risk types](/webhooks/liquidation-types): `liquidationRiskCross`, `liquidationRisk`, `liquidationExposure`, `liquidationMap` |
 | Agent | Starter's types plus `liquidations` and `liquidationsByUser` |
 | Pro | Agent's types plus `twapStatusesByUser` |
 | Enterprise | Everything in Pro, with a larger allowance |
@@ -59,7 +59,7 @@ Inbox subscriptions store their matches in the account's one [inbox](/webhooks/i
 | After the last attempt | The delivery is dropped |
 | Order | Not guaranteed across workers and retries; deduplicate on `webhook-id` |
 
-`priceCross` and the four cohort bias types are the exception: their deliveries sit in a durable outbox with stable delivery ids and retry schedules that survive a restart ([below](#queues-and-the-outbox)).
+`priceCross`, the four cohort bias types and the four liquidation risk types are the exception: their deliveries sit in a durable outbox with stable delivery ids and retry schedules that survive a restart ([below](#queues-and-the-outbox)).
 
 ## Queues and the outbox
 
@@ -76,7 +76,7 @@ Fresh deliveries and ordinary retries have separate budgets of 128 each. A delay
 
 `priceCross` deliveries use a **durable outbox** instead: at most **32 pending deliveries per subscription**, each at most 1 MiB. When a subscription's share is full, its new observation is rejected and logged without advancing the crossing baseline; observations are not retained for later replay, so a saturated subscription can miss its own crossings. Retry exhaustion still drops a delivery. Total disk use scales with the number of subscriptions. Deleting the subscription removes its baseline and pending rows.
 
-The four [cohort bias types](/webhooks/cohort-bias#state-and-delivery) use the same outbox under the same cap of 32 pending deliveries per subscription: when a subscription's share is full, a new notification is rejected and logged and the subscription's state does not advance.
+The four [cohort bias types](/webhooks/cohort-bias#state-and-delivery) and the four [liquidation risk types](/webhooks/liquidation-types#state-and-delivery) use the same outbox under the same cap of 32 pending deliveries per subscription: when a subscription's share is full, a new notification is rejected and logged and the subscription's state does not advance.
 
 ## 410 disables a subscription
 
@@ -85,4 +85,4 @@ A `410` from your URL disables the subscription at once. It stops counting towar
 
 ## What is not limited, because it does not exist
 
-There is no monthly event budget and no delivery log: for HTTP delivery nothing is stored once a delivery is acknowledged or dropped, and the only retention anywhere is the inbox's 14 days. A subscription names one market, or one wallet or an array of up to **1,000** wallets ([one wallet or many](/webhooks/events#one-wallet-or-many)) — that 1,000, and the 64 KiB creation body, are the only per-subscription size caps. The ceiling on how much you receive is your receiver's capacity and the queue above, or the inbox limits. Prices and the rest of each plan are on [Pricing](/pricing).
+There is no monthly event budget and no delivery log: for HTTP delivery nothing is stored once a delivery is acknowledged or dropped, and the only retention anywhere is the inbox's 14 days. A subscription names one market, or one wallet or an array of up to **1,000** wallets ([one wallet or many](/webhooks/events#one-wallet-or-many); the two wallet liquidation risk types take exactly one) — that 1,000, and the 64 KiB creation body, are the only per-subscription size caps. The ceiling on how much you receive is your receiver's capacity and the queue above, or the inbox limits. Prices and the rest of each plan are on [Pricing](/pricing).

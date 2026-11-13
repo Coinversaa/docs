@@ -1,6 +1,6 @@
 ---
 title: "Webhook troubleshooting"
-description: "Fix Coinversa Pulse webhook problems by symptom — 400 on an impossible filter range, 403 on a type above your plan or an inbox subscription on Free, 429 at the subscription cap, a subscription disabled by a 410 and the enable route, deliveries missing after a service restart, a URL refused for a private address, a redirect or a non-443 port, Standard Webhooks signature mismatches, 413 on an inbox drain, acknowledged 0 on an ack, and 400 on /secret for an inbox subscription."
+description: "Fix Coinversa Pulse webhook problems by symptom — 400 on an impossible filter range, 403 on a type above your plan or an inbox subscription on Free, 429 at the subscription cap, a subscription disabled by a 410 and the enable route, deliveries missing after a service restart, a URL refused for a private address, a redirect or a non-443 port, a liquidation risk subscription that delivers nothing, Standard Webhooks signature mismatches, 413 on an inbox drain, acknowledged 0 on an ack, and 400 on /secret for an inbox subscription."
 ---
 
 Start from what you see. There is no delivery log on our side — nothing is stored after an HTTP delivery — so the places to look are `GET /v1/subscriptions` ([reference](/webhooks/api#list-subscriptions)), `GET /v1/inbox` for inbox subscriptions ([reference](/webhooks/inbox#state)), the unauthenticated `GET /health` ([reference](/webhooks/api#health)) and your own receiver's logs.
@@ -10,12 +10,13 @@ Start from what you see. There is no delivery log on our side — nothing is sto
 The body failed validation and nothing was saved. The usual causes:
 
 1. **Impossible range.** `{"gt": "10", "lt": "5"}` can never match. Equal endpoints are allowed only when both are inclusive: `{"gte": "10", "lte": "10"}` is fine, `{"gt": "10", "lte": "10"}` is not.
-2. **Unknown filter or operator.** Only the fields the type declares in `GET /v1/subscriptions/definitions` and only `gt`, `gte`, `lt`, `lte` are accepted — no `eq`, no `$gt`, no nested paths. `priceCross` and `cohortBiasOpposition` take no filters at all.
+2. **Unknown filter or operator.** Only the fields the type declares in `GET /v1/subscriptions/definitions` and only `gt`, `gte`, `lt`, `lte` are accepted — no `eq`, no `$gt`, no nested paths. `priceCross`, `cohortBiasOpposition`, `liquidationRiskCross`, `liquidationExposure` and `liquidationMap` take no filters at all.
 3. **A number that is not a decimal string.** `1.5` must be `"1.5"`; exponent notation, `NaN`, infinity and `1/2` are rejected; the maximum length is 128 characters.
 4. **Unknown type or argument.** Check the spelling against the definitions; `user` sent both at the top level and inside `args` is also a `400`.
-5. **A missing required argument.** `user` on the four by-user types, `coin` and `threshold` on `priceCross` (a positive decimal string), `coin` on the four cohort bias types, plus `cohort` on `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove`, `otherCohort` on `cohortBiasOpposition` and `points` on `cohortBiasMove`.
+5. **A missing required argument.** `user` on the four by-user types, `coin` and `threshold` on `priceCross` (a positive decimal string), `coin` on the four cohort bias types, plus `cohort` on `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove`, `otherCohort` on `cohortBiasOpposition` and `points` on `cohortBiasMove`. On the liquidation risk types: `user` and `liquidationDistancePct` on `liquidationRiskCross`, `user` and `points` on `liquidationRisk`, `coin`, `priceMovePct` and `minNotional` on `liquidationExposure`, `coin` and `priceChangePct` on `liquidationMap`.
 6. **A cohort bias argument out of range.** A `cohort` that does not belong to the chosen `tierType` (`heavyweights` with `pnl`), the same cohort twice on `cohortBiasOpposition`, or `points` that is not a decimal string above `0` and at most `200` ([arguments](/webhooks/cohort-bias#arguments)).
-7. **A bad wallet array.** `args.user` may be one address or an array of 1 to 1,000; an empty array, an invalid address or more than 1,000 entries is refused, as is a creation body over 64 KiB.
+7. **A liquidation risk argument out of range.** `priceMovePct` that is not above `0` or is above `100`; `resetNotional` above `minNotional`; `buckets` that is not an integer string from `"1"` to `"200"`, or `range` that is not one from `"1"` to `"100"` — `"1.5"` and `"0"` are refused; a threshold that is not a positive decimal string ([arguments](/webhooks/liquidation-types#arguments)).
+8. **A bad wallet array.** `args.user` may be one address or an array of 1 to 1,000; an empty array, an invalid address or more than 1,000 entries is refused, as is a creation body over 64 KiB. On `liquidationRiskCross` and `liquidationRisk` it is exactly one wallet: a second address is refused.
 
 ## `403` when creating a subscription
 
@@ -44,7 +45,7 @@ The call is idempotent. If it answers `429`, you are at your allowance with the 
 
 Ordinary deliveries and their retries are kept **in memory**. When the webhook service restarts — a deploy, a crash — whatever was queued or waiting to retry is lost, and nothing is replayed afterwards. Your subscription is still saved and starts delivering again on the next matching frame. If your receiver was down at the same time, the frames it missed are gone from the webhook side: read the wallet's fills from the [REST API](/quickstart) or the [WebSocket](/websocket/overview) to fill the gap.
 
-`priceCross` behaves differently: its deliveries sit in a durable outbox and survive a restart, though a crossing that happened entirely during an outage of the **source** cannot be reconstructed. The four cohort bias types use the same outbox; after an outage they compare the newest snapshot with the last one they saw, and the snapshots in between are not replayed.
+`priceCross` behaves differently: its deliveries sit in a durable outbox and survive a restart, though a crossing that happened entirely during an outage of the **source** cannot be reconstructed. The four cohort bias types use the same outbox; after an outage they compare the newest snapshot with the last one they saw, and the snapshots in between are not replayed. The four liquidation risk types use it too; what happened between two checks, or during an outage, is not replayed either.
 
 ## Nothing arrives, and the service did not restart
 
@@ -52,9 +53,27 @@ Ordinary deliveries and their retries are kept **in memory**. When the webhook s
 2. **Do the filters match?** Exact text is case-sensitive (`BTC`, not `btc`); `side` is `A` for sell and `B` for buy; sizes are in the market's base unit and prices in its quote, so a `sz` bound of `"100000"` on BTC never matches. A missing or null field never satisfies a numeric filter, so a `closedPnl` bound only matches fills that carry one.
 3. **Is it the right wallet?** `liquidationsByUser` selects the **liquidated** account, not the liquidator's fills; `twapSliceFillsByUser` only carries fills with a `twapId`.
 4. **Is it a cohort bias type?** These read a stored snapshot, normally taken every 15 minutes. The first delivery of a `cohortBias` subscription follows its creation at the service's next check, about once a minute; after it, nothing arrives before the next snapshot. `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove` deliver only on a change between two snapshots: the snapshot already stored when you subscribe only sets the starting state, so the next new snapshot is the first that can fire; a cohort that stays on one side never fires a flip. `coin` is not checked against a list of markets, so a symbol with no snapshot rows is accepted and delivers nothing ([snapshot timing](/webhooks/cohort-bias#snapshot-timing)).
-5. **Is your receiver acknowledging?** Only a `2xx` counts. A `200` after a long handler may already have timed out on our side and been retried; answer first, process after.
-6. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped. Fix the receiver and the subscription resumes on its own.
-7. **Is the service healthy?** `GET /health` answers `200` while the service is up, with service counts in the body ([reference](/webhooks/api#health)).
+5. **Is it a liquidation risk type?** Those have their own list, [below](#a-liquidation-risk-subscription-delivers-nothing).
+6. **Is your receiver acknowledging?** Only a `2xx` counts. A `200` after a long handler may already have timed out on our side and been retried; answer first, process after.
+7. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped. Fix the receiver and the subscription resumes on its own.
+8. **Is the service healthy?** `GET /health` answers `200` while the service is up, with service counts in the body ([reference](/webhooks/api#health)).
+
+## A liquidation risk subscription delivers nothing
+
+You subscribed to `liquidationRiskCross`, `liquidationRisk`, `liquidationExposure` or `liquidationMap` and received nothing. Go through the checks [above](#nothing-arrives-and-the-service-did-not-restart) first, then these:
+
+1. **Has a check run yet?** The service checks about once a minute, using positions and liquidation levels as last stored. It does not follow every price tick, and a move that happens and reverses between two checks is not seen.
+2. **Is the condition met?** Nothing is sent while it is not:
+   - `liquidationRiskCross` needs the distance to **cross** the threshold. Reaching it exactly is not a crossing, and a position that stays on one side fires at most once — on its first observation, if it is already on the side you asked for.
+   - `liquidationRisk` fires on the first observation of a position that passes your `liquidationDistancePct` filter — without a filter, its first valid observation. After that it needs a move of at least `points` percentage points from the last notified reading, with the filter still passing.
+   - `liquidationExposure` needs at least `minNotional` within the move. After it fires, exposure must fall strictly below `resetNotional` before it can fire again.
+   - `liquidationMap` needs the mark to move at least `priceChangePct` from the reference price.
+3. **Is it the first observation of a `liquidationMap` subscription?** That one only records the reference price — no map is sent. The first map follows a later check where the mark is at least `priceChangePct` away from it.
+4. **Is there a recent mark price tick?** `liquidationExposure` and `liquidationMap` need a tick for the market that is less than five minutes old. Without one they send nothing — not a zero — and the check is skipped until one arrives.
+5. **Is the wallet or the market on record?** `coin` is not checked against a list of markets, and a wallet is not checked for positions, when you create the subscription. A symbol with no recent mark price, or a wallet with no open positions on record, is accepted and delivers nothing. A position without a usable mark or liquidation price is skipped.
+6. **Still nothing?** If the conditions above hold and nothing arrives, email [chat@coinversa.ai](mailto:chat@coinversa.ai) with the subscription id and what you expected.
+
+What each type fires on, and its timing, are on [Liquidation risk types](/webhooks/liquidation-types).
 
 ## The URL was refused
 
