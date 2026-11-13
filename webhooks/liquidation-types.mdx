@@ -125,7 +125,7 @@ Each position:
 | `initial` | boolean | `true` when there is no earlier reading to compare with — a position's first observation on `liquidationRiskCross`, its first notification on `liquidationRisk`; absent otherwise |
 | `direction` | string | `liquidationRiskCross` only. `below` or `above`: the side the distance is on for an initial notification, the direction it crossed afterwards |
 | `previous` | object | Absent on an initial notification. On `liquidationRiskCross`, the position as it was observed before the crossing; on `liquidationRisk`, the **baseline** position the move is measured from |
-| `changePoints` | decimal string | `liquidationRisk` only, absent on an initial notification. The signed move in percentage points — negative when the position moved closer to liquidation |
+| `changePoints` | decimal string | `liquidationRisk` only, absent on an initial notification. The signed move in percentage points — negative when the position moved closer to liquidation. Written with up to 128 decimal places, trailing zeros removed |
 
 ### `liquidationExposure` events
 
@@ -161,7 +161,7 @@ One event: the whole map.
 | `totalLongAtRisk` | decimal string | Long notional across the map |
 | `totalShortAtRisk` | decimal string | Short notional across the map |
 | `previousPrice` | decimal string | The reference price the move is measured from: the mark of the last map sent, or the first observation's mark |
-| `changePct` | decimal string | The signed move from `previousPrice` to `currentPrice`, in percent. It is exact, so it can run to many decimal places |
+| `changePct` | decimal string | The signed move from `previousPrice` to `currentPrice`, in percent. It is written with up to 128 decimal places, trailing zeros removed, so it can be long |
 | `timestamp` | number | When the service evaluated the check, Unix milliseconds |
 
 Each bucket uses the field names of the REST API's liquidation heatmap:

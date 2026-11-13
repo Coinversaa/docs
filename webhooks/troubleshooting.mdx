@@ -65,7 +65,7 @@ You subscribed to `liquidationRiskCross`, `liquidationRisk`, `liquidationExposur
 1. **Has a check run yet?** The service checks about once a minute, using positions and liquidation levels as last stored. It does not follow every price tick, and a move that happens and reverses between two checks is not seen.
 2. **Is the condition met?** Nothing is sent while it is not:
    - `liquidationRiskCross` needs the distance to **cross** the threshold. Reaching it exactly is not a crossing, and a position that stays on one side fires at most once — on its first observation, if it is already on the side you asked for.
-   - `liquidationRisk` needs a position that passes your `liquidationDistancePct` filter, then a move of at least `points` percentage points from the last notified reading.
+   - `liquidationRisk` fires on the first observation of a position that passes your `liquidationDistancePct` filter — without a filter, its first valid observation. After that it needs a move of at least `points` percentage points from the last notified reading, with the filter still passing.
    - `liquidationExposure` needs at least `minNotional` within the move. After it fires, exposure must fall strictly below `resetNotional` before it can fire again.
    - `liquidationMap` needs the mark to move at least `priceChangePct` from the reference price.
 3. **Is it the first observation of a `liquidationMap` subscription?** That one only records the reference price — no map is sent. The first map follows a later check where the mark is at least `priceChangePct` away from it.
