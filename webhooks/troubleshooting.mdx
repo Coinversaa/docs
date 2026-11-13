@@ -1,6 +1,6 @@
 ---
 title: "Webhook troubleshooting"
-description: "Fix Coinversa Pulse webhook problems by symptom — 400 on an impossible filter range, 403 on a type above your plan or an inbox subscription on Free, 429 at the subscription cap, a subscription disabled by a 410 and the enable route, deliveries missing after a service restart, a URL refused for a private address, a redirect or a non-443 port, a liquidation risk subscription (preview) that delivers nothing, Standard Webhooks signature mismatches, 413 on an inbox drain, acknowledged 0 on an ack, and 400 on /secret for an inbox subscription."
+description: "Fix Coinversa Pulse webhook problems by symptom — 400 on an impossible filter range, 403 on a type above your plan or an inbox subscription on Free, 429 at the subscription cap, a subscription disabled by a 410 and the enable route, deliveries missing after a service restart, a URL refused for a private address, a redirect or a non-443 port, a liquidation risk subscription (beta) that delivers nothing, Standard Webhooks signature mismatches, 413 on an inbox drain, acknowledged 0 on an ack, and 400 on /secret for an inbox subscription."
 ---
 
 Start from what you see. There is no delivery log on our side — nothing is stored after an HTTP delivery — so the places to look are `GET /v1/subscriptions` ([reference](/webhooks/api#list-subscriptions)), `GET /v1/inbox` for inbox subscriptions ([reference](/webhooks/inbox#state)), the unauthenticated `GET /health` ([reference](/webhooks/api#health)) and your own receiver's logs.
@@ -71,7 +71,7 @@ You subscribed to `liquidationRiskCross`, `liquidationRisk`, `liquidationExposur
 3. **Is it the first observation of a `liquidationMap` subscription?** That one only records the reference price — no map is sent. The first map follows a later check where the mark is at least `priceChangePct` away from it.
 4. **Is there a recent mark price tick?** `liquidationExposure` and `liquidationMap` need a tick for the market that is less than five minutes old. Without one they send nothing — not a zero — and the check is skipped until one arrives.
 5. **Is the wallet or the market on record?** `coin` is not checked against a list of markets, and a wallet is not checked for positions, when you create the subscription. A symbol with no recent mark price, or a wallet with no open positions on record, is accepted and delivers nothing. A position without a usable mark or liquidation price is skipped.
-6. **These types are in preview.** They are new, delivery is still being verified in production, and their behaviour may change. If the conditions above hold and nothing arrives, email [chat@coinversa.ai](mailto:chat@coinversa.ai) with the subscription id and what you expected.
+6. **These types are in beta.** They are new, delivery is still being verified in production, and their behaviour may change. If the conditions above hold and nothing arrives, email [chat@coinversa.ai](mailto:chat@coinversa.ai) with the subscription id and what you expected.
 
 What each type fires on, and its timing, are on [Liquidation risk types](/webhooks/liquidation-types).
 

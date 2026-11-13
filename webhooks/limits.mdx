@@ -1,6 +1,6 @@
 ---
 title: "Webhook plan limits"
-description: "Coinversa Pulse webhook limits by plan — tentative subscription allowances (Free 0, Starter 2, Agent 6, Pro 10, Enterprise 20), creation-time tier checks, the in-memory retry policy of nine attempts over about 76 hours, the separate 128 fresh and 128 retry delivery budgets with 16 per subscription across both, the 32-row durable outbox of priceCross, the cohort bias types and the liquidation risk types in preview, the inbox's pending-message limits (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000), 2 GiB and 14 days, and what a 410 does."
+description: "Coinversa Pulse webhook limits by plan — tentative subscription allowances (Free 0, Starter 2, Agent 6, Pro 10, Enterprise 20), creation-time tier checks, the in-memory retry policy of nine attempts over about 76 hours, the separate 128 fresh and 128 retry delivery budgets with 16 per subscription across both, the 32-row durable outbox of priceCross, the cohort bias types and the liquidation risk types in beta, the inbox's pending-message limits (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000), 2 GiB and 14 days, and what a 410 does."
 ---
 
 Webhook limits are separate from REST request quotas and WebSocket capacity — receiving a delivery never draws down your API calls, and a webhook subscription is not a WebSocket subscription against your per-connection cap.
@@ -28,7 +28,7 @@ The type's `minTier` in the definitions is the plan it needs; a create below it 
 | Plan | Types it may create |
 |---|---|
 | Free | None — the allowance is zero, though `tradesByUser`, `twapSliceFillsByUser` and `priceCross` are Free-tier data. No inbox either: an inbox subscription is `403` |
-| Starter | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` (both `mark` and `trade` sources), the four [cohort bias types](/webhooks/cohort-bias): `cohortBias`, `cohortBiasFlip`, `cohortBiasOpposition`, `cohortBiasMove`, and the four [liquidation risk types](/webhooks/liquidation-types): `liquidationRiskCross`, `liquidationRisk`, `liquidationExposure`, `liquidationMap` — these four are in preview, and delivery is still being verified in production |
+| Starter | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` (both `mark` and `trade` sources), the four [cohort bias types](/webhooks/cohort-bias): `cohortBias`, `cohortBiasFlip`, `cohortBiasOpposition`, `cohortBiasMove`, and the four [liquidation risk types](/webhooks/liquidation-types): `liquidationRiskCross`, `liquidationRisk`, `liquidationExposure`, `liquidationMap` — these four are in beta, and delivery is still being verified in production |
 | Agent | Starter's types plus `liquidations` and `liquidationsByUser` |
 | Pro | Agent's types plus `twapStatusesByUser` |
 | Enterprise | Everything in Pro, with a larger allowance |

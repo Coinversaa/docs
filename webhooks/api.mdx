@@ -1,6 +1,6 @@
 ---
 title: "Webhooks API"
-description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000, the cohort bias args and the args of the four liquidation risk types in preview, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
+description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000, the cohort bias args and the args of the four liquidation risk types in beta, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
 ---
 
 Every route on this page is relative to one base URL and, except `/health`, authenticated:
@@ -82,7 +82,7 @@ The example omits the other trade fields for brevity. `minItems` and `maxItems` 
 
 | Body field | Type | Required | Notes |
 |---|---|---|---|
-| `type` | string | yes | A [subscription type](/webhooks/events): one of the six event types, the four [cohort bias types](/webhooks/cohort-bias) or the four [liquidation risk types](/webhooks/liquidation-types), which are in preview |
+| `type` | string | yes | A [subscription type](/webhooks/events): one of the six event types, the four [cohort bias types](/webhooks/cohort-bias) or the four [liquidation risk types](/webhooks/liquidation-types), which are in beta |
 | `args` | object | per type | `user` for the four by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`; `coin` and, per type, `cohort`, `otherCohort`, `points`, `direction` and `tierType` for the cohort bias types ([below](#cohort-bias-types)); one `user` or a `coin`, with a threshold, for the liquidation risk types ([below](#liquidation-risk-types)). Wallets are normalised to lowercase |
 | `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross`, `cohortBiasOpposition`, `liquidationRiskCross`, `liquidationExposure` and `liquidationMap` take none |
 | `deliveryMode` | string | no | `http` (default) delivers to `url`; `inbox` stores matches in the account [inbox](/webhooks/inbox) instead |
@@ -154,7 +154,7 @@ They are evaluated on stored snapshots, normally taken every 15 minutes, not on 
 ### Liquidation risk types
 
 <Note>
-**Preview**: these types are new, delivery is still being verified in production, and their behaviour may change.
+**Beta**: these types are new, delivery is still being verified in production, and their behaviour may change.
 </Note>
 
 The four liquidation risk types take either one wallet or one market, and a threshold. One body per type, with every required argument:
@@ -215,10 +215,10 @@ Errors: `400` (invalid format, unknown type, argument, filter or operator, impos
 | `cohortBiasFlip` | required `coin`, `cohort`; optional `direction`, `tierType` | Starter |
 | `cohortBiasOpposition` | required `coin`, `cohort`, `otherCohort`; optional `tierType` | Starter |
 | `cohortBiasMove` | required `coin`, `cohort`, `points`; optional `tierType` | Starter |
-| `liquidationRiskCross` (preview) | required `user` (exactly one wallet), `liquidationDistancePct`; optional `direction` | Starter |
-| `liquidationRisk` (preview) | required `user` (exactly one wallet), `points` | Starter |
-| `liquidationExposure` (preview) | required `coin`, `priceMovePct` (above `0`, at most `100`), `minNotional`; optional `direction`, `resetNotional` (at most `minNotional`) | Starter |
-| `liquidationMap` (preview) | required `coin`, `priceChangePct`; optional `buckets` (integer string, `1`–`200`, default `50`), `range` (integer string, `1`–`100`, default `30`) | Starter |
+| `liquidationRiskCross` (beta) | required `user` (exactly one wallet), `liquidationDistancePct`; optional `direction` | Starter |
+| `liquidationRisk` (beta) | required `user` (exactly one wallet), `points` | Starter |
+| `liquidationExposure` (beta) | required `coin`, `priceMovePct` (above `0`, at most `100`), `minNotional`; optional `direction`, `resetNotional` (at most `minNotional`) | Starter |
+| `liquidationMap` (beta) | required `coin`, `priceChangePct`; optional `buckets` (integer string, `1`–`200`, default `50`), `range` (integer string, `1`–`100`, default `30`) | Starter |
 
 Tier checks are **creation-time** checks, not continuous re-authorisation of saved subscriptions after an account change.
 
