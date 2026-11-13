@@ -143,7 +143,7 @@ curl -X DELETE https://webhook.coinversa.ai/v1/subscriptions/$SUB_ID \
   -H "Authorization: Bearer $COINVERSA_API_KEY"
 ```
 
-Deleting removes the subscription and, for `priceCross` and the cohort bias types, the stored baseline or state and any pending deliveries in the outbox. `GET /v1/subscriptions` lists what you still have (without secrets); `DELETE /v1/subscriptions` removes them all.
+Deleting removes the subscription and, for `priceCross`, the cohort bias types and the liquidation risk types, the stored baseline or state and any pending deliveries in the outbox. `GET /v1/subscriptions` lists what you still have (without secrets); `DELETE /v1/subscriptions` removes them all.
 
 
 ## Before production

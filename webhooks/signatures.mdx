@@ -128,7 +128,7 @@ A delivery **succeeds** on any **2xx**. Anything else — another status, a time
 
 Two things follow from how retries are kept:
 
-- Ordinary deliveries and their retries live **in memory**. A restart of the service loses them, and nothing is replayed — see [no delivery after a restart](/webhooks/troubleshooting#nothing-arrived-and-the-service-restarted). Only `priceCross` and cohort bias deliveries use a durable outbox that survives restarts.
+- Ordinary deliveries and their retries live **in memory**. A restart of the service loses them, and nothing is replayed — see [no delivery after a restart](/webhooks/troubleshooting#nothing-arrived-and-the-service-restarted). Only `priceCross`, cohort bias and liquidation risk deliveries use a durable outbox that survives restarts.
 - The queue is **bounded**: 128 fresh deliveries plus 128 waiting retries across all subscriptions, each at most 1 MiB, and at most 16 slots for any one subscription across both pools. A retry waits in its own pool, so a failing receiver's back-off never holds a slot a fresh delivery could use; when a pool is full, further retries are dropped and logged, and a saturated subscription drops its own frames without taking another subscription's share. The numbers are on [Plan limits](/webhooks/limits#queues-and-the-outbox).
 
 Delivery is **at least once**, and order across workers and retries is **not guaranteed**: a retry can arrive after a newer frame. Deduplicate on `webhook-id` and order by `seq` within one source if order matters.

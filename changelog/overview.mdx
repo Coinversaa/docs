@@ -3,6 +3,30 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="November 13, 2026" tags={["Webhooks"]}>
+
+## Webhooks: four liquidation risk types, in preview
+
+Four subscription types that report **potential liquidation exposure** are now documented, as a **preview**: these types are new, delivery is still being verified in production, and their behaviour may change. They are on **Starter** and above, with both delivery modes: a signed POST to your URL, or the inbox.
+
+Two watch **one wallet's** positions:
+
+- **`liquidationRiskCross`**: a position's distance to its liquidation price crosses a threshold (`liquidationDistancePct`). `direction` is `below` (closer to liquidation), `above` or `both`. Reaching the threshold exactly is not a crossing.
+- **`liquidationRisk`**: that distance has moved at least `points` percentage points from the last notified baseline. It takes a `liquidationDistancePct` filter, exact or as `gt` / `gte` / `lt` / `lte` bounds.
+
+Two watch a **whole market**:
+
+- **`liquidationExposure`**: at least `minNotional` of positions have liquidation levels within a `priceMovePct` move from the mark — `down` sums longs, `up` sums shorts. After it fires, exposure must fall below `resetNotional` before it can fire again.
+- **`liquidationMap`**: the market's full liquidation map, sent when the mark has moved at least `priceChangePct` from the reference price. The first observation only records the reference.
+
+The distance is `100 * abs((markPx - liquidationPx) / markPx)`, in percent: `"5"` means 5%. The wallet types take **exactly one** wallet; `coin` is case-insensitive and can be a qualified symbol such as `xyz:GOLD`.
+
+These types describe positions that are **still open**. They are not executed liquidations — those are the existing `liquidations` and `liquidationsByUser` types — and they are not a guarantee that a position will be liquidated, or a recommendation to trade. The service checks about once a minute, using positions and liquidation levels as last stored; it does not follow every price tick, and a move that happens and reverses between two checks is not seen. The market types need a mark price tick less than five minutes old, and send nothing without one.
+
+See [Liquidation risk types](/webhooks/liquidation-types) for the arguments, the delivered fields and an illustrative delivery for each, and the [API reference](/webhooks/api#liquidation-risk-types) for the create bodies.
+
+</Update>
+
 <Update label="November 11, 2026" tags={["Webhooks"]}>
 
 ## Webhooks: four cohort bias types
