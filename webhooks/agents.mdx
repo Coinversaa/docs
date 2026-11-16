@@ -1,15 +1,17 @@
 ---
 title: "Webhooks for agents"
-description: "Use the Coinversa Pulse event inbox from an AI agent — inbox_subscribe creates an inbox subscription from a type, args and filters, inbox_subscriptions lists them, inbox_unsubscribe deletes one, inbox_state reports what is pending and inbox_drain reads and acknowledges messages — through the MCP server, with the same plan allowances as REST."
+description: "Use the Coinversa Pulse event inbox from an AI agent — inbox_subscribe creates an inbox subscription from a type, args and filters, inbox_subscriptions lists them, inbox_unsubscribe deletes one, inbox_state reports what is pending, inbox_peek looks at messages without consuming them, inbox_drain reads a batch and inbox_ack deletes what was processed — through the MCP server, with the same plan allowances as REST."
 ---
 
-An agent connected to the [MCP server](/mcp/setup) can subscribe to events, read what they matched and unsubscribe from chat, with no server and no curl. The five tools below work on your account's [inbox](/webhooks/inbox): they create and manage **inbox subscriptions** only, act on the same account the portal and REST show, and are bound by the same plan allowance.
+An agent connected to the [MCP server](/mcp/setup) can subscribe to events, read what they matched and unsubscribe from chat, with no server and no curl. The eight tools below work on your account's [inbox](/webhooks/inbox): they create and manage **inbox subscriptions** only, act on the same account the portal and REST show, and are bound by the same plan allowance.
 
 <Note>
 The MCP tools never take a URL. A subscription created from chat always delivers to the inbox, and the tools neither list nor delete HTTP subscriptions. To have frames POSTed to a URL you own, create the subscription in the [developer portal](https://developers.coinversa.ai) or over [REST](/webhooks/api#create-a-subscription).
 </Note>
 
 ## Subscribe
+
+`inbox_definitions` lists the types this account's plan can create, with each type's arguments and the filter fields and operators it accepts, so an agent can look them up instead of guessing. It is read-only and paged with `limit` and `offset`.
 
 `inbox_subscribe` takes the same three things a REST create does — a `type`, its `args` and optional `filters` — and always sends `"deliveryMode": "inbox"`. Ask Claude to "watch 0x28f0…9bad's BTC fills of 1.5 or more" and it calls:
 
@@ -44,33 +46,42 @@ A subscription is immutable: to change it, unsubscribe and subscribe again, whic
 
 `inbox_subscriptions` lists your inbox subscriptions — id, type, normalized `args`, `filters` and whether each is disabled — sorted by id, `limit` at a time (default 20, at most 100) with `offset`, `hasMore` and `nextOffset` to continue. HTTP subscriptions are left out, so their URLs never reach a chat transcript.
 
-`inbox_unsubscribe` deletes one inbox subscription by its `subscriptionId`. It checks the id is an inbox subscription of yours first and refuses anything else; there is no bulk delete. Unsubscribing stops collection but keeps the messages already stored — they stay pending until drained or expired.
+`inbox_unsubscribe` deletes one inbox subscription by its `subscriptionId`. It checks the id is an inbox subscription of yours first and refuses anything else; there is no bulk delete. Unsubscribing stops collection but keeps the messages already stored — they stay pending until acknowledged, expired or evicted.
 
 ## Read the inbox
 
 `inbox_state` reports the inbox without touching it: `pendingMessages`, `pendingBytes`, your plan's `maxMessages` and `maxStoredBytes`, and the two cumulative loss counters, `overflowDroppedTotal` and `expiredTotal`.
 
-`inbox_drain` reads and **consumes**. It fetches the oldest pending messages (`count`, default 10, up to 1,000), keeps as many complete messages as fit the response budget, and acknowledges exactly those — a message it had to leave out stays pending for the next call, and a message's `data` is never split. Each message is the delivery envelope — `channel`, `seq`, `subscriptionId`, `data` — plus its `inboxId` and `receivedAt` ([the message](/webhooks/inbox#the-message)).
+Reading and deleting are separate steps, as they are over REST: `inbox_peek` and `inbox_drain` never delete anything, and only `inbox_ack` does. Each message is the delivery envelope — `channel`, `seq`, `subscriptionId`, `data` — plus its `inboxId` and `receivedAt` ([the message](/webhooks/inbox#the-message)). Both read tools take `count` (default 10, up to 1,000) and `maxBytes`, return the oldest messages first, and keep only as many **complete** messages as fit the response budget; a message's `data` is never split.
 
-The result carries `messages`, `count`, `hasMore`, `acknowledged`, `ackStatus` and the inbox `state` as it was **before** the acknowledgement (`stateAt: "drain"`); call `inbox_state` for the current counts. Three things follow from the tool acknowledging for you:
+**`inbox_peek`** looks without consuming. An optional `type` — one exact, case-sensitive event type such as `tradesByUser` or `liquidations`, the envelope's `channel` — narrows it to that type. It returns `messages`, `count`, `hasMore` and the inbox `state` (`stateAt: "peek"`), and no receipt. `hasMore` counts only messages of the requested type; `state` is always account-wide. Peeking does not advance anything, so the same call returns the same messages until they are acknowledged.
 
-- **A drain from chat deletes.** Unlike the REST [drain](/webhooks/inbox#drain-read-without-deleting), which is safe to repeat until you ack, the tool acks as part of the same call. There is no peek: use `inbox_state` to look without consuming.
-- **`ackStatus: "unconfirmed"`** means the acknowledgement did not come back. The messages are still returned, but they may reappear on the next drain — deduplicate by `inboxId`.
-- **Two drains at once** can return the same message. If several agents share an account, give one of them the job.
+**`inbox_drain`** reads a batch to process. It is not filtered by type. It returns the same fields plus a **`batchId`**, a receipt for exactly the messages returned (`null` when nothing is returned), with `stateAt: "drain"`.
 
-The inbox is per **account**: a drain returns what every inbox subscription matched, whichever key or surface created it, and what it acknowledges is gone for the portal and REST too. Messages nobody acknowledges expire after 14 days or are evicted on overflow — see [Limits](/webhooks/inbox#limits).
+**`inbox_ack`** deletes. It takes that drain's `batchId` and a `count`, and deletes the **first `count` messages of that batch** — so after processing, pass the `count` the drain returned, or fewer if you processed fewer, never the count you asked for. It returns `acknowledged` (what this call removed), `ackStatus` and the `state` after the delete (`stateAt: "ack"`). Repeating the same `batchId` and `count` is safe: it returns `acknowledged: 0` rather than deleting newer messages. A receipt expires after 14 days.
+
+The loop from chat is therefore **drain, process, ack** ([the same loop as REST](/webhooks/inbox#for-agents-drain-process-ack)). Three things to know:
+
+- **Messages stay until acknowledged.** A drain that is never followed by `inbox_ack` leaves its messages pending, and the next drain returns them again. Before November 16, 2026, `inbox_drain` acknowledged what it returned; an agent written for that behaviour now has to call `inbox_ack`.
+- **`ackStatus: "unconfirmed"`** means the acknowledgement did not come back and the delete may or may not have happened. Retry with the same `batchId` and `count`, and deduplicate by `inboxId`.
+- **Two drains at once** can return the same messages: a drain does not reserve them. If several agents share an account, give one of them the job.
+
+The inbox is per **account**: a drain returns what every inbox subscription matched, whichever key or surface created it, and what is acknowledged is gone for the portal and REST too. Messages nobody acknowledges expire after 14 days or are evicted on overflow — see [Limits](/webhooks/inbox#limits).
 
 ## The tools
 
 | Tool | Kind | Backing route | What it does |
 |---|---|---|---|
+| `inbox_definitions` | Read-only | `GET /v1/subscriptions/definitions` | Types available on your plan, with their arguments and filter fields |
 | `inbox_subscribe` | Creates a subscription | `POST /v1/subscriptions` | One inbox subscription from `type`, `args` and optional `filters`; never a URL |
 | `inbox_subscriptions` | Read-only | `GET /v1/subscriptions` | Lists your inbox subscriptions, paged; HTTP subscriptions are excluded |
 | `inbox_unsubscribe` | Destructive | `DELETE /v1/subscriptions/{id}` | Deletes one inbox subscription; stored messages are kept |
 | `inbox_state` | Read-only | `GET /v1/inbox` | Pending counts, plan capacity and loss counters |
-| `inbox_drain` | Destructive | `POST /v1/inbox/drain`, `POST /v1/inbox/ack` | Reads the oldest pending messages and acknowledges the ones it returns |
+| `inbox_peek` | Read-only | `GET /v1/inbox/peek` | The oldest pending messages, optionally of one type; deletes nothing, no receipt |
+| `inbox_drain` | Read-only | `POST /v1/inbox/drain` | The oldest pending messages and a `batchId` to acknowledge them with; deletes nothing |
+| `inbox_ack` | Destructive | `POST /v1/inbox/ack` | Deletes the first `count` messages of a drained batch |
 
-`inbox_subscribe`, `inbox_unsubscribe` and `inbox_drain` are the tools that change anything, and what they change is your Coinversa inbox subscriptions and inbox. The connector still never touches an exchange account, never signs and never trades.
+`inbox_subscribe`, `inbox_unsubscribe` and `inbox_ack` are the tools that change anything, and what they change is your Coinversa inbox subscriptions and inbox. The connector still never touches an exchange account, never signs and never trades.
 
 ## Hosted connections
 

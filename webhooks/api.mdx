@@ -1,6 +1,6 @@
 ---
 title: "Webhooks API"
-description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000, the cohort bias args and the args of the four liquidation risk types, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
+description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000, the cohort bias args and the args of the four liquidation risk types, list, delete one or all, re-enable, read the signing secret, the inbox state, peek, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
 ---
 
 Every route on this page is relative to one base URL and, except `/health`, authenticated:
@@ -42,6 +42,7 @@ Every authenticated row takes the Bearer header above.
 | `POST` | `/v1/subscriptions/{id}/enable` | yes | Re-enable a subscription a `410` disabled |
 | `GET` | `/v1/subscriptions/{id}/secret` | yes | Read the subscription's signing secret (`400` on an inbox subscription) |
 | `GET` | `/v1/inbox` | yes | The account inbox's `state` |
+| `GET` | `/v1/inbox/peek` | yes | Read up to `count` pending inbox messages, optionally of one `type`, without deleting them and with no receipt |
 | `POST` | `/v1/inbox/drain` | yes | Read up to `count` pending inbox messages within `maxBytes`, oldest first, without deleting them |
 | `POST` | `/v1/inbox/ack` | yes | Delete inbox messages by batch prefix or by `inboxIds` |
 | `GET` | `/health` | none | Liveness: `200`, with service counts in the body |
@@ -241,11 +242,12 @@ Tier checks are **creation-time** checks, not continuous re-authorisation of sav
 
 ## Inbox
 
-Three routes read the account's one inbox; the semantics are on [Inbox delivery](/webhooks/inbox).
+Four routes read the account's one inbox; the semantics are on [Inbox delivery](/webhooks/inbox).
 
 | Route | Request | Response |
 |---|---|---|
 | `GET /v1/inbox` | — | `{"state": {pendingMessages, pendingBytes, maxMessages, maxStoredBytes, overflowDroppedTotal, expiredTotal}}` |
+| `GET /v1/inbox/peek?type=tradesByUser&count=10&maxBytes=65536` | Same `count` and `maxBytes` as drain; optional `type`, one exact subscription type (`400` if unknown) | `{"messages", "hasMore", "state"}` — oldest matching first, **nothing deleted, no receipt**. `hasMore` counts matching messages only; `state` is account-wide. `413` with `requiredMaxBytes` as for drain |
 | `POST /v1/inbox/drain?count=10&maxBytes=65536` | No body. `count` 1–1,000 (default 10); `maxBytes` 1,024–4,194,304 (default 65,536), a budget for the whole response | `{"batchId", "messages", "hasMore", "state"}` — oldest first, **nothing deleted**. `413` with `requiredMaxBytes` when the oldest message does not fit; an empty inbox returns an empty `batchId` |
 | `POST /v1/inbox/ack` | **One** of `{"batchId", "count"}` (an absolute prefix of that batch) or `{"inboxIds": [...]}` (1–1,000) | `{"acknowledged", "state"}` — `acknowledged` is what **this** request removed, so a retry returns `0`. Idempotent |
 
