@@ -48,6 +48,12 @@
               "concepts/builder-attribution",
               "concepts/data-coverage"
             ]
+          },
+          {
+            "group": "Support",
+            "pages": [
+              "status"
+            ]
           }
         ]
       },
@@ -133,6 +139,11 @@
           "icon": "github"
         },
         {
+          "anchor": "Status",
+          "href": "https://status.coinversa.ai",
+          "icon": "signal"
+        },
+        {
           "anchor": "Releases",
           "href": "https://github.com/Coinversaa/mcp-server/releases",
           "icon": "tag"
@@ -146,6 +157,10 @@
   },
   "navbar": {
     "links": [
+      {
+        "label": "Status",
+        "href": "https://status.coinversa.ai"
+      },
       {
         "label": "Support",
         "href": "mailto:chat@coinversa.ai"
