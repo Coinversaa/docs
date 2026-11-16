@@ -161,6 +161,6 @@ Each API key has an effective tier. Endpoint access and daily/monthly caps are c
 
 The websocket resolves differently: a connection gets the **highest entitled tier across the account's keys**, and its connection cap is shared by all of them. See [WebSocket plan limits](/websocket/limits#resolved-limits-not-the-table).
 
-Tier entitlement is granted by an active Stripe subscription, an explicit grandfather override, or a failed payment still inside its grace window (up to 14 days, never past the current billing period). A paid key whose own entitlement ends is still served at its tier if another active key on the same account is entitled at that tier (or at the lower paid tier that sibling holds); otherwise it falls back to Free limits. The key is **not deleted** — your existing integrations keep working at reduced quota until you reactivate.
+Tier entitlement is granted by an active Stripe subscription, an explicit grandfather override, or a failed renewal payment still inside its **4-day** grace window — access continues for 4 days after the failed payment, then the key drops to Free limits until the card is updated. A paid key whose own entitlement ends is still served at its tier if another active key on the same account is entitled at that tier (or at the lower paid tier that sibling holds); otherwise it falls back to Free limits. The key is **not deleted** — your existing integrations keep working at reduced quota until you reactivate.
 
 See [Authentication](/authentication) for the request-time mechanics and rate-limit headers.

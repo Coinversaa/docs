@@ -1,0 +1,25 @@
+---
+title: "Status & reliability"
+description: "Coinversa Pulse service status and reliability — live status and incident history at status.coinversa.ai, email and RSS updates, the monitored components (REST API, MCP server, live data freshness, WebSocket streams), retrying 5xx errors with backoff, and the 99.5% monthly availability target (no formal SLA yet)."
+---
+
+Live status and incident history for every Coinversa surface are on the **status page** at [status.coinversa.ai](https://status.coinversa.ai). Check it first when something looks wrong — and subscribe there to get incident updates by **email** or **RSS**.
+
+## What is monitored
+
+| Component | What it covers |
+|-----------|----------------|
+| **REST API** | `api.coinversa.ai/api/public/v1` — every endpoint, including the x402 twins |
+| **MCP server** | The hosted MCP endpoint your AI client connects to |
+| **Live data freshness** | Whether live positions, liquidations and market data are keeping up with Hyperliquid — see [Data coverage](/concepts/data-coverage) |
+| **WebSocket streams** | `wss://ws.coinversa.ai` connections and feeds — see [WebSocket overview](/websocket/overview) |
+
+## During an incident
+
+The REST API returns a **5xx** status while a component is degraded. Treat any 5xx as retryable — **retry with exponential backoff** (with jitter) rather than in a tight loop, and check the status page before you escalate. A 4xx is not an incident: it is about the request or the key — see [Authentication](/authentication).
+
+WebSocket clients should reconnect with backoff too; refused upgrades and close codes are covered in [WebSocket protocol](/websocket/protocol).
+
+## Availability
+
+There is **no formal SLA yet**. Our target is **99.5% monthly availability**, and incidents and their resolution are published on the status page. If you need contractual commitments, [contact us](mailto:chat@coinversa.ai).
