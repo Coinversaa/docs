@@ -3,6 +3,14 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="November 17, 2026" tags={["MCP", "Webhooks"]}>
+
+## MCP: `inbox_drain` is now `inbox_fetch`
+
+The MCP tool that reads your webhook inbox is renamed from `inbox_drain` to **`inbox_fetch`**, because the old name no longer described it. Fetching never deletes messages: it returns the oldest pending messages with a `batchId`, and they stay pending until you delete them with **`inbox_ack`**. The old name still works for now, so existing prompts and agents keep running. The REST route `POST /v1/inbox/drain` is unchanged. See [Webhooks for agents](/webhooks/agents#read-the-inbox).
+
+</Update>
+
 <Update label="November 13, 2026" tags={["Webhooks"]}>
 
 ## Webhooks: four liquidation risk types
