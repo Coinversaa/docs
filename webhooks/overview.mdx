@@ -67,12 +67,12 @@ Treat `seq` as a per-source position, as on the socket: trade prices use the blo
 Each delivery is one `POST` to the subscription's `url`, signed the **[Standard Webhooks](https://www.standardwebhooks.com)** way: `webhook-id`, `webhook-timestamp` and `webhook-signature` headers, `v1` HMAC-SHA256 over `id.timestamp.body`, verified by the off-the-shelf `standardwebhooks` library for your language ([Signatures and delivery](/webhooks/signatures)).
 
 - Any **2xx** acknowledges. Anything else is retried on a bounded back-off, respecting your `Retry-After` up to 24 hours, for up to **nine attempts over about 76 hours**.
-- Retries are kept **in memory**: a restart of the service drops them. Only `priceCross`, cohort bias and liquidation risk deliveries sit in a durable outbox that survives restarts.
+- Retries are kept **in memory**: a restart of the service stops them, and they show as `failed` in the delivery history. Only `priceCross`, cohort bias and liquidation risk deliveries, and resends, sit in a durable outbox that survives restarts.
 - Delivery is **at least once**, and order across deliveries and retries is not guaranteed. Deduplicate on `webhook-id`.
 - A **410** from your URL disables the subscription until you re-enable it with `POST /v1/subscriptions/{id}/enable`.
 - The URL must be public **HTTPS on port 443**; redirects and private or reserved addresses are refused when you create the subscription.
 
-Nothing is stored after an HTTP delivery is acknowledged or gives up: there is no delivery history, no replay and no test send. If you need to see what your receiver got, log it on your side.
+Every HTTP delivery is kept in a **delivery history** for 14 days: what was sent, whether your URL took it, and the result of the latest attempt. Any delivery in it can be **resent** with the same `webhook-id` ([Delivery history](/webhooks/api#delivery-history)). There is no test send.
 
 ## Or pull from the inbox
 
