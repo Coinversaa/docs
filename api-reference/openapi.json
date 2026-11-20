@@ -4991,6 +4991,7 @@
         "additionalProperties": false,
         "properties": {
           "contracts": {
+            "description": "Contracts traded (Buy/Sell fill size / 2, same basis as notional). Before 2026-11 this summed both fills of each trade and was about double.",
             "format": "double",
             "type": "number"
           },
@@ -5002,6 +5003,7 @@
             "type": "integer"
           },
           "notionalUsdh": {
+            "description": "Notional summed across markets without currency conversion. The Usdh suffix is historical.",
             "format": "double",
             "type": "number"
           },
@@ -5052,6 +5054,47 @@
         "required": [
           "since",
           "days"
+        ],
+        "type": "object"
+      },
+      "HIP4OddsItem": {
+        "additionalProperties": false,
+        "properties": {
+          "live": {
+            "description": "Null when current listing status cannot be determined.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "outcomeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "questionId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "quoteToken": {
+            "type": "string"
+          },
+          "sides": {
+            "items": {
+              "$ref": "#/components/schemas/Hip4OddsSide"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "outcomeId",
+          "live",
+          "sides"
         ],
         "type": "object"
       },
@@ -5108,6 +5151,10 @@
           },
           "priceBinary": {
             "$ref": "#/components/schemas/ParsedPriceBinary"
+          },
+          "quoteToken": {
+            "description": "Upstream quote token. The Usdh suffix on notionalUsdh is historical.",
+            "type": "string"
           },
           "sides": {
             "items": {
@@ -5177,6 +5224,7 @@
             "type": "string"
           },
           "fills": {
+            "description": "Buy/Sell fills (dir 7/8) since launch; settlement, split and merge legs are excluded (they were counted before 2026-11).",
             "format": "int64",
             "type": "integer"
           },
@@ -5190,6 +5238,7 @@
             "type": "string"
           },
           "notionalUsdh": {
+            "description": "Traded notional across both sides, in quoteToken units. The Usdh suffix is historical.",
             "format": "double",
             "type": "number"
           },
@@ -5197,27 +5246,47 @@
             "format": "int64",
             "type": "integer"
           },
+          "quoteToken": {
+            "description": "Token the notional and P&L are denominated in.",
+            "type": "string"
+          },
           "realizedPnlUsdh": {
+            "description": "Sum of realised P&L over every fill, settlement legs included, in quoteToken units.",
+            "format": "double",
+            "type": "number"
+          },
+          "side0AvgPx": {
+            "description": "Side-0 volume-weighted average price: side0NotionalUsdh / side0Contracts (an implied probability between 0 and 1).",
             "format": "double",
             "type": "number"
           },
           "side0Contracts": {
+            "description": "Side-0 contracts traded: Buy/Sell fill size / 2, since each trade is two fills. Before 2026-11 this summed every fill and was about double.",
             "format": "double",
             "type": "number"
           },
           "side0NotionalUsdh": {
+            "description": "Side-0 traded notional in quoteToken units (px*sz / 2 over Buy/Sell fills).",
+            "format": "double",
+            "type": "number"
+          },
+          "side1AvgPx": {
+            "description": "Side-1 volume-weighted average price.",
             "format": "double",
             "type": "number"
           },
           "side1Contracts": {
+            "description": "Side-1 contracts traded, same basis as side0Contracts.",
             "format": "double",
             "type": "number"
           },
           "side1NotionalUsdh": {
+            "description": "Side-1 traded notional in quoteToken units.",
             "format": "double",
             "type": "number"
           },
           "uniqueWallets": {
+            "description": "Wallets with a Buy/Sell fill.",
             "format": "int64",
             "type": "integer"
           }
@@ -5385,6 +5454,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "quoteToken": {
+            "description": "Upstream quote token for this outcome.",
+            "type": "string"
+          },
           "trades": {
             "items": {
               "$ref": "#/components/schemas/HIP4RecentTrade"
@@ -5409,6 +5482,7 @@
             "type": "string"
           },
           "loserFills": {
+            "description": "User settlement legs at px 0.",
             "format": "int64",
             "type": "integer"
           },
@@ -5419,22 +5493,40 @@
             "format": "int64",
             "type": "integer"
           },
+          "quoteToken": {
+            "description": "Token payouts are made in.",
+            "type": "string"
+          },
           "settledAt": {
+            "description": "Time of the settlement (system leg).",
+            "type": "string"
+          },
+          "source": {
+            "description": "Evidence for the settlement: settlementDir (fills the syncer tagged dir_id 9, Settlement) or systemLeg (legacy dir_id 0 fills paired with a 0x3200… system settlement leg).",
             "type": "string"
           },
           "totalLoserLoss": {
+            "description": "Losers' realised loss (cost basis of contracts settled at 0), in quoteToken units.",
             "format": "double",
             "type": "number"
           },
           "totalWinnerPayout": {
+            "description": "Amount paid to winners: winning contracts x 1, in quoteToken units. Before 2026-11 this field carried winners' profit (now totalWinnerProfit).",
+            "format": "double",
+            "type": "number"
+          },
+          "totalWinnerProfit": {
+            "description": "Winners' realised profit on the settlement legs: payout minus cost basis, in quoteToken units.",
             "format": "double",
             "type": "number"
           },
           "winnerFills": {
+            "description": "User settlement legs at px 1 (system legs excluded; before 2026-11 they were counted too, doubling this).",
             "format": "int64",
             "type": "integer"
           },
           "winningSide": {
+            "description": "Side whose system settlement leg is at px 1; when nobody held the winner, the other side of the binary outcome. Omitted when undeterminable.",
             "format": "int32",
             "type": "integer"
           }
@@ -5442,9 +5534,11 @@
         "required": [
           "outcomeId",
           "settledAt",
+          "source",
           "winnerFills",
           "loserFills",
           "totalWinnerPayout",
+          "totalWinnerProfit",
           "totalLoserLoss"
         ],
         "type": "object"
@@ -5948,6 +6042,266 @@
           "largestLoss",
           "firstTradeAt",
           "lastTradeAt"
+        ],
+        "type": "object"
+      },
+      "Hip4OddsBoard": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/Hip4OddsBoard.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "asOf": {
+            "description": "Time the mids snapshot was fetched.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "limit": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "nextOffset": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offset": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/HIP4OddsItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "total",
+          "offset",
+          "limit",
+          "count",
+          "nextOffset",
+          "outcomes",
+          "asOf",
+          "stale"
+        ],
+        "type": "object"
+      },
+      "Hip4OddsCandle": {
+        "additionalProperties": false,
+        "properties": {
+          "close": {
+            "format": "double",
+            "type": "number"
+          },
+          "contracts": {
+            "format": "double",
+            "type": "number"
+          },
+          "fills": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "high": {
+            "format": "double",
+            "type": "number"
+          },
+          "low": {
+            "format": "double",
+            "type": "number"
+          },
+          "notional": {
+            "description": "In the outcome's quote token.",
+            "format": "double",
+            "type": "number"
+          },
+          "open": {
+            "format": "double",
+            "type": "number"
+          },
+          "time": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "vwap": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vwap",
+          "contracts",
+          "notional",
+          "fills"
+        ],
+        "type": "object"
+      },
+      "Hip4OddsHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/Hip4OddsHistory.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "hours": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "interval": {
+            "type": "string"
+          },
+          "outcomeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "quoteToken": {
+            "type": "string"
+          },
+          "sides": {
+            "description": "Executed-trade candles, oldest first. Empty buckets are omitted.",
+            "items": {
+              "$ref": "#/components/schemas/Hip4OddsHistorySide"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcomeId",
+          "interval",
+          "hours",
+          "since",
+          "sides"
+        ],
+        "type": "object"
+      },
+      "Hip4OddsHistorySide": {
+        "additionalProperties": false,
+        "properties": {
+          "assetId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "candles": {
+            "items": {
+              "$ref": "#/components/schemas/Hip4OddsCandle"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "coinKey": {
+            "type": "string"
+          },
+          "index": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sideToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "candles",
+          "index",
+          "name",
+          "sideToken",
+          "coinKey",
+          "assetId"
+        ],
+        "type": "object"
+      },
+      "Hip4OddsSide": {
+        "additionalProperties": false,
+        "properties": {
+          "assetId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "coinKey": {
+            "type": "string"
+          },
+          "index": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mid": {
+            "description": "Hyperliquid mid (market-implied probability); null when unavailable.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "sideToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mid",
+          "index",
+          "name",
+          "sideToken",
+          "coinKey",
+          "assetId"
         ],
         "type": "object"
       },
@@ -7415,6 +7769,78 @@
         ],
         "type": "object"
       },
+      "OutcomeOdds": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://api.coinversa.ai/schemas/OutcomeOdds.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "asOf": {
+            "description": "Time the mids snapshot was fetched.",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "live": {
+            "description": "Null when current listing status cannot be determined.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "outcomeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "questionId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "quoteToken": {
+            "type": "string"
+          },
+          "sides": {
+            "items": {
+              "$ref": "#/components/schemas/Hip4OddsSide"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "outcomeId",
+          "live",
+          "sides",
+          "asOf",
+          "stale"
+        ],
+        "type": "object"
+      },
       "ParsedPriceBinary": {
         "additionalProperties": false,
         "properties": {
@@ -7569,6 +7995,7 @@
             "type": "string"
           },
           "outcomeNotionalUsdh": {
+            "description": "Gross bought notional in the window, in quoteToken units. The Usdh suffix is historical.",
             "format": "double",
             "type": "number"
           },
@@ -7628,9 +8055,16 @@
             "readOnly": true,
             "type": "string"
           },
+          "displayName": {
+            "type": "string"
+          },
           "outcomeId": {
             "format": "int64",
             "type": "integer"
+          },
+          "quoteToken": {
+            "description": "Token outcomeNotionalUsdh is denominated in.",
+            "type": "string"
           },
           "sides": {
             "items": {
@@ -7644,6 +8078,10 @@
           "since": {
             "type": "string"
           },
+          "template": {
+            "description": "Outcome template the alignment rule was derived from (binaryPrice or legacy priceBinary).",
+            "type": "string"
+          },
           "topWallets": {
             "items": {
               "$ref": "#/components/schemas/PerpContextTopWallet"
@@ -7654,12 +8092,19 @@
             ]
           },
           "underlying": {
+            "description": "Hyperliquid perp the outcome settles on, e.g. BTC or xyz:CL.",
+            "type": "string"
+          },
+          "yesAlignedWith": {
+            "description": "Perp side a Yes (side 0) holder is aligned with: long, because Yes pays when the underlying is above the threshold at expiry. No holders are aligned with short.",
             "type": "string"
           }
         },
         "required": [
           "outcomeId",
+          "template",
           "underlying",
+          "yesAlignedWith",
           "since",
           "sides",
           "topWallets"
@@ -8976,6 +9421,7 @@
             "type": "integer"
           },
           "realizedPnlUsdh": {
+            "description": "Realized P&L summed without currency conversion, including settlements.",
             "format": "double",
             "type": "number"
           },
@@ -8984,6 +9430,7 @@
             "type": "number"
           },
           "totalNotionalUsdh": {
+            "description": "Buy/Sell notional summed without currency conversion. The Usdh suffix is historical.",
             "format": "double",
             "type": "number"
           }
@@ -9238,10 +9685,12 @@
             "type": "string"
           },
           "grossBoughtUsdh": {
+            "description": "Buy notional in quoteToken units. The Usdh suffix is historical.",
             "format": "double",
             "type": "number"
           },
           "grossSoldUsdh": {
+            "description": "Sell notional in quoteToken units.",
             "format": "double",
             "type": "number"
           },
@@ -9252,6 +9701,7 @@
             "type": "string"
           },
           "netShares": {
+            "description": "Net contracts acquired in the window: every fill counts by its own side (B +, A -), so splits and negate receive-legs add and settlements, merges and negate give-legs subtract.",
             "format": "double",
             "type": "number"
           },
@@ -9259,7 +9709,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "quoteToken": {
+            "description": "Token the *Usdh amounts are denominated in.",
+            "type": "string"
+          },
           "realizedPnlUsdh": {
+            "description": "Realised P&L in quoteToken units, settlements included.",
             "format": "double",
             "type": "number"
           },
@@ -15696,6 +16151,236 @@
         "x-coinversa-quota-scope": "account"
       }
     },
+    "/api/public/v1/hip4/odds": {
+      "get": {
+        "operationId": "get-api-public-v1-hip4-odds",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "questionId",
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hip4OddsBoard"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 hip4 odds",
+        "x-coinversa-min-tier": "free",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
     "/api/public/v1/hip4/outcomes": {
       "get": {
         "operationId": "get-api-public-v1-hip4-outcomes",
@@ -16108,6 +16793,463 @@
         ],
         "summary": "Get API public v1 hip4 outcomes by outcome ID",
         "x-coinversa-min-tier": "free",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
+    "/api/public/v1/hip4/outcomes/{outcome_id}/odds": {
+      "get": {
+        "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id-odds",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "outcome_id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 100000000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutcomeOdds"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Not Found",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 hip4 outcomes by outcome ID odds",
+        "x-coinversa-min-tier": "free",
+        "x-coinversa-quota-scope": "account"
+      }
+    },
+    "/api/public/v1/hip4/outcomes/{outcome_id}/odds-history": {
+      "get": {
+        "operationId": "get-api-public-v1-hip4-outcomes-by-outcome-id-odds-history",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "outcome_id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 100000000,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "interval",
+            "schema": {
+              "default": "1h",
+              "enum": [
+                "5m",
+                "1h",
+                "1d"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Defaults to 24/168/720 and is capped at 48/720/2160 hours for 5m/1h/1d.",
+            "explode": false,
+            "in": "query",
+            "name": "hours",
+            "schema": {
+              "description": "Defaults to 24/168/720 and is capped at 48/720/2160 hours for 5m/1h/1d.",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hip4OddsHistory"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Bad Request",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Forbidden",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Too Many Requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              },
+              "X-Billing-Grace-Expires": {
+                "$ref": "#/components/headers/X-Billing-Grace-Expires"
+              },
+              "X-Billing-State": {
+                "$ref": "#/components/headers/X-Billing-State"
+              },
+              "X-RateLimit-Daily": {
+                "$ref": "#/components/headers/X-RateLimit-Daily"
+              },
+              "X-RateLimit-Daily-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Daily-Reset"
+              },
+              "X-RateLimit-Monthly": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly"
+              },
+              "X-RateLimit-Monthly-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Monthly-Reset"
+              },
+              "X-RateLimit-Next": {
+                "$ref": "#/components/headers/X-RateLimit-Next"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              },
+              "X-RateLimit-Route": {
+                "$ref": "#/components/headers/X-RateLimit-Route"
+              },
+              "X-RateLimit-Scope": {
+                "$ref": "#/components/headers/X-RateLimit-Scope"
+              },
+              "X-RateLimit-Tier": {
+                "$ref": "#/components/headers/X-RateLimit-Tier"
+              },
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Internal Server Error",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            },
+            "description": "Gateway Timeout",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/X-Request-ID"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get API public v1 hip4 outcomes by outcome ID odds history",
+        "x-coinversa-min-tier": "starter",
         "x-coinversa-quota-scope": "account"
       }
     },
