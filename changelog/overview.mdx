@@ -3,6 +3,31 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="November 17, 2026" tags={["Webhooks", "MCP"]}>
+
+## Webhooks: delivery history and resend
+
+- **Every HTTP delivery is now recorded** for 14 days: its status (`pending`, `retrying`, `delivered` or `failed`), how many attempts it took and the result of the latest one. `GET /v1/deliveries` lists them newest first, and `GET /v1/deliveries/{id}` returns the exact payload that was sent ([Delivery history](/webhooks/api#delivery-history)).
+- **`POST /v1/deliveries/{id}/resend`** sends a stored delivery again, with the same `webhook-id` and a fresh signature. Deliveries that ran out of retries, were cut off by a service restart or found the queue full are no longer lost: they show as `failed` and can be resent.
+- History has the inbox's limits per plan, counted separately from the inbox ([Plan limits](/webhooks/limits#delivery-history)). It starts with this release; earlier deliveries are not included.
+
+## MCP: `inbox_drain` is now `inbox_fetch`
+
+**MCP 0.21.1** renames `inbox_drain` to **`inbox_fetch`**, because it no longer removes anything. It behaves exactly as before: it returns messages and a `batchId`, and `inbox_ack` deletes them. `inbox_drain` still works as a hidden alias, so existing agents keep running ([Webhooks for agents](/webhooks/agents#read-the-inbox)).
+
+</Update>
+
+<Update label="November 16, 2026" tags={["Webhooks", "MCP"]}>
+
+## Inbox: peek by type, and acknowledging from chat is now its own step
+
+- **`GET /v1/inbox/peek`** reads the oldest pending inbox messages without deleting them, optionally of one event `type` such as `tradesByUser`. It returns no receipt, and the same peek returns the same messages until they are acknowledged ([Peek](/webhooks/inbox#peek-look-by-event-type)).
+- **MCP 0.21.0** adds `inbox_peek` and **`inbox_ack`**, and **`inbox_drain` no longer acknowledges**. A drain from chat now returns the messages and a `batchId`; the agent processes them and calls `inbox_ack` with that `batchId` and `count`. Messages that are never acknowledged stay pending and are returned again by the next drain, until they expire at 14 days or overflow evicts them. **An agent written for the old `inbox_drain` must add the `inbox_ack` call** ([Webhooks for agents](/webhooks/agents#read-the-inbox)).
+
+The REST drain and ack routes are unchanged.
+
+</Update>
+
 <Update label="November 13, 2026" tags={["Webhooks"]}>
 
 ## Webhooks: four liquidation risk types

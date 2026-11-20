@@ -3,7 +3,7 @@ title: "Webhook troubleshooting"
 description: "Fix Coinversa Pulse webhook problems by symptom — 400 on an impossible filter range, 403 on a type above your plan or an inbox subscription on Free, 429 at the subscription cap, a subscription disabled by a 410 and the enable route, deliveries missing after a service restart, a URL refused for a private address, a redirect or a non-443 port, a liquidation risk subscription that delivers nothing, Standard Webhooks signature mismatches, 413 on an inbox drain, acknowledged 0 on an ack, and 400 on /secret for an inbox subscription."
 ---
 
-Start from what you see. There is no delivery log on our side — nothing is stored after an HTTP delivery — so the places to look are `GET /v1/subscriptions` ([reference](/webhooks/api#list-subscriptions)), `GET /v1/inbox` for inbox subscriptions ([reference](/webhooks/inbox#state)), the unauthenticated `GET /health` ([reference](/webhooks/api#health)) and your own receiver's logs.
+Start from what you see. For HTTP subscriptions, `GET /v1/deliveries` shows each delivery's status and the result of its latest attempt ([delivery history](/webhooks/api#delivery-history)). The other places to look are `GET /v1/subscriptions` ([reference](/webhooks/api#list-subscriptions)), `GET /v1/inbox` for inbox subscriptions ([reference](/webhooks/inbox#state)), the unauthenticated `GET /health` ([reference](/webhooks/api#health)) and your own receiver's logs.
 
 ## `400` when creating a subscription
 
@@ -43,7 +43,19 @@ The call is idempotent. If it answers `429`, you are at your allowance with the 
 
 ## Nothing arrived, and the service restarted
 
-Ordinary deliveries and their retries are kept **in memory**. When the webhook service restarts — a deploy, a crash — whatever was queued or waiting to retry is lost, and nothing is replayed afterwards. Your subscription is still saved and starts delivering again on the next matching frame. If your receiver was down at the same time, the frames it missed are gone from the webhook side: read the wallet's fills from the [REST API](/quickstart) or the [WebSocket](/websocket/overview) to fill the gap.
+Ordinary deliveries and their retries are kept **in memory**. When the webhook service restarts — a deploy, a crash — whatever was queued or waiting to retry stops and is not retried automatically. Your subscription is still saved and starts delivering again on the next matching frame.
+
+The stopped deliveries are not lost: they show as `failed` with a restart error in the [delivery history](/webhooks/api#delivery-history), and so do deliveries that ran out of attempts while your receiver was down. List them and resend each one:
+
+```bash
+curl "https://webhook.coinversa.ai/v1/deliveries?subscriptionId=$SUB_ID&count=100" \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
+
+curl -X POST https://webhook.coinversa.ai/v1/deliveries/$MSG_ID/resend \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
+```
+
+A resend keeps the original `webhook-id`, so a receiver that deduplicates on it is safe. History covers deliveries from November 17, 2026 for 14 days; for anything older, read the wallet's fills from the [REST API](/quickstart) or the [WebSocket](/websocket/overview).
 
 `priceCross` behaves differently: its deliveries sit in a durable outbox and survive a restart, though a crossing that happened entirely during an outage of the **source** cannot be reconstructed. The four cohort bias types use the same outbox; after an outage they compare the newest snapshot with the last one they saw, and the snapshots in between are not replayed. The four liquidation risk types use it too; what happened between two checks, or during an outage, is not replayed either.
 
@@ -55,7 +67,7 @@ Ordinary deliveries and their retries are kept **in memory**. When the webhook s
 4. **Is it a cohort bias type?** These read a stored snapshot, normally taken every 15 minutes. The first delivery of a `cohortBias` subscription follows its creation at the service's next check, about once a minute; after it, nothing arrives before the next snapshot. `cohortBiasFlip`, `cohortBiasOpposition` and `cohortBiasMove` deliver only on a change between two snapshots: the snapshot already stored when you subscribe only sets the starting state, so the next new snapshot is the first that can fire; a cohort that stays on one side never fires a flip. `coin` is not checked against a list of markets, so a symbol with no snapshot rows is accepted and delivers nothing ([snapshot timing](/webhooks/cohort-bias#snapshot-timing)).
 5. **Is it a liquidation risk type?** Those have their own list, [below](#a-liquidation-risk-subscription-delivers-nothing).
 6. **Is your receiver acknowledging?** Only a `2xx` counts. A `200` after a long handler may already have timed out on our side and been retried; answer first, process after.
-7. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped. Fix the receiver and the subscription resumes on its own.
+7. **Is the receiver's queue share full?** A subscription holds at most 16 slots across the fresh and retry pools; a failing receiver saturates its own share and its newest frames are dropped; they show as `failed` with 0 attempts in the [delivery history](/webhooks/api#delivery-history). Fix the receiver and the subscription resumes on its own; resend the dropped ones from the history.
 8. **Is the service healthy?** `GET /health` answers `200` while the service is up, with service counts in the body ([reference](/webhooks/api#health)).
 
 ## A liquidation risk subscription delivers nothing
