@@ -1,9 +1,9 @@
 ---
 title: "Webhooks for agents"
-description: "Use the Coinversa Pulse event inbox from an AI agent — inbox_subscribe creates an inbox subscription from a type, args and filters, inbox_subscriptions lists them, inbox_unsubscribe deletes one, inbox_state reports what is pending and inbox_drain reads and acknowledges messages — through the MCP server, with the same plan allowances as REST."
+description: "Use the Coinversa Pulse event inbox from an AI agent — inbox_subscribe creates an inbox subscription from a type, args and filters, inbox_subscriptions lists them, inbox_unsubscribe deletes one, inbox_state reports what is pending, inbox_fetch reads messages without deleting them and inbox_ack deletes the ones you processed — through the MCP server, with the same plan allowances as REST."
 ---
 
-An agent connected to the [MCP server](/mcp/setup) can subscribe to events, read what they matched and unsubscribe from chat, with no server and no curl. The five tools below work on your account's [inbox](/webhooks/inbox): they create and manage **inbox subscriptions** only, act on the same account the portal and REST show, and are bound by the same plan allowance.
+An agent connected to the [MCP server](/mcp/setup) can subscribe to events, read what they matched and unsubscribe from chat, with no server and no curl. The six tools below work on your account's [inbox](/webhooks/inbox): they create and manage **inbox subscriptions** only, act on the same account the portal and REST show, and are bound by the same plan allowance.
 
 <Note>
 The MCP tools never take a URL. A subscription created from chat always delivers to the inbox, and the tools neither list nor delete HTTP subscriptions. To have frames POSTed to a URL you own, create the subscription in the [developer portal](https://developers.coinversa.ai) or over [REST](/webhooks/api#create-a-subscription).
@@ -34,7 +34,7 @@ A cohort bias subscription is created the same way. Ask Claude to "tell me when 
 }
 ```
 
-Cohort positioning is a stored snapshot, normally taken every 15 minutes, so the flip reaches the inbox at the next snapshot — not when a trade happens — and the agent sees it the next time it drains. The message's `data` holds the cohort's row after the flip, with the row before it under `previous` ([`cohortBiasFlip`](/webhooks/cohort-bias#cohortbiasflip)).
+Cohort positioning is a stored snapshot, normally taken every 15 minutes, so the flip reaches the inbox at the next snapshot — not when a trade happens — and the agent sees it the next time it fetches. The message's `data` holds the cohort's row after the flip, with the row before it under `previous` ([`cohortBiasFlip`](/webhooks/cohort-bias#cohortbiasflip)).
 
 The service validates the type, the field names and your plan, exactly as it does for REST: a type above your plan is refused with `403`, as is any subscription on **Free**, and a full allowance with `429` ([Plan limits](/webhooks/limits)). Inbox and HTTP subscriptions share the same slots. The tool returns a compact receipt — `subscribed`, `subscriptionId`, `deliveryMode`, `disabled` — and has no signing secret to show, because an inbox subscription has none.
 
@@ -44,21 +44,23 @@ A subscription is immutable: to change it, unsubscribe and subscribe again, whic
 
 `inbox_subscriptions` lists your inbox subscriptions — id, type, normalized `args`, `filters` and whether each is disabled — sorted by id, `limit` at a time (default 20, at most 100) with `offset`, `hasMore` and `nextOffset` to continue. HTTP subscriptions are left out, so their URLs never reach a chat transcript.
 
-`inbox_unsubscribe` deletes one inbox subscription by its `subscriptionId`. It checks the id is an inbox subscription of yours first and refuses anything else; there is no bulk delete. Unsubscribing stops collection but keeps the messages already stored — they stay pending until drained or expired.
+`inbox_unsubscribe` deletes one inbox subscription by its `subscriptionId`. It checks the id is an inbox subscription of yours first and refuses anything else; there is no bulk delete. Unsubscribing stops collection but keeps the messages already stored — they stay pending until acknowledged or expired.
 
 ## Read the inbox
 
 `inbox_state` reports the inbox without touching it: `pendingMessages`, `pendingBytes`, your plan's `maxMessages` and `maxStoredBytes`, and the two cumulative loss counters, `overflowDroppedTotal` and `expiredTotal`.
 
-`inbox_drain` reads and **consumes**. It fetches the oldest pending messages (`count`, default 10, up to 1,000), keeps as many complete messages as fit the response budget, and acknowledges exactly those — a message it had to leave out stays pending for the next call, and a message's `data` is never split. Each message is the delivery envelope — `channel`, `seq`, `subscriptionId`, `data` — plus its `inboxId` and `receivedAt` ([the message](/webhooks/inbox#the-message)).
+`inbox_fetch` reads without deleting. It fetches the oldest pending messages (`count`, default 10, up to 1,000), keeps as many complete messages as fit the response budget, and returns them with a `batchId` — a message's `data` is never split. Each message is the delivery envelope — `channel`, `seq`, `subscriptionId`, `data` — plus its `inboxId` and `receivedAt` ([the message](/webhooks/inbox#the-message)). The tool was called `inbox_drain` until November 2026; the old name still works for now.
 
-The result carries `messages`, `count`, `hasMore`, `acknowledged`, `ackStatus` and the inbox `state` as it was **before** the acknowledgement (`stateAt: "drain"`); call `inbox_state` for the current counts. Three things follow from the tool acknowledging for you:
+The result carries `batchId`, `messages`, `count`, `hasMore` and the inbox `state` at fetch time (`stateAt: "drain"`). Fetching never acknowledges, deletes or reserves anything: every message stays pending until `inbox_ack` deletes it, so a repeated or concurrent fetch can return the same messages — deduplicate by `inboxId`. An empty result has `batchId: null`.
 
-- **A drain from chat deletes.** Unlike the REST [drain](/webhooks/inbox#drain-read-without-deleting), which is safe to repeat until you ack, the tool acks as part of the same call. There is no peek: use `inbox_state` to look without consuming.
-- **`ackStatus: "unconfirmed"`** means the acknowledgement did not come back. The messages are still returned, but they may reappear on the next drain — deduplicate by `inboxId`.
-- **Two drains at once** can return the same message. If several agents share an account, give one of them the job.
+`inbox_ack` is the step that deletes. Pass the fetch's `batchId` and a `count` — required, with no default — and it acknowledges the first `count` messages of that batch, the same [prefix rule](/webhooks/inbox#acknowledge) as REST:
 
-The inbox is per **account**: a drain returns what every inbox subscription matched, whichever key or surface created it, and what it acknowledges is gone for the portal and REST too. Messages nobody acknowledges expire after 14 days or are evicted on overflow — see [Limits](/webhooks/inbox#limits).
+- **Ack what you processed.** `count` must not exceed the `count` the fetch returned, which can be lower than the `count` you asked for when the response was trimmed to fit. Fetch again for the rest.
+- **Retrying is safe.** The same `batchId` and `count` never deletes newer messages, and returns `acknowledged: 0` if they are already gone. A `batchId` expires after 14 days.
+- **`ackStatus: "unconfirmed"`** means the acknowledgement did not come back; the delete may already have happened. If you retry, reuse exactly the same `batchId` and `count`.
+
+The inbox is per **account**: a fetch returns what every inbox subscription matched, whichever key or surface created it, and what an ack deletes is gone for the portal and REST too. If several agents share an account, give one of them the job. Messages nobody acknowledges expire after 14 days or are evicted on overflow — see [Limits](/webhooks/inbox#limits).
 
 ## The tools
 
@@ -68,9 +70,10 @@ The inbox is per **account**: a drain returns what every inbox subscription matc
 | `inbox_subscriptions` | Read-only | `GET /v1/subscriptions` | Lists your inbox subscriptions, paged; HTTP subscriptions are excluded |
 | `inbox_unsubscribe` | Destructive | `DELETE /v1/subscriptions/{id}` | Deletes one inbox subscription; stored messages are kept |
 | `inbox_state` | Read-only | `GET /v1/inbox` | Pending counts, plan capacity and loss counters |
-| `inbox_drain` | Destructive | `POST /v1/inbox/drain`, `POST /v1/inbox/ack` | Reads the oldest pending messages and acknowledges the ones it returns |
+| `inbox_fetch` | Read-only | `POST /v1/inbox/drain` | Reads the oldest pending messages and returns a `batchId`; deletes nothing |
+| `inbox_ack` | Destructive | `POST /v1/inbox/ack` | Deletes the first `count` messages of a fetched batch |
 
-`inbox_subscribe`, `inbox_unsubscribe` and `inbox_drain` are the tools that change anything, and what they change is your Coinversa inbox subscriptions and inbox. The connector still never touches an exchange account, never signs and never trades.
+`inbox_subscribe`, `inbox_unsubscribe` and `inbox_ack` are the tools that change anything, and what they change is your Coinversa inbox subscriptions and inbox. The connector still never touches an exchange account, never signs and never trades.
 
 ## Hosted connections
 

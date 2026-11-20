@@ -319,7 +319,7 @@ Every gated tool's description ends with its plan (`Plan: Starter ($29/month) or
 
 ## Webhooks
 
-Five tools for the [event inbox](/webhooks/agents) — the WebSocket feeds' frames, filtered and stored in your account's [inbox](/webhooks/inbox) for the agent to pull. Creating a subscription takes **Starter** or above (Free has no subscription allowance and no inbox); the tentative subscription counts per plan are on [Webhook plan limits](/webhooks/limits). The tools are inbox-only: a subscription that POSTs to a URL is created in the [developer portal](https://developers.coinversa.ai) or over [REST](/webhooks/api#create-a-subscription).
+Six tools for the [event inbox](/webhooks/agents) — the WebSocket feeds' frames, filtered and stored in your account's [inbox](/webhooks/inbox) for the agent to pull. Creating a subscription takes **Starter** or above (Free has no subscription allowance and no inbox); the tentative subscription counts per plan are on [Webhook plan limits](/webhooks/limits). The tools are inbox-only: a subscription that POSTs to a URL is created in the [developer portal](https://developers.coinversa.ai) or over [REST](/webhooks/api#create-a-subscription).
 
 | Tool | Kind | Description |
 |------|------|-------------|
@@ -327,9 +327,10 @@ Five tools for the [event inbox](/webhooks/agents) — the WebSocket feeds' fram
 | `inbox_subscriptions` | Read-only | Your inbox subscriptions — id, type, normalized `args`, `filters` and disabled status — sorted by id and paged with `limit` (default 20, at most 100) and `offset`. HTTP subscriptions are excluded. |
 | `inbox_unsubscribe` | Destructive | Delete one inbox subscription by `subscriptionId`. Refuses an id that is not an inbox subscription of yours; no bulk delete. Stored inbox messages are kept. |
 | `inbox_state` | Read-only | The inbox without touching it — `GET /v1/inbox`: pending messages and bytes, your plan's capacity, and the cumulative overflow and expiry counters. |
-| `inbox_drain` | Destructive | Reads the oldest pending messages — `POST /v1/inbox/drain`, `count` default 10, up to 1,000 — and acknowledges exactly the complete messages it returns with `POST /v1/inbox/ack`, so anything it left out stays pending. Returns `ackStatus` and the inbox `state` as it was before the acknowledgement. There is no peek. See [Webhooks for agents](/webhooks/agents#read-the-inbox). |
+| `inbox_fetch` | Read-only | Reads the oldest pending messages — `POST /v1/inbox/drain`, `count` default 10, up to 1,000 — and returns them with a `batchId`. It never acknowledges, deletes or reserves anything: the messages stay pending until `inbox_ack` deletes them, so a repeated fetch can return the same messages. Returns the inbox `state` at fetch time. Formerly `inbox_drain`, which still works for now. See [Webhooks for agents](/webhooks/agents#read-the-inbox). |
+| `inbox_ack` | Destructive | Deletes what you processed — `POST /v1/inbox/ack` with the `batchId` from `inbox_fetch` and a required `count`, the first `count` messages of that batch. `count` must not exceed the `count` the fetch returned. Returns `acknowledged`, `ackStatus` and the inbox `state` after the acknowledgement. |
 
-`inbox_subscribe`, `inbox_unsubscribe` and `inbox_drain` change only your Coinversa inbox subscriptions and inbox — the connector still never touches an exchange account, signs or trades. Inbox subscriptions have no signing secret, so nothing secret passes through a chat transcript.
+`inbox_subscribe`, `inbox_unsubscribe` and `inbox_ack` change only your Coinversa inbox subscriptions and inbox — the connector still never touches an exchange account, signs or trades. Inbox subscriptions have no signing secret, so nothing secret passes through a chat transcript.
 
 ## HIP-4 — outcome contracts
 
