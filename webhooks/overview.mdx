@@ -1,11 +1,11 @@
 ---
 title: "Webhooks overview"
-description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, to a price crossing a level, or to a trader cohort's net long or short bias on a coin, and receive the frames as Standard Webhooks-signed HTTPS POSTs to your URL, or store them in your account's inbox to pull later. Six event types, four cohort bias types and four liquidation risk types, exact decimal filters, Bearer auth with your API key."
+description: "Coinversa Pulse webhooks — subscribe to a Hyperliquid wallet's fills, TWAP fills or TWAP statuses, to exchange-wide or per-wallet liquidations, to a price crossing a level, to a wallet's leverage and margin changes, to order-book depth near the mid changing, or to a trader cohort's net long or short bias on a coin, and receive the frames as Standard Webhooks-signed HTTPS POSTs to your URL, or store them in your account's inbox to pull later. Eight event types, four cohort bias types and four liquidation risk types, exact decimal filters, Bearer auth with your API key."
 ---
 
 **Webhooks** push the same data the [WebSocket](/websocket/overview) streams, to a URL you own, so you do not have to hold a socket open. You create a **subscription** — a **type** (which feed), its `args` (which wallet — or up to 1,000 wallets — or which market), optional `filters` (which frames you want) and the `url` to deliver to — and every matching frame is POSTed to that URL, signed with the subscription's own **signing secret**. A subscription with `"deliveryMode": "inbox"` and no URL stores its matches in your account's **[inbox](/webhooks/inbox)** instead, for you or an agent to pull.
 
-What arrives is the **raw source frame** — the same `channel`, `seq` and `data` the WebSocket sends — plus the `subscriptionId` it matched, with `data` cut down to the events that passed your filters. There is no envelope, no summary and no derived fields: a client that already reads the WebSocket feeds reads a webhook body unchanged. `priceCross`, the four cohort bias types and the four liquidation risk types are the exception: they build their own events, in the same frame ([below](#how-it-relates-to-the-websocket-feeds)).
+What arrives is the **raw source frame** — the same `channel`, `seq` and `data` the WebSocket sends — plus the `subscriptionId` it matched, with `data` cut down to the events that passed your filters. There is no envelope, no summary and no derived fields: a client that already reads the WebSocket feeds reads a webhook body unchanged. `priceCross`, `liquidityChanged`, the four cohort bias types and the four liquidation risk types are the exception: they build their own events, in the same frame ([below](#how-it-relates-to-the-websocket-feeds)).
 
 ## Who it is for
 
@@ -15,7 +15,7 @@ What arrives is the **raw source frame** — the same `channel`, `seq` and `data
 
 ## The types
 
-Six event types:
+Eight event types:
 
 | Type | What it delivers | `args` | Filters | Minimum plan |
 |---|---|---|---|---|
@@ -25,10 +25,12 @@ Six event types:
 | `liquidations` | Every liquidation on the exchange | none | `coin`, `side`, `px`, `sz`, `closedPnl` | Agent |
 | `liquidationsByUser` | Liquidations of one account, or of up to 1,000 (the liquidated side) | `user` | `coin`, `side`, `px`, `sz`, `closedPnl` | Agent |
 | `priceCross` | A market's mark or trade price crossing a threshold | `coin`, `threshold`, `source`, `direction` | none — the condition is in `args` | Free data* |
+| `leverageUpdatesByUser` | Accepted leverage and isolated-margin changes of one wallet, or of up to 1,000 | `user` | `update_type`, `asset` | Pro |
+| `liquidityChanged` | Order-book depth within a band around the mid on one side of a market changing by a percentage | `coin`, `side`, `bandPct`, `changePct`, `direction` | none — the condition is in `args` | Starter |
 
 \* Free-tier data, but Free's subscription allowance is **zero**, so creating one takes Starter or above. Feed access and the subscription allowance are separate checks — see [Plan limits](/webhooks/limits).
 
-On the four by-user types `user` is one address or an array of 1 to 1,000 addresses — one subscription, one allowance slot, for many wallets ([one wallet or many](/webhooks/events#one-wallet-or-many)).
+On the five by-user types `user` is one address or an array of 1 to 1,000 addresses — one subscription, one allowance slot, for many wallets ([one wallet or many](/webhooks/events#one-wallet-or-many)).
 
 And four **cohort bias** types, which report how a [trader cohort](/concepts/cohorts) is positioned on one coin — its net bias, from `-1` (all short) to `1` (all long):
 
@@ -56,7 +58,7 @@ Every type, its arguments and filters are on [Subscription types](/webhooks/even
 
 ## How it relates to the WebSocket feeds
 
-Same data, pushed to a URL. A `tradesByUser` subscription delivers the frames a `tradesByUser` WebSocket subscription would stream, filtered; `liquidations` and `liquidationsByUser` deliver liquidation objects; `twapStatusesByUser` delivers the node's status records. `priceCross` has no WebSocket twin: it watches a market's mark or trade price and synthesises its own `channel: "priceCross"` frame when the price crosses your threshold. The four cohort bias types do not come from the fill stream at all: they are built from stored cohort positioning snapshots, and their `data` holds [cohort rows](/webhooks/cohort-bias#the-cohort-row) in the same `channel`, `seq`, `subscriptionId`, `data` frame. The four liquidation risk types are built the same way, from stored positions and liquidation levels ([delivered fields](/webhooks/liquidation-types#delivered-fields)).
+Same data, pushed to a URL. A `tradesByUser` subscription delivers the frames a `tradesByUser` WebSocket subscription would stream, filtered; `liquidations` and `liquidationsByUser` deliver liquidation objects; `twapStatusesByUser` delivers the node's status records; `leverageUpdatesByUser` delivers the leverage and margin changes the `leverageUpdatesByUser` feed streams. `priceCross` has no WebSocket twin: it watches a market's mark or trade price and synthesises its own `channel: "priceCross"` frame when the price crosses your threshold, and `liquidityChanged` builds its own frame from the stored L4 order-book summary. The four cohort bias types do not come from the fill stream at all: they are built from stored cohort positioning snapshots, and their `data` holds [cohort rows](/webhooks/cohort-bias#the-cohort-row) in the same `channel`, `seq`, `subscriptionId`, `data` frame. The four liquidation risk types are built the same way, from stored positions and liquidation levels ([delivered fields](/webhooks/liquidation-types#delivered-fields)).
 
 Two differences from the socket. A webhook body carries **`subscriptionId`**, which a WebSocket data frame does not, so one receiver can tell its subscriptions apart. And `data` holds **only the events that matched your filters** — a frame with no match is not delivered at all.
 
@@ -95,6 +97,6 @@ Subscriptions belong to your **account**, not to the API key that created them: 
     Read the definitions, create a subscription, verify one delivery, delete it.
   </Card>
   <Card title="Subscription types" icon="list" href="/webhooks/events">
-    Every type with its arguments, filters and plan, and delivery examples for the six event types.
+    Every type with its arguments, filters and plan, and delivery examples for the eight event types.
   </Card>
 </Columns>

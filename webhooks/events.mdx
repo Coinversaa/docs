@@ -1,9 +1,9 @@
 ---
 title: "Subscription types"
-description: "The Coinversa Pulse webhook subscription types — the six event types tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser and priceCross, and the four cohort bias types cohortBias, cohortBiasFlip, cohortBiasOpposition and cohortBiasMove — with their args (one wallet or an array of up to 1,000 per subscription), filters, minimum plan, the delivered frame shape and a delivery example for each event type; the cohort bias delivery examples are on the Cohort bias types page. Four liquidation risk types, liquidationRiskCross, liquidationRisk, liquidationExposure and liquidationMap, are summarised here, with their own Liquidation risk types page."
+description: "The Coinversa Pulse webhook subscription types — the eight event types tradesByUser, twapSliceFillsByUser, twapStatusesByUser, liquidations, liquidationsByUser, leverageUpdatesByUser, priceCross and liquidityChanged, and the four cohort bias types cohortBias, cohortBiasFlip, cohortBiasOpposition and cohortBiasMove — with their args (one wallet or an array of up to 1,000 per subscription), filters, minimum plan, the delivered frame shape and a delivery example for each event type; the cohort bias delivery examples are on the Cohort bias types page. Four liquidation risk types, liquidationRiskCross, liquidationRisk, liquidationExposure and liquidationMap, are summarised here, with their own Liquidation risk types page."
 ---
 
-Six event **types**, four cohort bias types and four liquidation risk types. Five of the event types deliver the frames of the WebSocket feed of the same name; `priceCross` synthesises its own. The four [cohort bias types](#cohort-bias-types) report a trader cohort's positioning from stored snapshots and have a page of their own. The four [liquidation risk types](#liquidation-risk-types) report potential liquidation exposure — one wallet's positions, or a whole market — from stored positions, and have a page of their own too. The machine-readable version of this page is `GET /v1/subscriptions/definitions`: it lists the types **your plan** may create, each with its `args`, `filters` and `minTier`, and the same declarations drive validation — so read the endpoint rather than keeping a client-side copy ([reference](/webhooks/api#definitions)).
+Eight event **types**, four cohort bias types and four liquidation risk types. Six of the event types deliver the frames of the WebSocket feed of the same name; `priceCross` and `liquidityChanged` synthesise their own. The four [cohort bias types](#cohort-bias-types) report a trader cohort's positioning from stored snapshots and have a page of their own. The four [liquidation risk types](#liquidation-risk-types) report potential liquidation exposure — one wallet's positions, or a whole market — from stored positions, and have a page of their own too. The machine-readable version of this page is `GET /v1/subscriptions/definitions`: it lists the types **your plan** may create, each with its `args`, `filters` and `minTier`, and the same declarations drive validation — so read the endpoint rather than keeping a client-side copy ([reference](/webhooks/api#definitions)).
 
 Delivery examples are illustrative: addresses, hashes and amounts are made up.
 
@@ -14,11 +14,11 @@ Every delivery is one `POST` whose body is the **raw source frame** plus the sub
 | Field | Type | Meaning |
 |---|---|---|
 | `channel` | string | The subscription type that produced the frame — `tradesByUser`, `liquidations`, `priceCross`, `cohortBiasFlip`, … |
-| `seq` | number | The source position. Block height on the trade and TWAP types, on `liquidations` and `liquidationsByUser`, and on `priceCross` with `source: "trade"`; the replica block's Unix **nanoseconds** on `priceCross` with `source: "mark"`; the Unix **microseconds** at which the snapshot or observation was read on the four cohort bias types and the four liquidation risk types. Never compare one kind with another |
+| `seq` | number | The source position. Block height on the trade and TWAP types, on `liquidations` and `liquidationsByUser`, on `priceCross` with `source: "trade"`, and the order-book snapshot's block height on `liquidityChanged`; the replica block's Unix **nanoseconds** on `priceCross` with `source: "mark"` and on `leverageUpdatesByUser`; the Unix **microseconds** at which the snapshot or observation was read on the four cohort bias types and the four liquidation risk types. Never compare one kind with another |
 | `subscriptionId` | string | The subscription this delivery belongs to |
 | `data` | array | The raw matching events — **only** those that passed your filters. An empty match produces no delivery |
 
-On the six event types the objects inside `data` are exactly what the node emits, in the shape the WebSocket feed documents: `[wallet, fill]` pairs on the trade and TWAP-fill types ([the fill object](/websocket/feeds#the-fill-object)), liquidation objects on `liquidations` and `liquidationsByUser` ([liquidations](/websocket/feeds#liquidations)), TWAP status records on `twapStatusesByUser` ([TWAP statuses](/websocket/feeds#twap-statuses)), and crossing events on `priceCross` (below). Numbers keep the type and precision the node sent — sizes and prices are decimal strings. On the cohort bias types `data` holds [cohort rows](/webhooks/cohort-bias#the-cohort-row) from a stored snapshot. On the liquidation risk types it holds a wallet's positions or a market's exposure, built from stored positions ([delivered fields](/webhooks/liquidation-types#delivered-fields)).
+On the six feed types the objects inside `data` are exactly what the node emits, in the shape the WebSocket feed documents: `[wallet, fill]` pairs on the trade and TWAP-fill types ([the fill object](/websocket/feeds#the-fill-object)), liquidation objects on `liquidations` and `liquidationsByUser` ([liquidations](/websocket/feeds#liquidations)), TWAP status records on `twapStatusesByUser` ([TWAP statuses](/websocket/feeds#twap-statuses)), leverage and margin changes on `leverageUpdatesByUser` ([leverage and margin](/websocket/feeds#leverage-and-margin)), crossing events on `priceCross` and depth changes on `liquidityChanged` (below). Numbers keep the type and precision the node sent — sizes and prices are decimal strings. On the cohort bias types `data` holds [cohort rows](/webhooks/cohort-bias#the-cohort-row) from a stored snapshot. On the liquidation risk types it holds a wallet's positions or a market's exposure, built from stored positions ([delivered fields](/webhooks/liquidation-types#delivered-fields)).
 
 ## Filters
 
@@ -42,7 +42,7 @@ The cohort bias types have numeric filters of their own — `netBias`, `longNoti
 
 ## One wallet or many
 
-On the four by-user types — `tradesByUser`, `twapSliceFillsByUser`, `twapStatusesByUser` and `liquidationsByUser` — `args.user` is **either one address string or an array of 1 to 1,000 addresses**. The definitions advertise this on the argument itself: `"user": {"type": "address", "required": true, "minItems": 1, "maxItems": 1000}`.
+On the five by-user types — `tradesByUser`, `twapSliceFillsByUser`, `twapStatusesByUser`, `liquidationsByUser` and `leverageUpdatesByUser` — `args.user` is **either one address string or an array of 1 to 1,000 addresses**. The definitions advertise this on the argument itself: `"user": {"type": "address", "required": true, "minItems": 1, "maxItems": 1000}`.
 
 ```json Create
 {
@@ -63,8 +63,8 @@ On the four by-user types — `tradesByUser`, `twapSliceFillsByUser`, `twapStatu
 - An **empty array**, an **invalid address** or **more than 1,000 entries** is a `400`. A creation body over **64 KiB** is refused.
 - In the response, a one-element array — including one left after deduplication — comes back as a **string**; the legacy top-level `user` field appears only for a single-wallet scope.
 - Matching events from every listed wallet in a source block arrive **together**, in source order, in one delivery's `data`; the same filters apply to each event. The frame shape and the type's `channel` do not change, and each `[wallet, fill]` pair names its wallet.
-- Non-wallet arguments (`coin`, `threshold`, `source`, `direction`) stay single-valued.
-- The two wallet [liquidation risk types](#liquidation-risk-types), `liquidationRiskCross` and `liquidationRisk`, are not among the four: their `user` is **exactly one** wallet, and the definitions advertise `maxItems: 1` on it.
+- Non-wallet arguments (`coin`, `threshold`, `source`, `direction`, `side`, `bandPct`, `changePct`) stay single-valued.
+- The two wallet [liquidation risk types](#liquidation-risk-types), `liquidationRiskCross` and `liquidationRisk`, are not among the five: their `user` is **exactly one** wallet, and the definitions advertise `maxItems: 1` on it.
 
 ## `tradesByUser`
 
@@ -274,6 +274,55 @@ Liquidations of one account, or of up to 1,000 accounts in one subscription. The
 }
 ```
 
+## `leverageUpdatesByUser`
+
+Accepted **leverage and isolated-margin changes** for one account, or for up to 1,000 accounts in one subscription: a new leverage setting or margin mode, margin added to or removed from an isolated position, or an isolated top-up. Rejected actions are left out. The account is the one the change applied to, not the wallet that broadcast it, so an action signed by an agent wallet reaches the account it changed.
+
+| | |
+|---|---|
+| `args` | `user` (required): the account — or an array of 1 to 1,000 accounts ([one wallet or many](#one-wallet-or-many)) |
+| Filters | `update_type` (exact: `leverage`, `isolated_margin` or `top_up_isolated_margin`); `asset` (exact or numeric bounds) |
+| Minimum plan | Pro |
+
+```json Create
+{
+  "type": "leverageUpdatesByUser",
+  "args": {"user": "0x0123456789012345678901234567890123456789"},
+  "filters": {"update_type": "leverage"},
+  "url": "https://example.com/hook"
+}
+```
+
+Each event in `data` has `update_type`, `time` (Unix milliseconds), `user`, `asset` and `tx_index`, plus the fields of its variant:
+
+| `update_type` | Fields |
+|---|---|
+| `leverage` | `leverage` (an integer) and `is_cross` (`true` for cross margin, `false` for isolated) |
+| `isolated_margin` | `ntli`, the signed margin change as a decimal string in USD (negative removes margin), and `is_buy` |
+| `top_up_isolated_margin` | `target_leverage`, the leverage the top-up aims for, as a decimal string |
+
+```json Delivery
+{
+  "channel": "leverageUpdatesByUser",
+  "seq": 1773878735123456789,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "update_type": "leverage",
+      "time": 1773878735123,
+      "user": "0x0123456789012345678901234567890123456789",
+      "asset": 3,
+      "tx_index": 1,
+      "is_cross": false,
+      "leverage": 9
+    }
+  ]
+}
+```
+
+- `asset` is Hyperliquid's **numeric asset id**, not a coin symbol, and includes the encoded ids of builder-dex markets. Filter on it with a number such as `"asset": "3"`.
+- The event reports the setting that changed. It does not include the position before or after, the resulting margin balance or the amount a top-up added.
+
 ## `priceCross`
 
 A market's price crossing a threshold. The condition lives in `args`; the type takes **no filters**.
@@ -322,6 +371,55 @@ The delivered frame is synthesised with `channel: "priceCross"`; each event in `
 ```
 
 Unlike the trade and TWAP types, `liquidations` and `liquidationsByUser`, `priceCross` deliveries are **durable**: baseline and pending delivery commit atomically to an outbox with stable delivery ids and retry schedules that survive a restart of the service. That is at-least-once delivery, not exactly-once processing — deduplicate on `webhook-id`. The outbox holds at most **32 pending deliveries per subscription**, each at most 1 MiB; when a subscription's share is full, its observation is rejected and logged without advancing the baseline, so a saturated subscription can miss its own crossings; total disk use scales with the number of subscriptions. See [Plan limits](/webhooks/limits#queues-and-the-outbox).
+
+## `liquidityChanged`
+
+The **order-book depth** near the mid on one side of one market growing or shrinking by a percentage. It reads the same L4 order-book summary as the `book_summary` tool and endpoint, about once a minute. The condition lives in `args`; the type takes **no filters**.
+
+| | |
+|---|---|
+| `args` | `coin` (required, the node's exact, case-sensitive spelling); `side` (required): `bid` or `ask`; `bandPct` (required): `"0.5"`, `"1"`, `"2"`, `"5"` or `"10"` — the band around the mid, in percent; `changePct` (required, a positive decimal string): how much the depth must change, in percent; `direction`: `up`, `down` or `both` (default) |
+| Filters | none — extra predicates are refused |
+| Minimum plan | Starter |
+
+To be told when HYPE's bid depth within 1% of the mid falls by a quarter or more:
+
+```json Create
+{
+  "type": "liquidityChanged",
+  "args": {"coin": "HYPE", "side": "bid", "bandPct": "1", "changePct": "25", "direction": "down"},
+  "url": "https://example.com/hook"
+}
+```
+
+How a change is decided:
+
+- Depth is the resting size, in the market's **base** asset, between the mid and `bandPct` away from it on that side. The bands are cumulative: `"2"` includes everything within `"1"`.
+- The **first usable snapshot** sets the baseline and does not notify. A change is measured against the baseline, not the previous poll, so small moves add up; once an alert is saved, that snapshot becomes the new baseline.
+- Depth falling to zero is a 100% decrease. Depth rising from zero only sets a new baseline, because the percentage is undefined.
+- A missing, one-sided or stale snapshot (older than 20 minutes), or one no newer than the last, is skipped and does not move the baseline.
+- Only the latest snapshot is read. A change that reverses between two polls is not seen, and nothing is backfilled after an outage.
+- A moving mid moves the band, so a change can come from the price moving, not only from orders being added or cancelled.
+
+Each event in `data` has `coin`, `side`, `bandPct`, `direction`, a signed decimal `changePct`, and `previous` and `current` objects with the decimal `depth`, the block `height` and `blockTimeMs` (Unix milliseconds):
+
+```json Delivery
+{
+  "channel": "liquidityChanged",
+  "seq": 812345678,
+  "subscriptionId": "…",
+  "data": [
+    {
+      "coin": "HYPE", "side": "bid", "bandPct": "1", "direction": "down",
+      "changePct": "-27.4",
+      "previous": {"depth": "182400.5", "height": 812340012, "blockTimeMs": 1794536400000},
+      "current": {"depth": "132422.1", "height": 812345678, "blockTimeMs": 1794536460000}
+    }
+  ]
+}
+```
+
+Like `priceCross`, deliveries are **durable**: the baseline and the pending delivery are committed together to the outbox, under the same cap of 32 pending deliveries per subscription ([Plan limits](/webhooks/limits#queues-and-the-outbox)).
 
 ## Cohort bias types
 
