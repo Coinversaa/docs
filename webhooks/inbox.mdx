@@ -105,6 +105,7 @@ curl "https://webhook.coinversa.ai/v1/inbox/peek?type=tradesByUser&count=10&maxB
 - A filtered peek and the next drain can return different messages: a drain is never filtered.
 - Messages of a deleted subscription stay readable until they are acknowledged, expire or are evicted, and a type can be peeked even if your current plan can no longer create it.
 - An unknown or empty `type`, and a malformed, unknown or duplicated parameter, is `400`. The `413` / `requiredMaxBytes` rule and `no-store` are the same as for a drain.
+- For a subscription created with `notifyEvery`, `grouped=true` returns one completed group at a time instead of raw messages, with the `inboxIds` it covers; acknowledge those by `inboxIds` and pass `after=<notificationId>` for the next group. `count` does not apply in this mode ([Notification batching](/webhooks/api#notification-batching)).
 
 ## Drain: read without deleting
 

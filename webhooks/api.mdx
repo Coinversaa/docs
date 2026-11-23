@@ -91,6 +91,7 @@ The example omits the other trade fields for brevity. `minItems` and `maxItems` 
 | `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross`, `cohortBiasOpposition`, `liquidationRiskCross`, `liquidationExposure` and `liquidationMap` take none |
 | `deliveryMode` | string | no | `http` (default) delivers to `url`; `inbox` stores matches in the account [inbox](/webhooks/inbox) instead |
 | `url` | string | for `http` | Public HTTPS on port 443. Redirects and private or reserved addresses are refused. **Omit it** on an inbox subscription |
+| `notifyEvery` | integer | no | 1–100. Group every N new messages into one notification ([Notification batching](#notification-batching)). Omit or `1` for one delivery per message. Set at creation only |
 
 ```json
 {
@@ -250,11 +251,21 @@ Four routes read the account's one inbox; the semantics are on [Inbox delivery](
 | Route | Request | Response |
 |---|---|---|
 | `GET /v1/inbox` | — | `{"state": {pendingMessages, pendingBytes, maxMessages, maxStoredBytes, overflowDroppedTotal, expiredTotal}}` |
-| `GET /v1/inbox/peek?type=tradesByUser&count=10&maxBytes=65536` | Same `count` and `maxBytes` as drain; optional `type`, one exact subscription type (`400` if unknown) | `{"messages", "hasMore", "state"}` — oldest matching first, **nothing deleted, no receipt**. `hasMore` counts matching messages only; `state` is account-wide. `413` with `requiredMaxBytes` as for drain |
+| `GET /v1/inbox/peek?type=tradesByUser&count=10&maxBytes=65536` | Same `count` and `maxBytes` as drain; optional `type`, one exact subscription type (`400` if unknown) | `{"messages", "hasMore", "state"}` — oldest matching first, **nothing deleted, no receipt**. `hasMore` counts matching messages only; `state` is account-wide. `413` with `requiredMaxBytes` as for drain. With `grouped=true` it returns one completed [notification group](#notification-batching) instead, and `after=<notificationId>` reads the next one; `count` does not apply |
 | `POST /v1/inbox/drain?count=10&maxBytes=65536` | No body. `count` 1–1,000 (default 10); `maxBytes` 1,024–4,194,304 (default 65,536), a budget for the whole response | `{"batchId", "messages", "hasMore", "state"}` — oldest first, **nothing deleted**. `413` with `requiredMaxBytes` when the oldest message does not fit; an empty inbox returns an empty `batchId` |
 | `POST /v1/inbox/ack` | **One** of `{"batchId", "count"}` (an absolute prefix of that batch) or `{"inboxIds": [...]}` (1–1,000) | `{"acknowledged", "state"}` — `acknowledged` is what **this** request removed, so a retry returns `0`. Idempotent |
 
 A message is the delivery envelope plus `inboxId` (`msg_` + 32 hex) and `receivedAt` ([the message](/webhooks/inbox#the-message)).
+
+## Notification batching
+
+Create a subscription with `"notifyEvery": 10` and you are notified once per **ten new messages** instead of once per message. It works on every type, for both HTTP and inbox delivery, and accepts 1–100; omitting it or `1` keeps one delivery per message.
+
+- A group closes on its Nth message. There is **no time limit and no partial flush**: a group of 10 that has 9 messages waits for the tenth, however long that takes. Pick a small N for rules that fire rarely.
+- Grouping changes how often you are woken, not how much is stored. Each original message still counts toward the inbox or delivery-history limits.
+- A notification carries `notificationId`, `subscriptionId`, `channel`, `messageCount`, `includedMessageCount`, `missingMessageCount`, `eventCount` and one flat `events` array, in order. Ten messages of five events each make one notification with 50 events.
+- **Inbox:** `GET /v1/inbox/peek?grouped=true` returns the oldest completed group with the `inboxIds` it covers; acknowledge them with `POST /v1/inbox/ack` and `{"inboxIds": [...]}`, and pass `after=<notificationId>` to read the next group. Raw peek and drain are unchanged.
+- **HTTP:** a group is normally one signed POST. A group over 1 MiB is split into several POSTs that share the `notificationId`, each with its own `webhook-id`, `eventOffset`, `eventCount` and `totalEventCount`. Events are never split.
 
 ## Delivery history
 
@@ -284,10 +295,10 @@ A record looks like this:
 }
 ```
 
-- `id` is the delivery's `webhook-id` header.
-- `status` is `pending` (queued or being sent), `retrying` (waiting for its next attempt, at `nextAttemptAt`), `delivered` (the last attempt got a `2xx`) or `failed`.
+- `id` is the delivery's `webhook-id` header. On a [batched](#notification-batching) subscription each record is one original message instead: `batchDeliveryId` names the POST that carried it, and its status follows that POST.
+- `status` is `pending` (queued or being sent), `retrying` (waiting for its next attempt, at `nextAttemptAt`), `delivered` (the last attempt got a `2xx`) or `failed`. A batched message is `buffering` until its group closes.
 - `attempts` counts every attempt. `lastAttemptAt`, `httpStatus` and `error` describe **only the most recent** one; earlier attempts and your URL's response body are not kept.
-- A delivery the queue had no room for is recorded as `failed` with `0` attempts. One cut off by a restart of the service is `failed` with a restart error. Both can be resent.
+- A delivery the queue had no room for is recorded as `failed` with `0` attempts. One cut off by a restart of the service is `failed` with a restart error. Both can be resent, except on a batched subscription.
 - `state` counts the history itself: `storedMessages`, `storedBytes`, `maxMessages`, `maxStoredBytes` and the cumulative `overflowDroppedTotal` and `expiredTotal`, for the whole account even when you filter by `subscriptionId`.
 
 To page back, pass `nextCursor` unchanged with the same `subscriptionId`; new deliveries arriving meanwhile do not shift it. Times are UTC.
@@ -301,7 +312,7 @@ A resend POSTs the stored payload again to the subscription's **current** URL, s
 | Status | Why |
 |---|---|
 | `404` | Unknown id, another account's id, or a record that expired or was evicted |
-| `409` | The delivery is already queued or being sent; the subscription is disabled ([re-enable](#re-enable-a-subscription) it first); or the subscription was deleted |
+| `409` | The delivery is already queued or being sent; the subscription is disabled ([re-enable](#re-enable-a-subscription) it first); the subscription was deleted; or it is a [batched](#notification-batching) subscription, whose messages cannot be resent one at a time |
 | `429` | The subscription's outbox already holds 32 pending deliveries |
 | `400` | A body or query parameters were sent |
 

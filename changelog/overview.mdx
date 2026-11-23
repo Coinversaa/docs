@@ -3,6 +3,19 @@ title: "Changelog"
 description: "Product updates and releases for Coinversa Pulse."
 ---
 
+<Update label="November 20, 2026" tags={["Webhooks", "MCP", "HIP-4"]}>
+
+## Webhooks: notification batching
+
+- **`notifyEvery`** on `POST /v1/subscriptions` (1–100) groups every N new messages into one notification, for HTTP and inbox delivery and every type. A group waits for its Nth message; each original message still counts toward your limits ([Notification batching](/webhooks/api#notification-batching)).
+- **Inbox:** `GET /v1/inbox/peek?grouped=true` returns one completed group with its `inboxIds`; acknowledge them by `inboxIds`. From chat, `inbox_subscribe` takes `notifyEvery`, `inbox_peek` takes `grouped` and `after`, and `inbox_ack` accepts `inboxIds`.
+
+## MCP 0.22.0: HIP-4 odds
+
+Three new tools: `hip4_odds` (the live odds board), `hip4_outcome_odds` (both sides of one outcome) and `hip4_outcome_odds_history` (executed-trade candles, Starter). The connector now has **127 tools** ([Tool catalog](/mcp/tools)).
+
+</Update>
+
 <Update label="November 17, 2026" tags={["Webhooks", "MCP"]}>
 
 ## Webhooks: delivery history and resend

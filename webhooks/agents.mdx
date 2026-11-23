@@ -38,7 +38,9 @@ A cohort bias subscription is created the same way. Ask Claude to "tell me when 
 
 Cohort positioning is a stored snapshot, normally taken every 15 minutes, so the flip reaches the inbox at the next snapshot — not when a trade happens — and the agent sees it the next time it fetches. The message's `data` holds the cohort's row after the flip, with the row before it under `previous` ([`cohortBiasFlip`](/webhooks/cohort-bias#cohortbiasflip)).
 
-The service validates the type, the field names and your plan, exactly as it does for REST: a type above your plan is refused with `403`, as is any subscription on **Free**, and a full allowance with `429` ([Plan limits](/webhooks/limits)). Inbox and HTTP subscriptions share the same slots. The tool returns a compact receipt — `subscribed`, `subscriptionId`, `deliveryMode`, `disabled` — and has no signing secret to show, because an inbox subscription has none.
+The service validates the type, the field names and your plan, exactly as it does for REST: a type above your plan is refused with `403`, as is any subscription on **Free**, and a full allowance with `429` ([Plan limits](/webhooks/limits)). Inbox and HTTP subscriptions share the same slots. The tool returns a compact receipt — `subscribed`, `subscriptionId`, `deliveryMode`, `disabled`, `notifyEvery` — and has no signing secret to show, because an inbox subscription has none.
+
+An optional `notifyEvery` (1–100) groups every N new messages into one notification, so a busy rule hands the agent fewer, larger reads. A group waits for its Nth message with no time limit, and every original message still counts toward the inbox limits ([Notification batching](/webhooks/api#notification-batching)).
 
 A subscription is immutable: to change it, unsubscribe and subscribe again, which resets a price crossing's baseline and a cohort bias or liquidation risk subscription's state. Creation is never retried automatically, so after an ambiguous failure the agent should call `inbox_subscriptions` before trying again rather than risk a duplicate. There is no snapshot and no replay: a subscription collects from the moment it exists. `cohortBias` is the exception — it delivers the current state once when it is created — and `liquidationRiskCross`, `liquidationRisk` and `liquidationExposure` can deliver on their first check if the condition is already met.
 
@@ -54,11 +56,11 @@ A subscription is immutable: to change it, unsubscribe and subscribe again, whic
 
 Reading and deleting are separate steps, as they are over REST: `inbox_peek` and `inbox_fetch` never delete anything, and only `inbox_ack` does. Each message is the delivery envelope — `channel`, `seq`, `subscriptionId`, `data` — plus its `inboxId` and `receivedAt` ([the message](/webhooks/inbox#the-message)). Both read tools take `count` (default 10, up to 1,000) and `maxBytes`, return the oldest messages first, and keep only as many **complete** messages as fit the response budget; a message's `data` is never split.
 
-**`inbox_peek`** looks without consuming. An optional `type` — one exact, case-sensitive event type such as `tradesByUser` or `liquidations`, the envelope's `channel` — narrows it to that type. It returns `messages`, `count`, `hasMore` and the inbox `state` (`stateAt: "peek"`), and no receipt. `hasMore` counts only messages of the requested type; `state` is always account-wide. Peeking does not advance anything, so the same call returns the same messages until they are acknowledged.
+**`inbox_peek`** looks without consuming. An optional `type` — one exact, case-sensitive event type such as `tradesByUser` or `liquidations`, the envelope's `channel` — narrows it to that type. It returns `messages`, `count`, `hasMore` and the inbox `state` (`stateAt: "peek"`), and no receipt. `hasMore` counts only messages of the requested type; `state` is always account-wide. Peeking does not advance anything, so the same call returns the same messages until they are acknowledged. With `grouped: true` it returns one completed `notifyEvery` group instead, with the `inboxIds` it covers; pass its `notificationId` as `after` to read the next group.
 
 **`inbox_fetch`** reads a batch to process. It is not filtered by type. It returns the same fields plus a **`batchId`**, a receipt for exactly the messages returned (`null` when nothing is returned), with `stateAt: "drain"`.
 
-**`inbox_ack`** deletes. It takes that fetch's `batchId` and a `count`, and deletes the **first `count` messages of that batch** — so after processing, pass the `count` the fetch returned, or fewer if you processed fewer, never the count you asked for. It returns `acknowledged` (what this call removed), `ackStatus` and the `state` after the delete (`stateAt: "ack"`). Repeating the same `batchId` and `count` is safe: it returns `acknowledged: 0` rather than deleting newer messages. A receipt expires after 14 days.
+**`inbox_ack`** deletes. It takes that fetch's `batchId` and a `count`, and deletes the **first `count` messages of that batch** — so after processing, pass the `count` the fetch returned, or fewer if you processed fewer, never the count you asked for. It returns `acknowledged` (what this call removed), `ackStatus` and the `state` after the delete (`stateAt: "ack"`). Repeating the same `batchId` and `count` is safe: it returns `acknowledged: 0` rather than deleting newer messages. A receipt expires after 14 days. To acknowledge exact messages instead — for example the ones a grouped peek returned — pass `inboxIds` (1 to 1,000) in place of `batchId` and `count`.
 
 The loop from chat is therefore **fetch, process, ack** ([the same loop as REST](/webhooks/inbox#for-agents-drain-process-ack)). Three things to know:
 
@@ -73,13 +75,13 @@ The inbox is per **account**: a fetch returns what every inbox subscription matc
 | Tool | Kind | Backing route | What it does |
 |---|---|---|---|
 | `inbox_definitions` | Read-only | `GET /v1/subscriptions/definitions` | Types available on your plan, with their arguments and filter fields |
-| `inbox_subscribe` | Creates a subscription | `POST /v1/subscriptions` | One inbox subscription from `type`, `args` and optional `filters`; never a URL |
+| `inbox_subscribe` | Creates a subscription | `POST /v1/subscriptions` | One inbox subscription from `type`, `args`, optional `filters` and optional `notifyEvery`; never a URL |
 | `inbox_subscriptions` | Read-only | `GET /v1/subscriptions` | Lists your inbox subscriptions, paged; HTTP subscriptions are excluded |
 | `inbox_unsubscribe` | Destructive | `DELETE /v1/subscriptions/{id}` | Deletes one inbox subscription; stored messages are kept |
 | `inbox_state` | Read-only | `GET /v1/inbox` | Pending counts, plan capacity and loss counters |
-| `inbox_peek` | Read-only | `GET /v1/inbox/peek` | The oldest pending messages, optionally of one type; deletes nothing, no receipt |
+| `inbox_peek` | Read-only | `GET /v1/inbox/peek` | The oldest pending messages, optionally of one type, or one completed group with `grouped`; deletes nothing, no receipt |
 | `inbox_fetch` | Read-only | `POST /v1/inbox/drain` | The oldest pending messages and a `batchId` to acknowledge them with; deletes nothing |
-| `inbox_ack` | Destructive | `POST /v1/inbox/ack` | Deletes the first `count` messages of a fetched batch |
+| `inbox_ack` | Destructive | `POST /v1/inbox/ack` | Deletes the first `count` messages of a fetched batch, or exact `inboxIds` |
 
 `inbox_subscribe`, `inbox_unsubscribe` and `inbox_ack` are the tools that change anything, and what they change is your Coinversa inbox subscriptions and inbox. The connector still never touches an exchange account, never signs and never trades.
 
