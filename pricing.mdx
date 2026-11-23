@@ -32,9 +32,9 @@ Details in [WebSocket plan limits](/websocket/limits).
 | Tier | Webhook subscriptions (per account) | Types |
 |------|---:|---|
 | Free       | 0  | Can read the definitions; cannot create a subscription |
-| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross`, the four [cohort bias types](/webhooks/cohort-bias), and the four [liquidation risk types](/webhooks/liquidation-types) |
+| Starter    | 2  | `tradesByUser`, `twapSliceFillsByUser`, `priceCross`, `liquidityChanged`, the four [cohort bias types](/webhooks/cohort-bias), and the four [liquidation risk types](/webhooks/liquidation-types) |
 | Agent      | 6  | Starter's plus `liquidations` and `liquidationsByUser` |
-| Pro        | 10 | Agent's plus `twapStatusesByUser` |
+| Pro        | 10 | Agent's plus `twapStatusesByUser` and `leverageUpdatesByUser` |
 | Enterprise | 20 | Everything in Pro |
 
 Each subscription names one wallet or one market and delivers to one URL; disabled subscriptions do not count. Details in [Webhook plan limits](/webhooks/limits).
@@ -43,7 +43,7 @@ Each subscription names one wallet or one market and delivers to one URL; disabl
 
 <AccordionGroup>
   <Accordion title="Free">
-    - All 121 MCP tools / 124 API endpoints (tier-gated)
+    - All 127 MCP tools (tier-gated)
     - 1 active key
     - Public-only data (no private wallet correlation)
     - [WebSocket](/websocket/overview): 1 connection, 2 subscriptions, six feeds — `tradesByCoin`, `tradesByUser`, `candle`, `twapSliceFillsByUser`, `bbo` and `allMids`
@@ -58,7 +58,7 @@ Each subscription names one wallet or one market and delivers to one URL; disabl
     - [Sharpe ratios](/concepts/sharpe): any tracked wallet's realized-PnL Sharpe (30 days, a custom 1–90-day window, or three monthly buckets) and the top-50 Sharpe leaderboard
     - [Builder analytics](/api-reference/builders): leaderboard, builder profiles, per-wallet builder usage
     - [WebSocket](/websocket/overview): 25 subscriptions per connection, the `trades` firehose, and [multi-wallet feeds](/websocket/feeds#multi-wallet-subscriptions) following up to 1,000 wallets on one subscription
-    - [Webhooks](/webhooks/overview): 2 subscriptions (tentative) — a wallet's fills (`tradesByUser`), its TWAP fills (`twapSliceFillsByUser`), a price crossing (`priceCross`) or a trader cohort's net bias on a coin (the four [cohort bias types](/webhooks/cohort-bias)), filtered and signed, to your URL, or a wallet's or a market's potential liquidation exposure (the four [liquidation risk types](/webhooks/liquidation-types))
+    - [Webhooks](/webhooks/overview): 2 subscriptions (tentative) — a wallet's fills (`tradesByUser`), its TWAP fills (`twapSliceFillsByUser`), a price crossing (`priceCross`), an order-book depth change near the mid (`liquidityChanged`) or a trader cohort's net bias on a coin (the four [cohort bias types](/webhooks/cohort-bias)), filtered and signed, to your URL, or a wallet's or a market's potential liquidation exposure (the four [liquidation risk types](/webhooks/liquidation-types))
   </Accordion>
   <Accordion title="Agent — $49 / mo">
     For agents and bots that need more volume than Starter, plus the live positioning tools. Everything in Starter, and:
@@ -84,7 +84,7 @@ Each subscription names one wallet or one market and delivers to one URL; disabl
     - [TP/SL trigger orders](/concepts/trigger-orders): every pending stop-loss and take-profit order, by market or by wallet
     - Cohort drill-downs, archetypes and deeper analytics tools (entity resolution, HIP-4 perp-position context, etc.)
     - [WebSocket](/websocket/overview): 5 concurrent connections, 100 subscriptions each, all 24 feeds (Agent's, plus `l4Book`, leverage changes, TWAP orders, TWAP statuses and their multi-wallet variants), 250 GB fair-use bandwidth
-    - [Webhooks](/webhooks/overview): 10 subscriptions (tentative), Agent's types plus the node's TWAP status records (`twapStatusesByUser`)
+    - [Webhooks](/webhooks/overview): 10 subscriptions (tentative), Agent's types plus the node's TWAP status records (`twapStatusesByUser`) and a wallet's leverage and margin changes (`leverageUpdatesByUser`)
   </Accordion>
   <Accordion title="Enterprise — custom">
     - Negotiated rate / volume / SLA

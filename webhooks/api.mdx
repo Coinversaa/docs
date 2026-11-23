@@ -86,8 +86,8 @@ The example omits the other trade fields for brevity. `minItems` and `maxItems` 
 
 | Body field | Type | Required | Notes |
 |---|---|---|---|
-| `type` | string | yes | A [subscription type](/webhooks/events): one of the six event types, the four [cohort bias types](/webhooks/cohort-bias) or the four [liquidation risk types](/webhooks/liquidation-types) |
-| `args` | object | per type | `user` for the four by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; none for `liquidations`; `coin` and, per type, `cohort`, `otherCohort`, `points`, `direction` and `tierType` for the cohort bias types ([below](#cohort-bias-types)); one `user` or a `coin`, with a threshold, for the liquidation risk types ([below](#liquidation-risk-types)). Wallets are normalised to lowercase |
+| `type` | string | yes | A [subscription type](/webhooks/events): one of the eight event types, the four [cohort bias types](/webhooks/cohort-bias) or the four [liquidation risk types](/webhooks/liquidation-types) |
+| `args` | object | per type | `user` for the five by-user types — one address or an array of 1 to 1,000 ([below](#one-wallet-or-many)); `coin`, `threshold`, optional `source` and `direction` for `priceCross`; `coin`, `side`, `bandPct`, `changePct` and optional `direction` for `liquidityChanged`; none for `liquidations`; `coin` and, per type, `cohort`, `otherCohort`, `points`, `direction` and `tierType` for the cohort bias types ([below](#cohort-bias-types)); one `user` or a `coin`, with a threshold, for the liquidation risk types ([below](#liquidation-risk-types)). Wallets are normalised to lowercase |
 | `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross`, `cohortBiasOpposition`, `liquidationRiskCross`, `liquidationExposure` and `liquidationMap` take none |
 | `deliveryMode` | string | no | `http` (default) delivers to `url`; `inbox` stores matches in the account [inbox](/webhooks/inbox) instead |
 | `url` | string | for `http` | Public HTTPS on port 443. Redirects and private or reserved addresses are refused. **Omit it** on an inbox subscription |
@@ -106,7 +106,7 @@ The example omits the other trade fields for brevity. `minItems` and `maxItems` 
 
 ### One wallet or many
 
-On the four by-user types `args.user` is **one address string or an array of 1 to 1,000 addresses**; the definitions advertise `minItems: 1` and `maxItems: 1000` on the argument. The top-level `user` spelling accepts either form too.
+On the five by-user types `args.user` is **one address string or an array of 1 to 1,000 addresses**; the definitions advertise `minItems: 1` and `maxItems: 1000` on the argument. The top-level `user` spelling accepts either form too.
 
 ```json
 {
@@ -211,7 +211,9 @@ Errors: `400` (invalid format, unknown type, argument, filter or operator, impos
 | `twapStatusesByUser` | required `user`: one address or 1–1,000 | Pro |
 | `liquidations` | none | Agent |
 | `liquidationsByUser` | required `user`: one address or 1–1,000 | Agent |
+| `leverageUpdatesByUser` | required `user`: one address or 1–1,000 | Pro |
 | `priceCross` | required `coin`, `threshold`; optional `source`, `direction` | Free for both sources (Free's allowance is zero) |
+| `liquidityChanged` | required `coin`, `side` (`bid` or `ask`), `bandPct` (`0.5`, `1`, `2`, `5` or `10`), `changePct`; optional `direction` | Starter |
 | `cohortBias` | required `coin`; optional `cohort`, `tierType` | Starter |
 | `cohortBiasFlip` | required `coin`, `cohort`; optional `direction`, `tierType` | Starter |
 | `cohortBiasOpposition` | required `coin`, `cohort`, `otherCohort`; optional `tierType` | Starter |

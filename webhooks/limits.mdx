@@ -28,9 +28,9 @@ The type's `minTier` in the definitions is the plan it needs; a create below it 
 | Plan | Types it may create |
 |---|---|
 | Free | None — the allowance is zero, though `tradesByUser`, `twapSliceFillsByUser` and `priceCross` are Free-tier data. No inbox either: an inbox subscription is `403` |
-| Starter | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` (both `mark` and `trade` sources), the four [cohort bias types](/webhooks/cohort-bias): `cohortBias`, `cohortBiasFlip`, `cohortBiasOpposition`, `cohortBiasMove`, and the four [liquidation risk types](/webhooks/liquidation-types): `liquidationRiskCross`, `liquidationRisk`, `liquidationExposure`, `liquidationMap` |
+| Starter | `tradesByUser`, `twapSliceFillsByUser`, `priceCross` (both `mark` and `trade` sources), `liquidityChanged`, the four [cohort bias types](/webhooks/cohort-bias): `cohortBias`, `cohortBiasFlip`, `cohortBiasOpposition`, `cohortBiasMove`, and the four [liquidation risk types](/webhooks/liquidation-types): `liquidationRiskCross`, `liquidationRisk`, `liquidationExposure`, `liquidationMap` |
 | Agent | Starter's types plus `liquidations` and `liquidationsByUser` |
-| Pro | Agent's types plus `twapStatusesByUser` |
+| Pro | Agent's types plus `twapStatusesByUser` and `leverageUpdatesByUser` |
 | Enterprise | Everything in Pro, with a larger allowance |
 
 ## The inbox

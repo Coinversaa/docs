@@ -5,6 +5,13 @@ description: "Product updates and releases for Coinversa Pulse."
 
 <Update label="November 20, 2026" tags={["Webhooks", "MCP", "HIP-4"]}>
 
+## Webhooks: two new types
+
+- **`liquidityChanged`** (Starter) alerts when order-book depth within `0.5`–`10`% of the mid on one side of a market rises or falls by `changePct`, measured from the last alert. It reads the L4 order-book summary about once a minute, and its deliveries are durable ([`liquidityChanged`](/webhooks/events#liquiditychanged)).
+- **`leverageUpdatesByUser`** (Pro) delivers a wallet's accepted leverage, margin-mode and isolated-margin changes, for one wallet or up to 1,000, filterable by `update_type` and numeric `asset` ([`leverageUpdatesByUser`](/webhooks/events#leverageupdatesbyuser)).
+
+Both work over HTTP and the inbox, and from chat through `inbox_subscribe`.
+
 ## Webhooks: notification batching
 
 - **`notifyEvery`** on `POST /v1/subscriptions` (1–100) groups every N new messages into one notification, for HTTP and inbox delivery and every type. A group waits for its Nth message; each original message still counts toward your limits ([Notification batching](/webhooks/api#notification-batching)).
