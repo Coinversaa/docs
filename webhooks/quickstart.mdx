@@ -154,7 +154,7 @@ Deleting removes the subscription and, for `priceCross`, the cohort bias types a
 4. **Deduplicate on `webhook-id`.** Delivery is at least once and retries reuse the id.
 5. **Answer, then process.** Return `2xx` as soon as the frame is verified and queued; do the work afterwards.
 6. **Return `410` only on purpose.** It disables the subscription; `POST /v1/subscriptions/{id}/enable` brings it back.
-7. **Expect gaps after a restart.** Retries are in memory and are lost when the service restarts; nothing is replayed. If you need every fill, read the wallet's history from the [REST API](/quickstart) when you detect a gap.
+7. **Check for failed deliveries.** Retries are in memory and stop when the service restarts. Stopped and exhausted deliveries show as `failed` in the [delivery history](/webhooks/api#delivery-history) for 14 days; resend them from there.
 
 When something goes wrong, [Troubleshooting](/webhooks/troubleshooting) is ordered by symptom.
 

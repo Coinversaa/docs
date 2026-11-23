@@ -124,14 +124,18 @@ An [inbox](/webhooks/inbox) subscription has **no** secret: nothing is POSTed, s
 
 ## Acknowledgement and retries
 
-A delivery **succeeds** on any **2xx**. Anything else — another status, a timeout, a refused connection — is a failure and is retried on a bounded back-off, up to **nine attempts over about 76 hours**. A `Retry-After` header on your response is respected, up to 24 hours. When the attempts run out the delivery is dropped.
+A delivery **succeeds** on any **2xx**. Anything else — another status, a timeout, a refused connection — is a failure and is retried on a bounded back-off, up to **nine attempts over about 76 hours**. A `Retry-After` header on your response is respected, up to 24 hours. When the attempts run out the delivery stops and is marked `failed` in the [delivery history](/webhooks/api#delivery-history), where you can resend it.
 
 Two things follow from how retries are kept:
 
-- Ordinary deliveries and their retries live **in memory**. A restart of the service loses them, and nothing is replayed — see [no delivery after a restart](/webhooks/troubleshooting#nothing-arrived-and-the-service-restarted). Only `priceCross`, cohort bias and liquidation risk deliveries use a durable outbox that survives restarts.
+- Ordinary deliveries and their retries live **in memory**. A restart of the service stops them; they are not retried automatically, but they show as `failed` in the delivery history and you can [resend](/webhooks/api#resend) them — see [no delivery after a restart](/webhooks/troubleshooting#nothing-arrived-and-the-service-restarted). Only `priceCross`, cohort bias and liquidation risk deliveries, and resends, use a durable outbox that survives restarts.
 - The queue is **bounded**: 128 fresh deliveries plus 128 waiting retries across all subscriptions, each at most 1 MiB, and at most 16 slots for any one subscription across both pools. A retry waits in its own pool, so a failing receiver's back-off never holds a slot a fresh delivery could use; when a pool is full, further retries are dropped and logged, and a saturated subscription drops its own frames without taking another subscription's share. The numbers are on [Plan limits](/webhooks/limits#queues-and-the-outbox).
 
 Delivery is **at least once**, and order across workers and retries is **not guaranteed**: a retry can arrive after a newer frame. Deduplicate on `webhook-id` and order by `seq` within one source if order matters.
+
+## Delivery history and resend
+
+Every HTTP delivery since November 17, 2026 is recorded for 14 days with its status (`pending`, `retrying`, `delivered` or `failed`), its attempt count and the result of the latest attempt. `GET /v1/deliveries` lists them, `GET /v1/deliveries/{id}` returns the exact payload, and `POST /v1/deliveries/{id}/resend` sends it again with the **same `webhook-id`** and a fresh timestamp and signature — so your deduplication treats a resend as the delivery it repeats. See [Delivery history](/webhooks/api#delivery-history).
 
 ## 410 disables the subscription
 
@@ -143,4 +147,4 @@ A **`410 Gone`** response disables the subscription at once: deliveries stop and
 - **Public HTTPS on port 443.** Nothing else is accepted when you create the subscription.
 - **No redirects.** A `3xx` is refused; register the final URL.
 - **No private or reserved addresses.** Loopback, private, link-local and similar ranges are refused at creation.
-- Answer first, then process: push the frame onto your own queue and return `200`. There is no replay, so a slow handler that times out costs you a retry at best and a dropped delivery at worst.
+- Answer first, then process: push the frame onto your own queue and return `200`. A slow handler that times out costs you a retry at best, and at worst a delivery that ends `failed` and has to be [resent](/webhooks/api#resend) by hand.

@@ -1,6 +1,6 @@
 ---
 title: "Inbox delivery"
-description: "Coinversa Pulse webhook inbox — create a subscription with deliveryMode inbox and no URL, and the matching frames are stored for you to pull: GET /v1/inbox for the state, POST /v1/inbox/drain to read without deleting, POST /v1/inbox/ack by batch prefix or by inboxIds. One inbox per account, pending-message limits per plan (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000), 2 GiB compressed, 14-day expiry, overflow evicts the oldest."
+description: "Coinversa Pulse webhook inbox — create a subscription with deliveryMode inbox and no URL, and the matching frames are stored for you to pull: GET /v1/inbox for the state, GET /v1/inbox/peek to look by event type, POST /v1/inbox/drain to read without deleting, POST /v1/inbox/ack by batch prefix or by inboxIds. One inbox per account, pending-message limits per plan (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000), 2 GiB compressed, 14-day expiry, overflow evicts the oldest."
 ---
 
 An **inbox subscription** stores the frames it matches instead of POSTing them to a URL. You pull them later — from a script, a cron job or an [agent](/webhooks/agents) — with a **drain** that reads without deleting and an **ack** that deletes what you have processed. There is no receiver to host, no signature to verify and no `410` to worry about; what you give up is the push.
@@ -65,7 +65,7 @@ curl https://webhook.coinversa.ai/v1/inbox \
   -H "Authorization: Bearer $COINVERSA_API_KEY"
 ```
 
-`GET /v1/inbox` → `{"state": {...}}`. Successful drain and ack responses carry the same snapshot under `state`:
+`GET /v1/inbox` → `{"state": {...}}`. Successful peek, drain and ack responses carry the same snapshot under `state`:
 
 ```json
 {
@@ -90,6 +90,22 @@ curl https://webhook.coinversa.ai/v1/inbox \
 | `expiredTotal` | Messages deleted at 14 days — **cumulative**, never reset |
 
 The two counters are account-wide and persistent, and reading does not reset them: keep your last snapshot and compare to see whether you lost anything since. Expiry and overflow are counted separately.
+
+## Peek: look by event type
+
+```bash
+curl "https://webhook.coinversa.ai/v1/inbox/peek?type=tradesByUser&count=10&maxBytes=65536" \
+  -H "Authorization: Bearer $COINVERSA_API_KEY"
+```
+
+`GET /v1/inbox/peek` takes the same `count` and `maxBytes` as a [drain](#drain-read-without-deleting) and one more optional parameter, `type`: one exact, case-sensitive subscription type such as `tradesByUser`, `liquidations` or `priceCross` — the envelope's `channel`. Omit it to look across all types. The response is `{"messages", "hasMore", "state"}`, with no `batchId`.
+
+- **Peek deletes, reserves and advances nothing.** It returns the oldest matching messages, and the same peek returns the same messages until they are acknowledged. There is no receipt, so nothing a peek returns can be acknowledged by batch; ack by `inboxIds` or drain them.
+- `hasMore` counts only **matching** messages beyond this response. `state` is account-wide, not filtered.
+- A filtered peek and the next drain can return different messages: a drain is never filtered.
+- Messages of a deleted subscription stay readable until they are acknowledged, expire or are evicted, and a type can be peeked even if your current plan can no longer create it.
+- An unknown or empty `type`, and a malformed, unknown or duplicated parameter, is `400`. The `413` / `requiredMaxBytes` rule and `no-store` are the same as for a drain.
+- For a subscription created with `notifyEvery`, `grouped=true` returns one completed group at a time instead of raw messages, with the `inboxIds` it covers; acknowledge those by `inboxIds` and pass `after=<notificationId>` for the next group. `count` does not apply in this mode ([Notification batching](/webhooks/api#notification-batching)).
 
 ## Drain: read without deleting
 
@@ -119,6 +135,7 @@ The example elides the messages and the state. What the response means:
 - **Drain removes nothing.** It does not lease or lock either: a repeated or concurrent drain returns the same pending messages, and a failed response leaves everything pending. Only an [ack](#acknowledge) deletes.
 - `batchId` is an opaque **receipt** for this batch, bound to your account, which an ack can refer to. An empty inbox returns an empty `batchId`.
 - `hasMore` means more pending messages existed beyond this batch **at the time of the read** — not that the returned ones have been consumed.
+- A drain takes no `type`: to look at one type, [peek](#peek-look-by-event-type).
 - Messages are never split, skipped or truncated to fit `maxBytes`. If the **oldest** pending message does not fit, the response is **`413`** with empty `messages`, an empty `batchId`, the `state`, and `requiredMaxBytes`: retry with at least that budget.
 - A malformed, unknown or duplicated query parameter is `400`.
 - Responses are `no-store`: nothing on the way caches a drain.
@@ -182,16 +199,16 @@ The inbox is what lets an agent use webhooks with no receiver. The loop is three
 2. **Process** the messages — read `data` as the WebSocket [fill objects](/websocket/feeds#the-fill-object), liquidation objects, TWAP status records, crossing events, [cohort rows](/webhooks/cohort-bias#the-cohort-row) or liquidation risk [positions and exposure](/webhooks/liquidation-types#delivered-fields) they are.
 3. **Ack exactly what you processed**: the `inboxIds` you exposed, or the prefix `count` you exposed, against that drain's `batchId` — not the whole fetched batch if you dropped some of it on the way.
 
-Because a drain deletes nothing, a crash between steps 1 and 3 costs you nothing but a repeated read; because ack is idempotent, a retried step 3 is harmless. From chat, `inbox_subscribe` creates inbox subscriptions and `inbox_drain` runs steps 1 and 3 in one call — it acknowledges the messages it returns, so a drain from chat consumes them. See [Webhooks for agents](/webhooks/agents).
+Because a drain deletes nothing, a crash between steps 1 and 3 costs you nothing but a repeated read; because ack is idempotent, a retried step 3 is harmless. From chat the same three steps are `inbox_fetch` (which calls this drain route), the agent's own processing, and `inbox_ack` with the fetch's `batchId` and `count`; `inbox_peek` looks without consuming. See [Webhooks for agents](/webhooks/agents).
 
 ## Errors on the inbox routes
 
 | Status | Meaning |
 |---|---|
-| `400` | Bad drain parameters; an ack body that is not one of the two shapes or has a `count` outside the batch; an invalid, tampered, expired or other-account receipt; `GET /v1/subscriptions/{id}/secret` on an inbox subscription |
+| `400` | Bad peek or drain parameters, including an unknown peek `type`; an ack body that is not one of the two shapes or has a `count` outside the batch; an invalid, tampered, expired or other-account receipt; `GET /v1/subscriptions/{id}/secret` on an inbox subscription |
 | `401` | Missing or invalid credentials |
 | `403` | Inbox subscription creation on Free |
-| `413` | The oldest pending message does not fit `maxBytes`; `requiredMaxBytes` says what would |
+| `413` | The oldest pending (or, on a peek, matching) message does not fit `maxBytes`; `requiredMaxBytes` says what would |
 | `503` | Auth or storage unavailable |
 
 Errors are plain text in the body, as on the rest of the [webhook API](/webhooks/api#errors).

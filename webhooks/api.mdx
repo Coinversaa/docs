@@ -1,6 +1,6 @@
 ---
 title: "Webhooks API"
-description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000, the cohort bias args and the args of the four liquidation risk types, list, delete one or all, re-enable, read the signing secret, the inbox state, drain and ack routes, the unauthenticated health route, and the 400, 401, 403, 413, 429 and 503 errors."
+description: "REST reference for Coinversa Pulse webhooks at webhook.coinversa.ai — Bearer auth, GET /v1/subscriptions/definitions, POST /v1/subscriptions with deliveryMode http or inbox, args.user as one address or an array of up to 1,000, the cohort bias args and the args of the four liquidation risk types, list, delete one or all, re-enable, read the signing secret, the inbox state, peek, drain and ack routes, the delivery history list, detail and resend routes, the unauthenticated health route, and the 400, 401, 403, 404, 409, 413, 429 and 503 errors."
 ---
 
 Every route on this page is relative to one base URL and, except `/health`, authenticated:
@@ -42,8 +42,12 @@ Every authenticated row takes the Bearer header above.
 | `POST` | `/v1/subscriptions/{id}/enable` | yes | Re-enable a subscription a `410` disabled |
 | `GET` | `/v1/subscriptions/{id}/secret` | yes | Read the subscription's signing secret (`400` on an inbox subscription) |
 | `GET` | `/v1/inbox` | yes | The account inbox's `state` |
+| `GET` | `/v1/inbox/peek` | yes | Read up to `count` pending inbox messages, optionally of one `type`, without deleting them and with no receipt |
 | `POST` | `/v1/inbox/drain` | yes | Read up to `count` pending inbox messages within `maxBytes`, oldest first, without deleting them |
 | `POST` | `/v1/inbox/ack` | yes | Delete inbox messages by batch prefix or by `inboxIds` |
+| `GET` | `/v1/deliveries` | yes | List recent HTTP deliveries with their status, newest first |
+| `GET` | `/v1/deliveries/{id}` | yes | One delivery with the exact payload that was sent |
+| `POST` | `/v1/deliveries/{id}/resend` | yes | Send a stored delivery again |
 | `GET` | `/health` | none | Liveness: `200`, with service counts in the body |
 
 ## Definitions
@@ -87,6 +91,7 @@ The example omits the other trade fields for brevity. `minItems` and `maxItems` 
 | `filters` | object | no | Exact values or `gt` / `gte` / `lt` / `lte` bounds, AND across fields — see [Filters](/webhooks/events#filters). `priceCross`, `cohortBiasOpposition`, `liquidationRiskCross`, `liquidationExposure` and `liquidationMap` take none |
 | `deliveryMode` | string | no | `http` (default) delivers to `url`; `inbox` stores matches in the account [inbox](/webhooks/inbox) instead |
 | `url` | string | for `http` | Public HTTPS on port 443. Redirects and private or reserved addresses are refused. **Omit it** on an inbox subscription |
+| `notifyEvery` | integer | no | 1–100. Group every N new messages into one notification ([Notification batching](#notification-batching)). Omit or `1` for one delivery per message. Set at creation only |
 
 ```json
 {
@@ -241,15 +246,75 @@ Tier checks are **creation-time** checks, not continuous re-authorisation of sav
 
 ## Inbox
 
-Three routes read the account's one inbox; the semantics are on [Inbox delivery](/webhooks/inbox).
+Four routes read the account's one inbox; the semantics are on [Inbox delivery](/webhooks/inbox).
 
 | Route | Request | Response |
 |---|---|---|
 | `GET /v1/inbox` | — | `{"state": {pendingMessages, pendingBytes, maxMessages, maxStoredBytes, overflowDroppedTotal, expiredTotal}}` |
+| `GET /v1/inbox/peek?type=tradesByUser&count=10&maxBytes=65536` | Same `count` and `maxBytes` as drain; optional `type`, one exact subscription type (`400` if unknown) | `{"messages", "hasMore", "state"}` — oldest matching first, **nothing deleted, no receipt**. `hasMore` counts matching messages only; `state` is account-wide. `413` with `requiredMaxBytes` as for drain. With `grouped=true` it returns one completed [notification group](#notification-batching) instead, and `after=<notificationId>` reads the next one; `count` does not apply |
 | `POST /v1/inbox/drain?count=10&maxBytes=65536` | No body. `count` 1–1,000 (default 10); `maxBytes` 1,024–4,194,304 (default 65,536), a budget for the whole response | `{"batchId", "messages", "hasMore", "state"}` — oldest first, **nothing deleted**. `413` with `requiredMaxBytes` when the oldest message does not fit; an empty inbox returns an empty `batchId` |
 | `POST /v1/inbox/ack` | **One** of `{"batchId", "count"}` (an absolute prefix of that batch) or `{"inboxIds": [...]}` (1–1,000) | `{"acknowledged", "state"}` — `acknowledged` is what **this** request removed, so a retry returns `0`. Idempotent |
 
 A message is the delivery envelope plus `inboxId` (`msg_` + 32 hex) and `receivedAt` ([the message](/webhooks/inbox#the-message)).
+
+## Notification batching
+
+Create a subscription with `"notifyEvery": 10` and you are notified once per **ten new messages** instead of once per message. It works on every type, for both HTTP and inbox delivery, and accepts 1–100; omitting it or `1` keeps one delivery per message.
+
+- A group closes on its Nth message. There is **no time limit and no partial flush**: a group of 10 that has 9 messages waits for the tenth, however long that takes. Pick a small N for rules that fire rarely.
+- Grouping changes how often you are woken, not how much is stored. Each original message still counts toward the inbox or delivery-history limits.
+- A notification carries `notificationId`, `subscriptionId`, `channel`, `messageCount`, `includedMessageCount`, `missingMessageCount`, `eventCount` and one flat `events` array, in order. Ten messages of five events each make one notification with 50 events.
+- **Inbox:** `GET /v1/inbox/peek?grouped=true` returns the oldest completed group with the `inboxIds` it covers; acknowledge them with `POST /v1/inbox/ack` and `{"inboxIds": [...]}`, and pass `after=<notificationId>` to read the next group. Raw peek and drain are unchanged.
+- **HTTP:** a group is normally one signed POST. A group over 1 MiB is split into several POSTs that share the `notificationId`, each with its own `webhook-id`, `eventOffset`, `eventCount` and `totalEventCount`. Events are never split.
+
+## Delivery history
+
+Every delivery to an **HTTP** subscription is recorded in the account's delivery history, so you can see what was sent, whether your URL took it, and send it again. Inbox subscriptions have no history; their messages are already [stored](/webhooks/inbox). History started on **November 17, 2026**; earlier deliveries are not in it.
+
+History belongs to the **account**: every API key on it sees the same records. It is kept apart from the inbox and does not count against the inbox's allowance, but has the same limits, applied separately: **14 days**, your plan's message count (Starter 1,000, Agent 50,000, Pro and Enterprise 1,000,000, Free 0) and **2 GiB** of compressed payloads, with the oldest evicted first on overflow ([Plan limits](/webhooks/limits#delivery-history)). Nothing deletes a record early: reading it, a successful delivery and a resend leave it in place, and deleting a subscription keeps its history until it expires.
+
+| Route | Request | Response |
+|---|---|---|
+| `GET /v1/deliveries?count=10&maxBytes=65536` | All optional: `count` 1–1,000 (default 10); `maxBytes` 1,024–4,194,304 (default 65,536), a budget for the whole response; `subscriptionId` to show one subscription, deleted ones included; `cursor`, the `nextCursor` of the previous page | `{"deliveries", "hasMore", "nextCursor", "state"}` — **newest first**, metadata only, no payloads. `413` with `requiredMaxBytes` when the first record does not fit |
+| `GET /v1/deliveries/{id}` | No parameters | One record, plus `payload`: the exact JSON body that was POSTed |
+| `POST /v1/deliveries/{id}/resend` | No body, no parameters | `202` `{"id", "status": "pending"}` — the resend is queued, not yet delivered |
+
+A record looks like this:
+
+```json
+{
+  "id": "msg_0123456789abcdef0123456789abcdef",
+  "subscriptionId": "sub_0123456789abcdef0123456789abcdef",
+  "type": "tradesByUser",
+  "url": "https://example.com/hook",
+  "receivedAt": "2026-11-17T12:00:00Z",
+  "status": "delivered",
+  "attempts": 1,
+  "lastAttemptAt": "2026-11-17T12:00:01Z",
+  "httpStatus": 200
+}
+```
+
+- `id` is the delivery's `webhook-id` header. On a [batched](#notification-batching) subscription each record is one original message instead: `batchDeliveryId` names the POST that carried it, and its status follows that POST.
+- `status` is `pending` (queued or being sent), `retrying` (waiting for its next attempt, at `nextAttemptAt`), `delivered` (the last attempt got a `2xx`) or `failed`. A batched message is `buffering` until its group closes.
+- `attempts` counts every attempt. `lastAttemptAt`, `httpStatus` and `error` describe **only the most recent** one; earlier attempts and your URL's response body are not kept.
+- A delivery the queue had no room for is recorded as `failed` with `0` attempts. One cut off by a restart of the service is `failed` with a restart error. Both can be resent, except on a batched subscription.
+- `state` counts the history itself: `storedMessages`, `storedBytes`, `maxMessages`, `maxStoredBytes` and the cumulative `overflowDroppedTotal` and `expiredTotal`, for the whole account even when you filter by `subscriptionId`.
+
+To page back, pass `nextCursor` unchanged with the same `subscriptionId`; new deliveries arriving meanwhile do not shift it. Times are UTC.
+
+### Resend
+
+A resend POSTs the stored payload again to the subscription's **current** URL, signed with its secret. It keeps the same `webhook-id`, so a receiver that deduplicates on it will drop a resend of a delivery it already accepted; the `webhook-timestamp` and signature are new. Filters are not re-run and nothing about the subscription changes.
+
+`202` means the resend is queued. Read the record again to see whether it arrived. It goes through the normal retry policy and shares the subscription's outbox of **32** pending deliveries. Resending a delivery that is waiting for a retry sends it now instead of adding a second copy.
+
+| Status | Why |
+|---|---|
+| `404` | Unknown id, another account's id, or a record that expired or was evicted |
+| `409` | The delivery is already queued or being sent; the subscription is disabled ([re-enable](#re-enable-a-subscription) it first); the subscription was deleted; or it is a [batched](#notification-batching) subscription, whose messages cannot be resent one at a time |
+| `429` | The subscription's outbox already holds 32 pending deliveries |
+| `400` | A body or query parameters were sent |
 
 ## Health
 
@@ -264,18 +329,20 @@ What a delivery looks like is on [Signatures and delivery](/webhooks/signatures)
 |---|---|
 | Any `2xx` | Acknowledged |
 | `410` | The subscription is **disabled** until you call [`/enable`](#re-enable-a-subscription) |
-| Anything else | Retried on the bounded policy — up to nine attempts over about 76 hours, respecting `Retry-After` up to 24 hours — then dropped |
+| Anything else | Retried on the bounded policy — up to nine attempts over about 76 hours, respecting `Retry-After` up to 24 hours — then marked `failed` in the [delivery history](#delivery-history), where you can resend it |
 
 ## Errors
 
 
 | Status | Meaning |
 |---|---|
-| `400` | Invalid format; unknown type, argument, filter or operator; impossible range; an argument outside the range its definition declares (`priceMovePct` above `100`, `buckets` above `200`). Nothing is saved. Also `/secret` on an inbox subscription, bad drain parameters and a bad or expired ack receipt |
+| `400` | Invalid format; unknown type, argument, filter or operator; impossible range; an argument outside the range its definition declares (`priceMovePct` above `100`, `buckets` above `200`). Nothing is saved. Also `/secret` on an inbox subscription, bad peek, drain or delivery history parameters, a resend with a body, and a bad or expired ack receipt |
 | `401` | Missing or invalid credentials, in either [authentication mode](#authentication) |
 | `403` | The source type is not permitted by your account tier (checked at creation); an inbox subscription on Free |
-| `413` | Drain: the oldest pending message does not fit `maxBytes`; the body carries `requiredMaxBytes` |
-| `429` | The account's subscription allowance is reached — on create and on `/enable`. Disabled subscriptions do not count toward it |
+| `404` | A delivery history id that is unknown, another account's, expired or evicted |
+| `409` | Resend: the delivery is already queued or being sent, or its subscription is disabled or deleted |
+| `413` | Drain, peek or the delivery history list: the first record does not fit `maxBytes`; the body carries `requiredMaxBytes` |
+| `429` | The account's subscription allowance is reached — on create and on `/enable`. Disabled subscriptions do not count toward it. Also a resend when the subscription's outbox is full |
 | `503` | Auth, storage or feed unavailable. An unknown or missing auth tier fails closed. On create, the subscription was rolled back |
 
 Error bodies are **plain text**, not JSON — `Unauthorized`, `unknown webhook type`, `endpoint must be a public HTTPS URL`, `invalid subscription JSON`, `filter "sz" has an impossible range` — so match on the status code and show the text. The tentative subscription allowances per plan are on [Plan limits](/webhooks/limits).
